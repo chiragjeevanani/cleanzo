@@ -1,0 +1,175 @@
+.hero-section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 120px 0 80px;
+  overflow: hidden;
+}
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hero-gradient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.3;
+}
+.hero-orb-blue {
+  width: 500px;
+  height: 500px;
+  background: var(--primary-blue);
+  top: -10%;
+  right: -5%;
+  animation: floatOrb 8s ease-in-out infinite;
+}
+.hero-orb-lime {
+  width: 400px;
+  height: 400px;
+  background: var(--accent-lime);
+  bottom: -15%;
+  left: -10%;
+  opacity: 0.15;
+  animation: floatOrb 10s ease-in-out infinite reverse;
+}
+@keyframes floatOrb {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(30px, -20px); }
+}
+.hero-grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border-glass) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-glass) 1px, transparent 1px);
+  background-size: 80px 80px;
+  opacity: 0.3;
+}
+.hero-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 960px) {
+  .hero-container { grid-template-columns: 1fr; gap: 48px; text-align: center; }
+  .hero-actions { justify-content: center; }
+  .hero-trust { justify-content: center; }
+  .hero-visual { max-width: 400px; margin: 0 auto; }
+}
+
+.hero-content { display: flex; flex-direction: column; gap: 28px; }
+.hero-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+@media (max-width: 960px) { .hero-label { justify-content: center; } }
+
+.hero-headline {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 6vw, 80px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+.hero-line { display: block; overflow: hidden; }
+.hero-char {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(100%);
+  animation: charReveal 500ms var(--ease-out) forwards;
+}
+@keyframes charReveal {
+  to { opacity: 1; transform: translateY(0); }
+}
+.hero-char-accent { color: var(--accent-lime); }
+.hero-char-blue { color: var(--primary-blue); }
+.hero-period { color: var(--accent-lime); }
+
+.hero-sub {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  max-width: 520px;
+}
+@media (max-width: 960px) { .hero-sub { margin: 0 auto; } }
+
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.hero-play-btn svg { margin-right: 2px; }
+
+.hero-trust { display: flex; align-items: center; gap: 12px; }
+.hero-trust-avatars { display: flex; }
+.hero-trust-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-primary);
+  margin-left: -8px;
+}
+.hero-trust-avatar:first-child { margin-left: 0; }
+.hero-trust-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.hero-trust-text strong { color: var(--text-primary); }
+.hero-trust-rating {
+  color: var(--accent-lime);
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+/* Visual / Card */
+.hero-visual { position: relative; }
+.hero-card {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: glowPulse 4s ease-in-out infinite;
+}
+.hero-card-header { display: flex; justify-content: space-between; align-items: center; }
+.hero-car-svg { width: 100%; height: auto; }
+.hero-card-details { display: flex; flex-direction: column; gap: 6px; }
+.hero-card-row { display: flex; justify-content: space-between; }
+
+/* Floating badges */
+.hero-float-badge {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.hero-float-1 {
+  top: -10px;
+  right: -20px;
+  animation: floatBadge 5s ease-in-out infinite;
+}
+.hero-float-2 {
+  bottom: 40px;
+  left: -30px;
+  animation: floatBadge 6s ease-in-out infinite 1s;
+}
+@keyframes floatBadge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@media (max-width: 768px) {
+  .hero-float-1 { right: 0; top: -20px; }
+  .hero-float-2 { left: 0; bottom: -10px; }
+}

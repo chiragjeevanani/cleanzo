@@ -1,0 +1,15 @@
+.scroll-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0%;
+  background: var(--accent-lime);
+  z-index: calc(var(--z-nav) + 1);
+  box-shadow: 0 0 8px rgba(var(--accent-lime-rgb), 0.4);
+  transition: width 50ms linear;
+}
+.landing-main {
+  position: relative;
+  overflow: hidden;
+}

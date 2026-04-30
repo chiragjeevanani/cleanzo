@@ -1,0 +1,134 @@
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-loader);
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 800ms var(--ease-out), transform 800ms var(--ease-out);
+}
+.loading-screen.loading-exit {
+  opacity: 0;
+  transform: scale(1.05);
+  pointer-events: none;
+}
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+}
+.loading-car-wrap {
+  position: relative;
+  width: 240px;
+  height: 100px;
+}
+.loading-car {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 12px rgba(223, 255, 0, 0.3));
+}
+.car-body, .car-base {
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  animation: drawLine 1.2s var(--ease-out) forwards;
+}
+.car-base { animation-delay: 0.3s; }
+.wheel-l, .wheel-r {
+  opacity: 0;
+  animation: fadeIn 400ms var(--ease-out) forwards;
+}
+.wheel-l { animation-delay: 0.8s; }
+.wheel-r { animation-delay: 0.9s; }
+
+/* Water drops */
+.water-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.water-drop {
+  position: absolute;
+  top: 0;
+  width: 3px;
+  height: 10px;
+  background: linear-gradient(to bottom, rgba(0, 122, 255, 0.6), transparent);
+  border-radius: 2px;
+  animation: waterFall linear infinite;
+}
+@keyframes waterFall {
+  0% { transform: translateY(-20px); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(100px); opacity: 0; }
+}
+
+/* Foam bubbles */
+.foam-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.foam-bubble {
+  position: absolute;
+  bottom: 20px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass-hover);
+  animation: foamRise ease-in-out infinite;
+}
+@keyframes foamRise {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  30% { opacity: 0.8; }
+  100% { transform: translateY(-60px) scale(1.2); opacity: 0; }
+}
+
+/* Brand text */
+.loading-brand {
+  display: flex;
+  gap: 4px;
+}
+.loading-char {
+  font-family: 'Outfit', sans-serif;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeInUp 500ms var(--ease-out) forwards;
+}
+.loading-char:nth-child(1) { color: #DFFF00; }
+.loading-char:nth-child(2) { color: #DFFF00; }
+
+/* Progress */
+.loading-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 200px;
+}
+.loading-progress-track {
+  flex: 1;
+  height: 2px;
+  background: var(--border-glass);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.loading-progress-fill {
+  height: 100%;
+  background: #DFFF00;
+  border-radius: 1px;
+  transition: width 100ms linear;
+  box-shadow: 0 0 8px rgba(223, 255, 0, 0.4);
+}
+.loading-percent {
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+  min-width: 32px;
+}
