@@ -31,7 +31,7 @@ export default function AdminPanel() {
       {/* Sidebar */}
       <aside className="admin-sidebar" style={{ transform: sidebarOpen ? 'none' : 'translateX(-100%)' }}>
         <div className="sidebar-logo">
-          <img src="/cleanzo Logo.png" alt="Cleanzo" />
+          <img src="/logo.png" alt="Cleanzo" />
           <span>Cleanzo</span>
         </div>
         <div className="sidebar-nav">

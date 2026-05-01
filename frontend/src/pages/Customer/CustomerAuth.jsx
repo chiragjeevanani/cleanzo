@@ -10,7 +10,7 @@ export default function CustomerAuth() {
   return (
     <div style={{ padding: '0 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', marginBottom: 48 }}>
-        <img src="/cleanzo Logo.png" alt="Cleanzo" style={{ height: 48, margin: '0 auto 16px' }} />
+        <img src="/logo.png" alt="Cleanzo" style={{ height: 48, margin: '0 auto 16px' }} />
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Welcome to Cleanzo</h1>
         <p className="text-body-md text-secondary" style={{ marginTop: 8 }}>Sign in to manage your car care</p>
       </div>
