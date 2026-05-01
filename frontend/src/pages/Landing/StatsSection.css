@@ -1,34 +1,77 @@
 .stats-section {
-  padding: 80px 0;
-  border-top: 1px solid var(--divider);
-  border-bottom: 1px solid var(--divider);
+  padding: 100px 0;
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid var(--border-glass);
+  background: var(--bg-primary);
 }
+
+/* Glowing background orb - Theme adaptive */
+.stats-section::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(var(--primary-blue-rgb), 0.1) 0%, transparent 70%);
+  filter: blur(60px);
+  z-index: 0;
+  pointer-events: none;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 32px;
+  gap: 24px;
+  position: relative;
+  z-index: 1;
 }
-@media (max-width: 768px) {
-  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 40px; }
+
+@media (max-width: 960px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 24px; }
 }
+
 .stat-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  text-align: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 24px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: 24px;
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
 }
+
 .stat-number {
   font-family: var(--font-display);
-  font-size: clamp(36px, 4vw, 56px);
+  font-size: clamp(48px, 6vw, 64px);
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   color: var(--text-primary);
+  line-height: 1;
+}
+
+/* Make suffixes pop with lime and blue */
+.stat-item:nth-child(even) .stat-number {
   background: linear-gradient(135deg, var(--accent-lime), var(--primary-blue));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
+.stat-item:nth-child(odd) .stat-number {
+  background: linear-gradient(135deg, var(--primary-blue), var(--accent-lime));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 .stat-label {
   color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }

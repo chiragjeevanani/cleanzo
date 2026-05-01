@@ -12,10 +12,15 @@ import SkipService from './SkipService'
 import ServiceHistory from './ServiceHistory'
 import Notifications from './Notifications'
 import CustomerProfile from './CustomerProfile'
+import SavedAddresses from './Profile/SavedAddresses'
+import TermsOfService from './Profile/TermsOfService'
+import PrivacyPolicy from './Profile/PrivacyPolicy'
+import HelpSupport from './Profile/HelpSupport'
+import PlanDetail from './PlanDetail'
 
 const tabs = [
   { path: '/customer', icon: Home, label: 'Home', end: true },
-  { path: '/customer/subscriptions', icon: CreditCard, label: 'Plans' },
+  { path: '/customer/packages', icon: CreditCard, label: 'Plans' },
   { path: '/customer/history', icon: Clock, label: 'History' },
   { path: '/customer/profile', icon: User, label: 'Profile' },
 ]
@@ -34,9 +39,14 @@ export default function CustomerApp() {
         <Route path="profile" element={<CustomerProfile />} />
         <Route path="vehicles" element={<VehicleManager />} />
         <Route path="packages" element={<PackageSelect />} />
+        <Route path="plan/:id" element={<PlanDetail />} />
         <Route path="booking" element={<BookingFlow />} />
         <Route path="skip" element={<SkipService />} />
         <Route path="notifications" element={<Notifications />} />
+        <Route path="addresses" element={<SavedAddresses />} />
+        <Route path="terms" element={<TermsOfService />} />
+        <Route path="privacy" element={<PrivacyPolicy />} />
+        <Route path="help" element={<HelpSupport />} />
         <Route path="auth" element={<CustomerAuth />} />
         <Route path="*" element={<Navigate to="/customer" replace />} />
       </Routes>

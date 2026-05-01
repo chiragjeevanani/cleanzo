@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
-import { ChevronRight, Car, Sun, Moon, LogOut, HelpCircle, Shield, Bell } from 'lucide-react'
+import { ChevronRight, Car, Sun, Moon, LogOut, HelpCircle, Shield, Bell, MapPin, FileText } from 'lucide-react'
 import { mockUser } from '../../data/mockData'
 
 export default function CustomerProfile() {
@@ -8,9 +8,10 @@ export default function CustomerProfile() {
 
   const menuItems = [
     { icon: Car, label: 'My Vehicles', to: '/customer/vehicles' },
-    { icon: Bell, label: 'Notifications', to: '/customer/notifications' },
-    { icon: Shield, label: 'Privacy & Security', to: '/customer' },
-    { icon: HelpCircle, label: 'Help & Support', to: '/customer' },
+    { icon: MapPin, label: 'Saved Address', to: '/customer/addresses' },
+    { icon: FileText, label: 'Terms of Service', to: '/customer/terms' },
+    { icon: Shield, label: 'Privacy Policy', to: '/customer/privacy' },
+    { icon: HelpCircle, label: 'Help and Support', to: '/customer/help' },
   ]
 
   return (

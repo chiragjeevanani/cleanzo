@@ -64,9 +64,14 @@ export default function SubscriptionDetail() {
         ))}
       </div>
 
-      <div className="flex gap-8" style={{ paddingBottom: 100 }}>
-        <Link to="/customer/skip" className="btn btn-ghost" style={{ flex: 1 }}>Skip Day</Link>
-        <button className="btn btn-primary" style={{ flex: 1 }}><TrendingUp size={16} /> Extend</button>
+      <div className="flex flex-col gap-8" style={{ paddingBottom: 100 }}>
+        <div className="flex gap-8">
+          <Link to="/customer/skip" className="btn btn-ghost" style={{ flex: 1 }}>Skip Day</Link>
+          <button className="btn btn-primary" style={{ flex: 1 }}><TrendingUp size={16} /> Extend</button>
+        </div>
+        <Link to="/customer/packages" className="btn glass w-full" style={{ border: '1px dashed var(--border-glass)' }}>
+          Upgrade or Change Plan
+        </Link>
       </div>
     </div>
   )
