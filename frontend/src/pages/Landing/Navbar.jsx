@@ -40,7 +40,7 @@ export default function Navbar() {
       <nav className={`landing-nav ${scrolled ? 'nav-scrolled' : ''} ${hidden ? 'nav-hidden' : ''}`}>
         <div className="nav-inner">
           <Link to="/" className="nav-logo">
-            <img src="/cleanzo Logo.png" alt="Cleanzo" className="nav-logo-img" />
+            <img src="/logo.png" alt="Cleanzo" className="nav-logo-img" />
             <span className="nav-logo-text">Cleanzo</span>
           </Link>
 

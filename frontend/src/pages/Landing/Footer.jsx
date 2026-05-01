@@ -9,7 +9,7 @@ export default function Footer() {
         <div className="footer-grid">
           <div className="footer-brand">
             <div className="footer-logo">
-              <img src="/cleanzo Logo.png" alt="Cleanzo" style={{ height: 28 }} />
+              <img src="/logo.png" alt="Cleanzo" style={{ height: 28 }} />
               <span className="nav-logo-text">Cleanzo</span>
             </div>
             <p className="text-body-sm text-secondary" style={{ maxWidth: 280 }}>
