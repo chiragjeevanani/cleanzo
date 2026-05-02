@@ -11,7 +11,7 @@ export default function AppDownloadSection() {
             <span className="text-label text-lime">Get The App</span>
             <h2 className="text-headline-lg">Manage Everything<br />From Your Phone</h2>
             <p className="text-body-lg text-secondary">
-              Book washes, skip days, track your cleaner in real-time, and manage your subscription — all from the Cleanzo app.
+              Track your daily doorstep cleaning, skip days when you are away, and manage your prepaid subscription — all from the Cleanzo app.
             </p>
             <div className="app-badges">
               <Link to="/" className="app-badge">
@@ -41,7 +41,7 @@ export default function AppDownloadSection() {
                 <div style={{ padding: '0 20px' }}>
                   <div className="app-card-glass" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <span className="text-label text-lime" style={{ fontSize: 10 }}>Active Plan</span>
-                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, color: 'var(--text-primary)' }}>Premium Detail</span>
+                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, color: 'var(--text-primary)' }}>Premium Exterior</span>
                     <div className="progress-track" style={{ background: 'var(--border-glass)' }}><div className="progress-fill" style={{ width: '65%', background: 'var(--accent-lime)' }} /></div>
                     <span className="text-body-sm" style={{ color: 'var(--text-secondary)' }}>Day 19 of 30</span>
                   </div>

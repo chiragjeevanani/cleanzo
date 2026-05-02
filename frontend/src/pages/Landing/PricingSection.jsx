@@ -8,9 +8,9 @@ export default function PricingSection() {
     <section className="landing-section pricing-section" id="pricing">
       <div className="container">
         <div className="section-header reveal">
-          <h2 className="text-headline-lg">Simple, Transparent Pricing</h2>
+          <h2 className="text-headline-lg">Daily Care for Daily Drives</h2>
           <p className="text-body-lg text-secondary" style={{ maxWidth: 480, margin: '8px auto 0' }}>
-            Choose a car care plan that works best for your daily commute. No hidden fees. Cancel anytime.
+            Choose a prepaid daily doorstep exterior cleaning plan. Add-on interior deep cleaning anytime. 365 days, no leaves.
           </p>
         </div>
 
@@ -23,7 +23,7 @@ export default function PricingSection() {
                   {pkg.popular && <span className="pricing-popular-badge">Popular</span>}
                 </div>
                 <p className="pricing-desc-minimal text-secondary text-body-sm">
-                  {pkg.tier === 'Basic' ? 'Perfect for daily light dust and simple washes' : pkg.tier === 'Premium' ? 'For car owners who need interior care' : 'For absolute enthusiasts who need full control'}
+                  {pkg.id === 1 ? 'Daily doorstep exterior cleaning' : pkg.id === 2 ? 'Exterior care + paint protection' : 'Complete care with weekly interior cleaning'}
                 </p>
               </div>
 

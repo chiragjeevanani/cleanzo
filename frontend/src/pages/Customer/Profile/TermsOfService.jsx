@@ -22,7 +22,7 @@ export default function TermsOfService() {
 
           <section>
             <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>2. Service Description</h3>
-            <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>Cleanzo provides premium mobile car detailing and daily washing services. Our service includes exterior washing, interior vacuuming, and specialized treatments as per your selected plan. We reserve the right to refuse service to any vehicle that poses a health or safety risk or is in a condition that prevents safe cleaning.</p>
+            <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>Cleanzo provides premium mobile car detailing and dedicated daily doorstep cleaning services. Our service includes exterior cleaning, with interior vacuuming and specialized treatments available as add-ons. We reserve the right to refuse service to any vehicle that poses a health or safety risk or is in a condition that prevents safe cleaning.</p>
           </section>
 
           <section>

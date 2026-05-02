@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import './StatsSection.css'
 
 const stats = [
+  { value: 365, suffix: ' Days', label: 'Working (No Holidays)' },
+  { value: 10, suffix: ' AM', label: 'Done by (5 AM Start)' },
   { value: 10000, suffix: '+', label: 'Cars Cleaned Daily' },
-  { value: 500, suffix: '+', label: 'Expert Cleaners' },
-  { value: 4.9, suffix: '★', label: 'Average Rating', decimals: 1 },
-  { value: 50, suffix: '+', label: 'Cities Covered' },
+  { value: 4.9, suffix: '★', label: 'Customer Trust', decimals: 1 },
 ]
 
 function CountUp({ target, decimals = 0, suffix = '' }) {

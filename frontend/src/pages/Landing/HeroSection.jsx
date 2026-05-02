@@ -48,35 +48,34 @@ export default function HeroSection() {
           <div className="hero-glow-left" />
           <div className="hero-label animate-fade-in-up">
             <div className="flex items-center gap-8 glass" style={{ padding: '4px 12px', borderRadius: 100 }}>
-              <span className="chip chip-lime" style={{ margin: 0 }}>New</span>
-              <span style={{ fontSize: 12, fontWeight: 600 }}>Subscription-based car care</span>
+              <span className="chip chip-lime" style={{ margin: 0 }}>Active</span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>365 Days • Doorstep Cleaning</span>
             </div>
           </div>
 
           <h1 className="hero-headline">
             <span className="hero-line">
-              {splitText('Your Car')}
+              {splitText('Pristine Car')}
             </span>
             <span className="hero-line" style={{ marginTop: -10 }}>
-              <span className="hero-text-outline">{splitText('Deserves ')}</span>
+              <span className="hero-text-outline">{splitText('Every ')}</span>
             </span>
             <span className="hero-line" style={{ marginTop: -10 }}>
-              <span className="hero-char-accent-glow">{splitText('Premium', 'hero-char-accent')}</span>
+              <span className="hero-char-accent-glow">{splitText('Single', 'hero-char-accent')}</span>
             </span>
             <span className="hero-line" style={{ marginTop: -10 }}>
-              {splitText('Care', 'hero-char-blue')}
+              {splitText('Morning', 'hero-char-blue')}
               <span className="hero-char hero-period">.</span>
             </span>
           </h1>
 
           <p className="hero-sub animate-fade-in-up delay-3">
-            The ultimate subscription for car enthusiasts. Daily waterless washes, real-time tracking, 
-            and total peace of mind.
+            Dedicated daily exterior cleaning from 5 AM – 10 AM. No holidays, no leaves, just a sparkling car waiting for you every day. Prepaid subscription model.
           </p>
 
           <div className="hero-actions animate-fade-in-up delay-4">
             <Link to="/customer" className="btn btn-primary btn-lg hero-main-cta">
-              Start Your Plan <ArrowRight size={18} />
+              Get Daily Cleaning <ArrowRight size={18} />
               <div className="btn-glow" />
             </Link>
             <button className="btn btn-glass btn-lg hero-play-btn">
@@ -141,7 +140,7 @@ export default function HeroSection() {
             </div>
             <div className="flex flex-col">
               <span style={{ fontSize: 10, opacity: 0.6, fontWeight: 700 }}>STATUS</span>
-              <span className="text-body-sm">Wash Complete</span>
+              <span className="text-body-sm">Cleaning Complete</span>
             </div>
           </div>
           <div className="hero-float-badge hero-float-2 glass">

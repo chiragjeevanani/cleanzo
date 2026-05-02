@@ -42,7 +42,7 @@ export default function CustomerHome() {
           <div className="progress-fill" style={{ width: `${(mockSubscription.completedDays / mockSubscription.totalDays) * 100}%` }} />
         </div>
         <div className="flex justify-between items-center text-body-sm text-secondary" style={{ marginTop: 10 }}>
-          <span>Next wash: Tomorrow, 7:00 AM</span>
+          <span>Next cleaning: Tomorrow, 7:00 AM</span>
           <ChevronRight size={16} />
         </div>
       </Link>
@@ -67,7 +67,7 @@ export default function CustomerHome() {
       {/* Recent Washes */}
       <div style={{ marginBottom: 100 }}>
         <div className="flex justify-between items-center" style={{ marginBottom: 12 }}>
-          <span className="text-label text-secondary">Recent Washes</span>
+          <span className="text-label text-secondary">Recent Service</span>
           <Link to="/customer/history" className="text-body-sm" style={{ color: 'var(--primary-blue)' }}>View All</Link>
         </div>
         <div className="flex flex-col gap-8">

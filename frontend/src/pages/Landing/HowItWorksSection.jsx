@@ -2,9 +2,9 @@ import { UserPlus, CreditCard, CalendarCheck } from 'lucide-react'
 import './HowItWorksSection.css'
 
 const steps = [
-  { icon: UserPlus, num: '01', title: 'Sign Up & Add Your Car', desc: 'Create your account, add your vehicle details, and set your parking location. Takes under 2 minutes.' },
-  { icon: CreditCard, num: '02', title: 'Choose Your Plan & Pay', desc: 'Pick from Basic, Premium, or Elite plans. Flexible weekly or monthly subscriptions with secure payments.' },
-  { icon: CalendarCheck, num: '03', title: 'Sit Back, We Handle It', desc: 'Your car gets cleaned daily at your parking spot. Track every wash, skip days when you want.' },
+  { icon: UserPlus, num: '01', title: 'Register & Add Car', desc: 'Create your account and add your vehicle details with your parking slot. No paperwork needed.' },
+  { icon: CreditCard, num: '02', title: 'Prepaid Plan Selection', desc: 'Choose a daily exterior cleaning plan. Add interior deep cleaning as an add-on whenever you need it.' },
+  { icon: CalendarCheck, num: '03', title: '365 Days Doorstep Care', desc: 'Our trained staff cleans your car between 5 AM – 10 AM. No holidays, no leaves—spotless every morning.' },
 ]
 
 export default function HowItWorksSection() {

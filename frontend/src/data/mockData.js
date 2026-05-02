@@ -11,21 +11,21 @@ export const mockUser = {
 
 export const mockPackages = [
   {
-    id: 1, name: 'Daily Exterior', tier: 'Basic',
-    price: 999, duration: 'Monthly', perDay: 33,
-    features: ['Exterior wash', 'Windshield clean', 'Tire rinse'],
+    id: 1, name: 'Standard Exterior', tier: 'Daily Clean',
+    price: 699, duration: 'Monthly', perDay: 23,
+    features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Doorstep Service', 'Windshield + Tire Rinse'],
     popular: false
   },
   {
-    id: 2, name: 'Premium Detail', tier: 'Premium',
-    price: 1999, duration: 'Monthly', perDay: 67,
-    features: ['Exterior + Interior', 'Dashboard polish', 'Seat vacuum', 'Air freshener', 'Tire dressing'],
+    id: 2, name: 'Premium Exterior', tier: 'Daily + Shine',
+    price: 1199, duration: 'Monthly', perDay: 40,
+    features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Liquid Wax Shine (Weekly)', 'Monthly Interior Add-on Available'],
     popular: true
   },
   {
-    id: 3, name: 'Elite Care', tier: 'Elite',
-    price: 3499, duration: 'Monthly', perDay: 117,
-    features: ['Full detail wash', 'Interior deep clean', 'Leather conditioning', 'Engine bay rinse', 'Ceramic coat spray', 'Priority scheduling'],
+    id: 3, name: 'Full Care Pack', tier: 'All-in-One',
+    price: 2499, duration: 'Monthly', perDay: 83,
+    features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Weekly Interior Cleaning', 'Monthly Deep Detailing Add-on'],
     popular: false
   }
 ]
@@ -100,10 +100,10 @@ export const mockAdminUsers = [
 ]
 
 export const mockNotifications = [
-  { id: 1, type: 'service', title: 'Wash Completed', message: 'Your BMW 3 Series has been cleaned.', time: '2 hours ago', read: false },
+  { id: 1, type: 'service', title: 'Cleaning Completed', message: 'Your BMW 3 Series has been cleaned.', time: '2 hours ago', read: false },
   { id: 2, type: 'subscription', title: 'Renewal Reminder', message: 'Your Premium subscription expires in 10 days.', time: '5 hours ago', read: false },
   { id: 3, type: 'offer', title: '20% Off Elite Plan!', message: 'Upgrade to Elite and save ₹700 this month.', time: '1 day ago', read: true },
-  { id: 4, type: 'service', title: 'Service Skipped', message: 'You skipped the wash on Apr 16.', time: '2 days ago', read: true },
+  { id: 4, type: 'service', title: 'Service Skipped', message: 'You skipped the cleaning on Apr 16.', time: '2 days ago', read: true },
 ]
 
 export const testimonials = [

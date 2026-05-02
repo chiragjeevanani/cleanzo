@@ -2,12 +2,12 @@ import { Droplets, SprayCan, Sparkles, ShieldCheck, Wind, Gem } from 'lucide-rea
 import './ServicesSection.css'
 
 const services = [
-  { icon: Droplets, title: 'Exterior Wash', desc: 'High-pressure rinse, foam treatment, and hand dry for a showroom-grade finish every morning.', color: 'var(--primary-blue)', className: 'col-span-2' },
-  { icon: SprayCan, title: 'Interior Detailing', desc: 'Deep vacuum, dashboard polish, seat conditioning, and air freshener for a cabin that feels new.', color: 'var(--accent-lime)', className: 'col-span-1' },
-  { icon: Sparkles, title: 'Ceramic Coating', desc: 'Nano-ceramic spray shield that repels water, dust, and UV damage between full detail sessions.', color: 'var(--primary-blue)', className: 'col-span-1' },
-  { icon: ShieldCheck, title: 'Paint Protection', desc: 'Wax sealant and scratch-guard treatment to maintain your car\'s factory finish.', color: 'var(--accent-lime)', className: 'col-span-2' },
-  { icon: Wind, title: 'Engine Bay Rinse', desc: 'Controlled low-pressure wash and degreasing of engine components for peak performance.', color: 'var(--primary-blue)', className: 'col-span-2' },
-  { icon: Gem, title: 'Elite Care Package', desc: 'Our flagship all-inclusive service. Everything above plus leather treatment and wheel detailing.', color: 'var(--accent-lime)', className: 'col-span-1' },
+  { icon: Droplets, title: 'Daily Exterior Cleaning', desc: 'Meticulous waterless cleaning at your doorstep every morning between 5 AM – 10 AM.', color: 'var(--primary-blue)', className: 'col-span-2' },
+  { icon: Sparkles, title: '365 Days Service', desc: 'No holidays, no leaves. We work through Sundays, festivals, and public holidays without fail.', color: 'var(--accent-lime)', className: 'col-span-1' },
+  { icon: SprayCan, title: 'Interior Add-on', desc: 'Deep cabin cleaning, vacuuming, and dashboard polishing available to add to any plan.', color: 'var(--primary-blue)', className: 'col-span-1' },
+  { icon: ShieldCheck, title: 'Professional Staff', desc: 'Trained and background-verified cleaning professionals dedicated to your vehicle\'s care.', color: 'var(--accent-lime)', className: 'col-span-2' },
+  { icon: Wind, title: 'Deep Detailing Add-on', desc: 'Engine bay cleaning and full body detailing available as premium on-demand services.', color: 'var(--primary-blue)', className: 'col-span-2' },
+  { icon: Gem, title: 'Prepaid Convenience', desc: 'Simple monthly prepaid model with total transparency and automated scheduling.', color: 'var(--accent-lime)', className: 'col-span-1' },
 ]
 
 export default function ServicesSection() {
@@ -18,7 +18,7 @@ export default function ServicesSection() {
           <span className="text-label text-lime">What We Offer</span>
           <h2 className="text-headline-lg">Premium Services,<br />Daily Delivered</h2>
           <p className="text-body-lg text-secondary" style={{ maxWidth: 560, margin: '0 auto' }}>
-            From a quick exterior wash to a full elite detail — choose the level of care your car deserves.
+            From a quick exterior clean to a full detailing — choose the level of care your car deserves.
           </p>
         </div>
 

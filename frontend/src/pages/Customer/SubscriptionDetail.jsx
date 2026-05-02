@@ -38,7 +38,7 @@ export default function SubscriptionDetail() {
             { label: 'Vehicle', value: `${mockSubscription.vehicle.model}` },
             { label: 'Plate', value: mockSubscription.vehicle.number },
             { label: 'Duration', value: `${mockSubscription.startDate} → ${mockSubscription.endDate}` },
-            { label: 'Completed', value: `${mockSubscription.completedDays} washes` },
+            { label: 'Completed', value: `${mockSubscription.completedDays} days cleaned` },
             { label: 'Skipped', value: `${mockSubscription.skippedDays} days` },
           ].map((r, i) => (
             <div key={i} className="flex justify-between text-body-sm">

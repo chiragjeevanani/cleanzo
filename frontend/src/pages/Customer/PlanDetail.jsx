@@ -18,9 +18,10 @@ export default function PlanDetail() {
   ].filter(item => !pkg.features.includes(item))
 
   const faqs = [
-    { q: 'Can I book a recurring service?', a: 'Yes, all our plans are subscription-based and renew automatically every month.' },
-    { q: 'How can I trust your service?', a: 'All our detailers are background-verified and use GPS-tracked equipment. You get a photo report after every wash.' },
-    { q: 'Do I need to provide equipment?', a: 'No, we bring everything! We use waterless wash technology and premium microfiber towels.' }
+    { q: 'What are the service timings?', a: 'We work dedicatedly from 5:00 AM to 10:00 AM every morning so your car is ready before you leave for work.' },
+    { q: 'Do you work on Sundays/Holidays?', a: 'Yes! We work 365 days a year, including all public holidays and festivals. No leaves, no excuses.' },
+    { q: 'Is interior cleaning included?', a: 'Our standard plans focus on daily exterior cleaning. Interior deep cleaning and detailing are available as flexible add-ons.' },
+    { q: 'How does the prepaid model work?', a: 'You pay for the month in advance. We provide doorstep service daily without any follow-ups required.' }
   ]
 
   // Map package to specific images
@@ -100,7 +101,7 @@ export default function PlanDetail() {
           <div className="flex flex-col gap-20">
             {[
               { title: 'Vehicle Inspection', desc: 'Detailer arrives and performs a 360° photo inspection of your car.', icon: 'https://cdn-icons-png.flaticon.com/128/1532/1532692.png' },
-              { title: 'Premium Wash', desc: 'Eco-friendly waterless wash using nanotech surfactants.', icon: 'https://cdn-icons-png.flaticon.com/128/2330/2330453.png' },
+              { title: 'Precision Cleaning', desc: 'Eco-friendly waterless cleaning using nanotech surfactants.', icon: 'https://cdn-icons-png.flaticon.com/128/2330/2330453.png' },
               { title: 'Finishing Touches', desc: 'Application of tire dresser and high-gloss spray wax.', icon: 'https://cdn-icons-png.flaticon.com/128/2910/2910791.png' },
             ].map((step, i) => (
               <div key={i} className="flex gap-16 items-center">
