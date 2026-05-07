@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Camera, Image, Upload } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { optimizeImage } from '../../utils/imageOptimizer'
 
 export default function PhotoUpload() {
   const navigate = useNavigate()
@@ -25,11 +26,15 @@ export default function PhotoUpload() {
   const handleUpload = async () => {
     if (!file || !taskId) return
     setUploading(true)
-    const formData = new FormData()
-    formData.append('photo', file)
-    formData.append('type', uploadType)
-
+    
     try {
+      // Optimize image before upload
+      const optimizedFile = await optimizeImage(file, { maxWidth: 1000, quality: 0.7 })
+      
+      const formData = new FormData()
+      formData.append('photo', optimizedFile)
+      formData.append('type', uploadType)
+
       await apiClient.post(`/cleaner/tasks/${taskId}/photo`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })

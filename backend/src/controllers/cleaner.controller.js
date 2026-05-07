@@ -120,10 +120,18 @@ const uploadBufferToCloudinary = (buffer, folder) => {
 
 export const uploadTaskPhotos = asyncHandler(async (req, res) => {
   const { type } = req.body; // 'before' or 'after'
-  if (!req.files || req.files.length === 0) throw new ApiError(400, 'No files uploaded');
+  if (!req.file && (!req.files || req.files.length === 0)) throw new ApiError(400, 'No files uploaded');
 
-  const uploadPromises = req.files.map(f => uploadBufferToCloudinary(f.buffer, 'cleanzo/tasks'));
-  const urls = await Promise.all(uploadPromises);
+  let urls = [];
+  const kycFolder = 'cleanzo/tasks';
+
+  if (req.file) {
+    const url = await uploadBufferToCloudinary(req.file.buffer, kycFolder);
+    urls.push(url);
+  } else {
+    const uploadPromises = req.files.map(f => uploadBufferToCloudinary(f.buffer, kycFolder));
+    urls = await Promise.all(uploadPromises);
+  }
 
   const updateField = type === 'before' ? 'photos.before' : 'photos.after';
 

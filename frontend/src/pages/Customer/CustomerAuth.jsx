@@ -249,10 +249,16 @@ export default function CustomerAuth() {
             
             {/* Mode toggle */}
             {step === 'form' && (
-              <div style={{ display: 'flex', gap: 24, marginBottom: 28, borderBottom: '1px solid var(--border-glass)' }}>
-                {[['login', 'Login'], ['signup', 'Sign Up']].map(([m, label]) => (
-                  <button key={m} onClick={() => { setMode(m); setErrorMsg(''); setUseOtp(true) }} style={{ paddingBottom: 12,  color: mode === m ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none',  cursor: 'pointer' }}>{label}</button>
-                ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, borderBottom: '1px solid var(--border-glass)', width: '100%' }}>
+                <div style={{ display: 'flex', gap: 24 }}>
+                  <button onClick={() => { setMode('login'); setErrorMsg(''); setUseOtp(true) }} style={{ paddingBottom: 12, color: mode === 'login' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none', cursor: 'pointer', borderBottom: mode === 'login' ? '2px solid var(--accent-lime)' : 'none' }}>Login</button>
+                  {role === 'customer' && (
+                    <button onClick={() => { setMode('signup'); setErrorMsg(''); setUseOtp(true) }} style={{ paddingBottom: 12, color: mode === 'signup' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none', cursor: 'pointer', borderBottom: mode === 'signup' ? '2px solid var(--accent-lime)' : 'none' }}>Sign Up</button>
+                  )}
+                </div>
+                {role === 'crew' && (
+                  <a href="/join-crew" className="chip chip-lime" style={{ marginBottom: 12, fontSize: 11, fontWeight: 800, padding: '8px 16px', textDecoration: 'none' }}>JOIN CREW</a>
+                )}
               </div>
             )}
 
@@ -378,6 +384,12 @@ export default function CustomerAuth() {
                 <button type="submit" disabled={loading} className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
                   {loading ? 'Sending…' : mode === 'login' ? 'Send OTP' : 'Create Account'}
                 </button>
+
+                {role === 'crew' && mode === 'login' && (
+                  <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)', marginTop: 10 }}>
+                    New to Cleanzo? <a href="/join-crew" style={{ color: 'var(--accent-lime)', fontWeight: 700 }}>Apply to join our crew</a>
+                  </p>
+                )}
               </form>
             )}
           </div>
