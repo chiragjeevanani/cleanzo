@@ -1,6 +1,29 @@
-import { Image, Send, Eye } from 'lucide-react'
+import { useState } from 'react'
+import { Image, Send, Eye, Loader2 } from 'lucide-react'
+import apiClient from '../../services/apiClient'
 
 export default function AdminContent() {
+  const [notification, setNotification] = useState({ title: '', body: '', audience: 'All Users' })
+  const [sending, setSending] = useState(false)
+
+  const handleSendNotification = async () => {
+    if (!notification.title || !notification.body) return alert('Title and Message are required')
+    setSending(true)
+    try {
+      await apiClient.post('/admin/notifications/broadcast', {
+        title: notification.title,
+        message: notification.body,
+        // Optional mapping based on backend needs, for now just pass strings
+      })
+      alert('Notification broadcasted successfully!')
+      setNotification({ ...notification, title: '', body: '' })
+    } catch (err) {
+      console.error('Failed to send notification', err)
+      alert('Failed to send notification')
+    } finally {
+      setSending(false)
+    }
+  }
   return (
     <div>
       <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, marginBottom: 24 }}>Content Management</h1>
@@ -37,22 +60,24 @@ export default function AdminContent() {
         <div className="flex flex-col gap-16">
           <div>
             <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Title</label>
-            <input className="input-field" placeholder="Notification title" />
+            <input className="input-field" placeholder="Notification title" value={notification.title} onChange={e => setNotification({...notification, title: e.target.value})} />
           </div>
           <div>
             <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Message</label>
-            <textarea className="input-field" rows={3} placeholder="Write your message..." style={{ resize: 'vertical' }} />
+            <textarea className="input-field" rows={3} placeholder="Write your message..." value={notification.body} onChange={e => setNotification({...notification, body: e.target.value})} style={{ resize: 'vertical' }} />
           </div>
           <div>
             <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Target Audience</label>
-            <select className="input-field">
+            <select className="input-field" value={notification.audience} onChange={e => setNotification({...notification, audience: e.target.value})}>
               <option>All Users</option>
               <option>Active Subscribers</option>
               <option>Expired Subscribers</option>
               <option>Cleaners Only</option>
             </select>
           </div>
-          <button className="btn btn-blue"><Send size={14} /> Send Notification</button>
+          <button className="btn btn-blue" onClick={handleSendNotification} disabled={sending}>
+            {sending ? <><Loader2 size={14} className="animate-spin" /> Sending...</> : <><Send size={14} /> Send Notification</>}
+          </button>
         </div>
       </div>
     </div>

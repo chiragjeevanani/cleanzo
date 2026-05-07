@@ -1,8 +1,34 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Check, ArrowRight, ChevronRight } from 'lucide-react'
-import { mockPackages, mockSubscription } from '../../data/mockData'
+import apiClient from '../../services/apiClient'
 
 export default function PackageSelect() {
+  const [packages, setPackages] = useState([])
+  const [activeSub, setActiveSub] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [pkgRes, subRes] = await Promise.all([
+          apiClient.get('/packages'),
+          apiClient.get('/customer/subscriptions')
+        ])
+        setPackages(pkgRes.packages || [])
+        if (subRes.subscriptions && subRes.subscriptions.length > 0) {
+          setActiveSub(subRes.subscriptions[0])
+        }
+      } catch (err) {
+        console.error('Error fetching packages', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
@@ -10,22 +36,22 @@ export default function PackageSelect() {
       </div>
 
       <div className="flex flex-col gap-12" style={{ paddingBottom: 100 }}>
-        {mockSubscription && (
+        {activeSub && (
           <Link to="/customer/subscriptions" className="glass" style={{ padding: 20, border: '1px solid var(--accent-lime)', background: 'rgba(var(--accent-lime-rgb), 0.05)' }}>
             <div className="flex justify-between items-center" style={{ marginBottom: 12 }}>
               <span className="text-label text-lime">Active Subscription</span>
               <ChevronRight size={16} className="text-lime" />
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>{mockSubscription.package.name}</div>
-            <div className="text-body-sm text-secondary" style={{ marginTop: 4 }}>Renews on {mockSubscription.endDate}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>{activeSub.package?.name || 'Subscription'}</div>
+            <div className="text-body-sm text-secondary" style={{ marginTop: 4 }}>Renews on {new Date(activeSub.endDate).toLocaleDateString()}</div>
           </Link>
         )}
 
         <div style={{ marginTop: 8, marginBottom: 4 }}>
           <h3 className="text-label text-secondary">All Available Plans</h3>
         </div>
-        {mockPackages.map(pkg => (
-          <Link key={pkg.id} to={`/customer/plan/${pkg.id}`} className="glass" style={{ padding: 20, display: 'block' }}>
+        {packages.map(pkg => (
+          <Link key={pkg._id} to={`/customer/plan/${pkg._id}`} className="glass" style={{ padding: 20, display: 'block' }}>
             {pkg.popular && <div className="chip chip-lime" style={{ marginBottom: 12 }}>Most Popular</div>}
             <div className="flex justify-between items-start" style={{ marginBottom: 12 }}>
               <div>

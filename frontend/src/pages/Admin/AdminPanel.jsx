@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
+import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
-import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut } from 'lucide-react'
 import AdminDashboard from './AdminDashboard'
 import AdminUsers from './AdminUsers'
 import AdminCleaners from './AdminCleaners'
@@ -10,11 +11,13 @@ import AdminSubscriptions from './AdminSubscriptions'
 import AdminRevenue from './AdminRevenue'
 import AdminContent from './AdminContent'
 import AdminSettings from './AdminSettings'
+import AdminApplications from './AdminApplications'
 
 const navItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { path: '/admin/users', icon: Users, label: 'Users' },
   { path: '/admin/cleaners', icon: UserCog, label: 'Cleaners' },
+  { path: '/admin/applications', icon: FileText, label: 'Applications' },
   { path: '/admin/packages', icon: Package, label: 'Packages' },
   { path: '/admin/subscriptions', icon: CreditCard, label: 'Subscriptions' },
   { path: '/admin/revenue', icon: TrendingUp, label: 'Revenue' },
@@ -24,7 +27,21 @@ const navItems = [
 
 export default function AdminPanel() {
   const { theme, toggleTheme } = useTheme()
+  const { user, loading, logout } = useAuth()
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) return <Navigate to="/admin/login" replace />
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      navigate('/admin/login')
+    } catch (err) {
+      console.error('Logout failed', err)
+    }
+  }
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -48,6 +65,10 @@ export default function AdminPanel() {
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </div>
+          <div className="sidebar-nav-item" style={{ cursor: 'pointer', color: 'var(--error)' }} onClick={handleLogout}>
+            <LogOut size={20} />
+            <span>Sign Out</span>
+          </div>
         </div>
       </aside>
 
@@ -70,7 +91,7 @@ export default function AdminPanel() {
               <div style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: '50%', background: 'var(--error)' }} />
             </button>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-blue), var(--accent-lime))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'var(--font-display)', color: '#0A0A0A' }}>
-              A
+              {user?.name ? user.name[0].toUpperCase() : 'A'}
             </div>
           </div>
         </div>
@@ -79,6 +100,7 @@ export default function AdminPanel() {
           <Route index element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="cleaners" element={<AdminCleaners />} />
+          <Route path="applications" element={<AdminApplications />} />
           <Route path="packages" element={<AdminPackages />} />
           <Route path="subscriptions" element={<AdminSubscriptions />} />
           <Route path="revenue" element={<AdminRevenue />} />

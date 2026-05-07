@@ -1,54 +1,391 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { 
+  Phone, User, ShieldCheck, CheckCircle2, MapPin, 
+  Lock, Mail, Tag, Eye, EyeOff, ChevronDown
+} from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import apiClient from '../../services/apiClient'
+import { INDIA_CITIES } from '../../data/cities'
 
+// ─── Auth Confirm Dialog ─────────────────────────
+function AuthConfirmDialog({ config, onClose }) {
+  return (
+    <div className="modal-overlay" style={{ zIndex: 1000 }}>
+      <div className="modal-content glass animate-scale-in" style={{ maxWidth: 360, padding: 32, textAlign: 'center' }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(var(--primary-blue-rgb), 0.1)', color: 'var(--primary-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+          <ShieldCheck size={32} />
+        </div>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
+          {config.type === 'not_found' ? 'Account Not Found' : 'Account Exists'}
+        </h3>
+        <p className="text-secondary" style={{ fontSize: 14, marginBottom: 24 }}>{config.message}</p>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: '1px solid var(--border-glass)', background: 'transparent', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button onClick={config.action} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: 'none', background: 'var(--accent-lime)', color: '#000', fontWeight: 700, cursor: 'pointer' }}>
+            {config.type === 'not_found' ? 'Sign Up' : 'Login'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Input Field Helper ──────────────────────────
+function Field({ label, icon: Icon, children, action }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <label className="text-label text-secondary">{label}</label>
+        {action}
+      </div>
+      <div style={{ position: 'relative' }}>
+        {Icon && <Icon size={17} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', opacity: 0.4, pointerEvents: 'none', zIndex: 1 }} />}
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ──────────────────────────────
 export default function CustomerAuth() {
-  const [phone, setPhone] = useState('')
-  const [step, setStep] = useState('phone') // phone, otp
-  const [otp, setOtp] = useState(['', '', '', ''])
+  const navigate = useNavigate()
+  const { login, loginWithPassword } = useAuth()
+
+  const [role, setRole] = useState('customer')   // customer | crew
+  const [mode, setMode] = useState('login')       // login | signup
+  const [step, setStep] = useState('form')        // form | otp | success
+  const [showPwd, setShowPwd] = useState(false)
+  const [useOtp, setUseOtp] = useState(true)      // OTP vs password login
+
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    password: '',
+    city: '',
+    referralCode: '',
+    otp: ['', '', '', ''],
+  })
+
+  const [timer, setTimer] = useState(30)
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState(null)
+
+  const set = (field) => (e) => {
+    setErrorMsg('')
+    setFormData(prev => ({ ...prev, [field]: e.target.value }))
+  }
+
+  // OTP resend timer
+  useEffect(() => {
+    if (step !== 'otp') return
+    if (timer <= 0) return
+    const t = setInterval(() => setTimer(n => n - 1), 1000)
+    return () => clearInterval(t)
+  }, [step, timer])
+
+  // Reveal animations
+  useEffect(() => {
+    const els = document.querySelectorAll('.reveal')
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); obs.unobserve(e.target) } })
+    }, { threshold: 0.05 })
+    els.forEach(el => obs.observe(el))
+    return () => obs.disconnect()
+  }, [step, mode, role])
+
+  // ── Send OTP ──
+  const handleSendOtp = async (e) => {
+    e.preventDefault()
+    setErrorMsg('')
+    setLoading(true)
+    try {
+      await apiClient.post('/auth/send-otp', { phone: formData.phone, role, mode })
+      setStep('otp')
+      setTimer(30)
+    } catch (err) {
+      if (err.type === 'USER_NOT_FOUND') {
+        setConfirmDialog({ type: 'not_found', message: err.message, action: () => { setMode('signup'); setConfirmDialog(null) } })
+      } else if (err.type === 'USER_ALREADY_EXISTS') {
+        setConfirmDialog({ type: 'already_exists', message: err.message, action: () => { setMode('login'); setConfirmDialog(null) } })
+      } else {
+        setErrorMsg(err.message || 'Failed to send OTP. Please try again.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Verify OTP ──
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault()
+    setErrorMsg('')
+    setLoading(true)
+    try {
+      const extra = mode === 'signup' ? {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        city: formData.city,
+        referralCode: formData.referralCode || undefined,
+      } : {}
+
+      const res = await login(formData.phone, formData.otp.join(''), role, extra)
+      if (res.success) {
+        setStep('success')
+        setTimeout(() => navigate(role === 'crew' ? '/cleaner' : '/customer'), 1500)
+      } else {
+        setErrorMsg(res.message || 'Verification failed')
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Password Login ──
+  const handlePasswordLogin = async (e) => {
+    e.preventDefault()
+    setErrorMsg('')
+    setLoading(true)
+    try {
+      const res = await loginWithPassword(formData.phone, formData.password, role)
+      if (res.success) {
+        setStep('success')
+        setTimeout(() => navigate(role === 'crew' ? '/cleaner' : '/customer'), 1500)
+      } else {
+        setErrorMsg(res.message || 'Invalid credentials')
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleOtpInput = (val, i) => {
+    if (!/^\d*$/.test(val)) return
+    const next = [...formData.otp]
+    next[i] = val
+    setFormData(prev => ({ ...prev, otp: next }))
+    if (val && i < 3) document.getElementById(`otp-${i + 1}`)?.focus()
+  }
+
+  const handleOtpKeyDown = (e, i) => {
+    if (e.key === 'Backspace' && !formData.otp[i] && i > 0) {
+      document.getElementById(`otp-${i - 1}`)?.focus()
+    }
+  }
+
+  // ── Success Screen ──
+  if (step === 'success') return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', padding: 20 }}>
+      <div className="glass reveal revealed" style={{ padding: 48, textAlign: 'center', maxWidth: 400, width: '100%', borderRadius: 28 }}>
+        <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(101,199,55,0.15)', color: 'var(--accent-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+          <CheckCircle2 size={40} />
+        </div>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Welcome to Cleanzo!</h2>
+        <p className="text-secondary">Redirecting to your {role === 'crew' ? 'crew' : 'customer'} dashboard…</p>
+      </div>
+    </div>
+  )
+
+  const inputStyle = { paddingLeft: 48, width: '100%', boxSizing: 'border-box' }
+  const selectStyle = { ...inputStyle, appearance: 'none', cursor: 'pointer' }
 
   return (
-    <div style={{ padding: '0 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-      <div style={{ textAlign: 'center', marginBottom: 48 }}>
-        <img src="/logo.png" alt="Cleanzo" style={{ height: 48, margin: '0 auto 16px' }} />
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Welcome to Cleanzo</h1>
-        <p className="text-body-md text-secondary" style={{ marginTop: 8 }}>Sign in to manage your car care</p>
-      </div>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden' }}>
+      {confirmDialog && <AuthConfirmDialog config={confirmDialog} onClose={() => setConfirmDialog(null)} />}
 
-      <div className="glass" style={{ padding: 28 }}>
-        {step === 'phone' ? (
-          <>
-            <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 8 }}>Phone Number</label>
-            <div className="flex gap-8" style={{ marginBottom: 20 }}>
-              <div className="input-field" style={{ width: 64, textAlign: 'center', flexShrink: 0 }}>+91</div>
-              <input className="input-field" type="tel" placeholder="Enter phone number" value={phone} onChange={e => setPhone(e.target.value)} maxLength={10} />
-            </div>
-            <button className="btn btn-primary w-full" onClick={() => setStep('otp')}>Send OTP</button>
-          </>
-        ) : (
-          <>
-            <button onClick={() => setStep('phone')} className="flex items-center gap-8 text-body-sm text-secondary" style={{ marginBottom: 20 }}>
-              <ArrowLeft size={16} /> Change number
-            </button>
-            <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 8 }}>Enter OTP sent to +91 {phone}</label>
-            <div className="flex gap-12" style={{ justifyContent: 'center', marginBottom: 24 }}>
-              {otp.map((d, i) => (
-                <input key={i} className="input-field" type="text" maxLength={1} value={d}
-                  style={{ width: 52, height: 56, textAlign: 'center', fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-display)' }}
-                  onChange={e => {
-                    const val = e.target.value.replace(/\D/g, '')
-                    const next = [...otp]; next[i] = val; setOtp(next)
-                    if (val && i < 3) e.target.nextElementSibling?.focus()
-                  }}
-                />
+      {/* Background blobs */}
+      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(var(--accent-lime-rgb), 0.12) 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
+      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(var(--primary-blue-rgb), 0.12) 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
+
+      <div style={{ position: 'relative', zIndex: 1, padding: '20px', maxWidth: 460, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        
+        {/* Logo */}
+        <header style={{ padding: '24px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, var(--primary-blue), var(--accent-lime))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ShieldCheck size={24} color="#000" />
+          </div>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>CLEANZO</span>
+        </header>
+
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingBottom: 40 }}>
+          
+          {/* Role Switcher */}
+          {step !== 'otp' && (
+            <div className="glass" style={{ padding: 6, borderRadius: 16, display: 'flex', marginBottom: 28, position: 'relative', border: '1px solid var(--border-glass)' }}>
+              <div style={{ position: 'absolute', top: 6, bottom: 6, left: role === 'customer' ? 6 : 'calc(50% + 3px)', width: 'calc(50% - 9px)', background: 'var(--accent-lime)', borderRadius: 12, transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)', zIndex: 0, boxShadow: '0 4px 12px rgba(var(--accent-lime-rgb), 0.3)' }} />
+              {[['customer', 'Customer'], ['crew', 'Crew / Executive']].map(([val, label]) => (
+                <button key={val} onClick={() => { setRole(val); setErrorMsg('') }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'none', color: role === val ? '#000' : 'var(--text-secondary)', fontWeight: 700, fontSize: 14, position: 'relative', zIndex: 1, transition: 'color 0.3s', cursor: 'pointer' }}>
+                  {label}
+                </button>
               ))}
             </div>
-            <Link to="/customer" className="btn btn-primary w-full">Verify & Continue</Link>
-            <button className="text-body-sm text-secondary w-full" style={{ marginTop: 16, textAlign: 'center' }}>
-              Resend OTP in 30s
-            </button>
-          </>
-        )}
+          )}
+
+          <div className="reveal" style={{ marginBottom: 28, textAlign: 'center' }}>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 800, marginBottom: 10, lineHeight: 1.1 }}>
+              {step === 'otp' ? 'Verify Identity' : mode === 'login' ? 'Welcome Back' : 'Create Account'}
+            </h1>
+            <p className="text-secondary" style={{ maxWidth: '80%', margin: '0 auto', fontSize: 15 }}>
+              {step === 'otp'
+                ? 'Enter the 4-digit code sent to your phone.'
+                : mode === 'login'
+                  ? `Sign in to your ${role === 'crew' ? 'crew' : 'customer'} portal.`
+                  : `Join the Cleanzo ${role === 'crew' ? 'crew' : 'family'} today.`}
+            </p>
+          </div>
+
+          <div className="glass" style={{ padding: 28, borderRadius: 28, border: '1px solid var(--border-glass)', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            
+            {/* Mode toggle */}
+            {step === 'form' && (
+              <div style={{ display: 'flex', gap: 24, marginBottom: 28, borderBottom: '1px solid var(--border-glass)' }}>
+                {[['login', 'Login'], ['signup', 'Sign Up']].map(([m, label]) => (
+                  <button key={m} onClick={() => { setMode(m); setErrorMsg(''); setUseOtp(true) }} style={{ paddingBottom: 12,  color: mode === m ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none',  cursor: 'pointer' }}>{label}</button>
+                ))}
+              </div>
+            )}
+
+            {/* Error message */}
+            {errorMsg && (
+              <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 20, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff5555', flexShrink: 0 }} />
+                {errorMsg}
+              </div>
+            )}
+
+            {/* OTP Step */}
+            {step === 'otp' ? (
+              <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <button type="button" onClick={() => { setStep('form'); setFormData(p => ({ ...p, otp: ['', '', '', ''] })) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', padding: 0, width: 'fit-content' }}>
+                  ← Edit number
+                </button>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                  {formData.otp.map((d, i) => (
+                    <input
+                      key={i}
+                      id={`otp-${i}`}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={d}
+                      onChange={e => handleOtpInput(e.target.value, i)}
+                      onKeyDown={e => handleOtpKeyDown(e, i)}
+                      style={{ width: 64, height: 64, textAlign: 'center', fontSize: 26, fontWeight: 700, borderRadius: 16, border: '2px solid var(--border-glass)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }}
+                      onFocus={e => e.target.style.borderColor = 'var(--accent-lime)'}
+                      onBlur={e => e.target.style.borderColor = 'var(--border-glass)'}
+                    />
+                  ))}
+                </div>
+                <button type="submit" disabled={loading || formData.otp.join('').length < 4} className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
+                  {loading ? 'Verifying…' : 'Verify Account'}
+                </button>
+                <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
+                  {timer > 0 ? `Request new code in ${timer}s` : (
+                    <button type="button" onClick={handleSendOtp} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontWeight: 600, cursor: 'pointer' }}>Resend OTP</button>
+                  )}
+                </p>
+              </form>
+
+            ) : mode === 'login' && !useOtp ? (
+              /* PASSWORD LOGIN FORM */
+              <form onSubmit={handlePasswordLogin} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <Field label="Phone Number" icon={Phone}>
+                  <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={10}
+                    value={formData.phone} onChange={e => setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') }))} />
+                </Field>
+                <Field label="Password" icon={Lock}
+                  action={<button type="button" onClick={() => setShowPwd(v => !v)} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontSize: 13, cursor: 'pointer' }}>{showPwd ? 'Hide' : 'Show'}</button>}>
+                  <input required className="input-field" style={{ ...inputStyle, paddingRight: 48 }} placeholder="Your password" type={showPwd ? 'text' : 'password'}
+                    value={formData.password} onChange={set('password')} />
+                </Field>
+                <button type="submit" disabled={loading} className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16, opacity: loading ? 0.7 : 1 }}>
+                  {loading ? 'Signing in…' : 'Sign In'}
+                </button>
+                <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
+                  <button type="button" onClick={() => setUseOtp(true)} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontWeight: 600, cursor: 'pointer' }}>Use OTP instead</button>
+                </p>
+              </form>
+
+            ) : (
+              /* OTP REQUEST / SIGNUP FORM */
+              <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                {/* SIGNUP FIELDS */}
+                {mode === 'signup' && (
+                  <>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <Field label="First Name" icon={User}>
+                        <input required className="input-field" style={inputStyle} placeholder="First name"
+                          value={formData.firstName}
+                          onChange={e => setFormData(p => ({ ...p, firstName: e.target.value.replace(/[^a-zA-Z\s]/g, '') }))} />
+                      </Field>
+                      <Field label="Last Name" icon={null}>
+                        <input required className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} placeholder="Last name"
+                          value={formData.lastName}
+                          onChange={e => setFormData(p => ({ ...p, lastName: e.target.value.replace(/[^a-zA-Z\s]/g, '') }))} />
+                      </Field>
+                    </div>
+
+                    <Field label="Email Address" icon={Mail}>
+                      <input required type="email" className="input-field" style={inputStyle} placeholder="you@example.com"
+                        value={formData.email} onChange={set('email')} />
+                    </Field>
+
+                    <Field label="Password" icon={Lock}
+                      action={<button type="button" onClick={() => setShowPwd(v => !v)} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontSize: 13, cursor: 'pointer' }}>{showPwd ? 'Hide' : 'Show'}</button>}>
+                      <input required className="input-field" style={{ ...inputStyle, paddingRight: 48 }} placeholder="Min 8 characters" type={showPwd ? 'text' : 'password'} minLength={8}
+                        value={formData.password} onChange={set('password')} />
+                    </Field>
+
+                    <Field label="City" icon={MapPin}>
+                      <select required className="input-field" style={selectStyle} value={formData.city} onChange={set('city')}>
+                        <option value="" disabled>Select your city</option>
+                        {INDIA_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <ChevronDown size={16} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', opacity: 0.4, pointerEvents: 'none' }} />
+                    </Field>
+
+                    <Field label="Referral Code (optional)" icon={Tag}>
+                      <input className="input-field" style={inputStyle} placeholder="Enter referral code"
+                        value={formData.referralCode} onChange={set('referralCode')} />
+                    </Field>
+                  </>
+                )}
+
+                {/* PHONE FIELD */}
+                <Field label="Phone Number" icon={Phone}
+                  action={mode === 'login' && (
+                    <button type="button" onClick={() => setUseOtp(false)} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      Use Password
+                    </button>
+                  )}>
+                  <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={10}
+                    value={formData.phone}
+                    onChange={e => setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') }))} />
+                </Field>
+
+                <button type="submit" disabled={loading} className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
+                  {loading ? 'Sending…' : mode === 'login' ? 'Send OTP' : 'Create Account'}
+                </button>
+              </form>
+            )}
+          </div>
+
+          <p style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text-muted)' }}>
+            Protected by Cleanzo Security. <a href="/terms" style={{ color: 'var(--primary-blue)' }}>Terms</a> applied.
+          </p>
+        </main>
       </div>
     </div>
   )

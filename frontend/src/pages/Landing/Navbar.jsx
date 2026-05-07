@@ -56,7 +56,7 @@ export default function Navbar() {
             <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <Link to="/customer" className="btn btn-primary btn-sm hide-mobile">Get Started</Link>
+            <Link to="/login" className="btn btn-primary btn-sm hide-mobile">Get Started</Link>
             <button className="nav-hamburger" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Menu">
               {mobileOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
@@ -78,7 +78,7 @@ export default function Navbar() {
             </button>
           ))}
           <div className="mobile-menu-divider" />
-          <Link to="/customer" className="btn btn-primary btn-lg w-full" onClick={() => setMobileOpen(false)}>
+          <Link to="/login" className="btn btn-primary btn-lg w-full" onClick={() => setMobileOpen(false)}>
             Get Started
           </Link>
           <Link to="/admin" className="btn btn-ghost btn-lg w-full" onClick={() => setMobileOpen(false)}>

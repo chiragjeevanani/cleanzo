@@ -23,7 +23,7 @@ export default function PricingSection() {
                   {pkg.popular && <span className="pricing-popular-badge">Popular</span>}
                 </div>
                 <p className="pricing-desc-minimal text-secondary text-body-sm">
-                  {pkg.id === 1 ? 'Daily doorstep exterior cleaning' : pkg.id === 2 ? 'Exterior care + paint protection' : 'Complete care with weekly interior cleaning'}
+                  {pkg.id === 1 ? 'Daily doorstep exterior cleaning' : pkg.id === 2 ? 'Daily exterior care + tire polish' : 'Complete daily care + weekly interior cleaning'}
                 </p>
               </div>
 

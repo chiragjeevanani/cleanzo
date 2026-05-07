@@ -74,7 +74,7 @@ export default function HeroSection() {
           </p>
 
           <div className="hero-actions animate-fade-in-up delay-4">
-            <Link to="/customer" className="btn btn-primary btn-lg hero-main-cta">
+            <Link to="/login" className="btn btn-primary btn-lg hero-main-cta">
               Get Daily Cleaning <ArrowRight size={18} />
               <div className="btn-glow" />
             </Link>

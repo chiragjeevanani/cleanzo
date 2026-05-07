@@ -1,9 +1,36 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Calendar, SkipForward, Clock, TrendingUp } from 'lucide-react'
-import { mockSubscription } from '../../data/mockData'
+import apiClient from '../../services/apiClient'
 
 export default function SubscriptionDetail() {
-  const pct = (mockSubscription.completedDays / mockSubscription.totalDays) * 100
+  const [subscription, setSubscription] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchSub = async () => {
+      try {
+        const res = await apiClient.get('/customer/subscriptions')
+        if (res.subscriptions && res.subscriptions.length > 0) {
+          setSubscription(res.subscriptions[0]) // just showing first active one
+        }
+      } catch (err) {
+        console.error('Error fetching subscription', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchSub()
+  }, [])
+
+  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (!subscription) return <div style={{ padding: 20, textAlign: 'center' }}>No active subscription found.</div>
+
+  const completed = subscription.completedDays || 0
+  const total = subscription.totalDays || 30
+  const skipped = subscription.skippedDays || 0
+  const remaining = Math.max(0, total - completed - skipped)
+  const pct = total > 0 ? (completed / total) * 100 : 0
   const circumference = 2 * Math.PI * 54
 
   return (
@@ -22,7 +49,7 @@ export default function SubscriptionDetail() {
               strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1s var(--ease-out)' }} />
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, color: 'var(--accent-lime)' }}>{mockSubscription.remainingDays}</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, color: 'var(--accent-lime)' }}>{remaining}</span>
             <span className="text-body-sm text-secondary">days left</span>
           </div>
         </div>
@@ -30,16 +57,16 @@ export default function SubscriptionDetail() {
 
       <div className="glass" style={{ padding: 24, marginBottom: 16 }}>
         <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>{mockSubscription.package.name}</span>
-          <span className="chip chip-lime">Active</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>{subscription.package?.name || 'Subscription'}</span>
+          <span className="chip chip-lime">{subscription.status}</span>
         </div>
         <div className="flex flex-col gap-12">
           {[
-            { label: 'Vehicle', value: `${mockSubscription.vehicle.model}` },
-            { label: 'Plate', value: mockSubscription.vehicle.number },
-            { label: 'Duration', value: `${mockSubscription.startDate} → ${mockSubscription.endDate}` },
-            { label: 'Completed', value: `${mockSubscription.completedDays} days cleaned` },
-            { label: 'Skipped', value: `${mockSubscription.skippedDays} days` },
+            { label: 'Vehicle', value: `${subscription.vehicle?.model || 'Unknown'}` },
+            { label: 'Plate', value: subscription.vehicle?.number || '' },
+            { label: 'Duration', value: `${new Date(subscription.startDate).toLocaleDateString()} → ${new Date(subscription.endDate).toLocaleDateString()}` },
+            { label: 'Completed', value: `${completed} days cleaned` },
+            { label: 'Skipped', value: `${skipped} days` },
           ].map((r, i) => (
             <div key={i} className="flex justify-between text-body-sm">
               <span className="text-secondary">{r.label}</span>
@@ -52,9 +79,9 @@ export default function SubscriptionDetail() {
       {/* Stats */}
       <div className="grid-3" style={{ gap: 10, marginBottom: 20 }}>
         {[
-          { icon: Calendar, value: mockSubscription.completedDays, label: 'Done', color: 'var(--success)' },
-          { icon: SkipForward, value: mockSubscription.skippedDays, label: 'Skipped', color: 'var(--warning)' },
-          { icon: Clock, value: mockSubscription.remainingDays, label: 'Left', color: 'var(--accent-lime)' },
+          { icon: Calendar, value: completed, label: 'Done', color: 'var(--success)' },
+          { icon: SkipForward, value: skipped, label: 'Skipped', color: 'var(--warning)' },
+          { icon: Clock, value: remaining, label: 'Left', color: 'var(--accent-lime)' },
         ].map((s, i) => (
           <div key={i} className="glass" style={{ padding: 16, textAlign: 'center' }}>
             <s.icon size={20} style={{ color: s.color, margin: '0 auto 8px' }} />

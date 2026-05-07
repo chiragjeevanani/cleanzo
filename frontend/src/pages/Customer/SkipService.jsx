@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Info } from 'lucide-react'
+import apiClient from '../../services/apiClient'
 
 export default function SkipService() {
+  const navigate = useNavigate()
   const today = new Date()
   const [selectedDates, setSelectedDates] = useState([])
   const [showConfirm, setShowConfirm] = useState(false)
+  const [loading, setLoading] = useState(false)
   const year = today.getFullYear()
   const month = today.getMonth()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -16,6 +19,20 @@ export default function SkipService() {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
     if (day <= today.getDate()) return
     setSelectedDates(prev => prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr])
+  }
+
+  const handleSkipConfirm = async () => {
+    setLoading(true)
+    try {
+      await apiClient.post('/customer/skip', { dates: selectedDates })
+      setShowConfirm(false)
+      navigate('/customer')
+    } catch (err) {
+      console.error('Failed to skip days', err)
+      alert('Failed to skip days')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -72,7 +89,9 @@ export default function SkipService() {
             </p>
             <div className="flex gap-8">
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowConfirm(false)}>Cancel</button>
-              <Link to="/customer" className="btn btn-primary" style={{ flex: 1 }}>Skip Days</Link>
+              <button disabled={loading} className={`btn btn-primary ${loading ? 'opacity-50' : ''}`} style={{ flex: 1 }} onClick={handleSkipConfirm}>
+                {loading ? 'Skipping...' : 'Skip Days'}
+              </button>
             </div>
           </div>
         </div>

@@ -1,10 +1,33 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Filter, MoreVertical } from 'lucide-react'
-import { mockAdminUsers } from '../../data/mockData'
+import apiClient from '../../services/apiClient'
 
 export default function AdminUsers() {
   const [search, setSearch] = useState('')
-  const filtered = mockAdminUsers.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.phone.includes(search))
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await apiClient.get('/admin/users')
+        setUsers(res.users || [])
+      } catch (err) {
+        console.error('Error fetching users:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchUsers()
+  }, [])
+
+  const filtered = users.filter(u => 
+    (u.name && u.name.toLowerCase().includes(search.toLowerCase())) || 
+    (u.phone && u.phone.includes(search)) ||
+    (u.email && u.email.toLowerCase().includes(search.toLowerCase()))
+  )
+
+  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
 
   return (
     <div>
@@ -27,14 +50,16 @@ export default function AdminUsers() {
             <tr><th>Name</th><th>Phone</th><th>Vehicles</th><th>Plan</th><th>Status</th><th>Joined</th><th></th></tr>
           </thead>
           <tbody>
-            {filtered.map(u => (
-              <tr key={u.id}>
-                <td style={{ fontWeight: 500 }}>{u.name}</td>
-                <td className="text-secondary">{u.phone}</td>
-                <td>{u.vehicles}</td>
-                <td><span className={`chip ${u.plan === 'Elite' ? 'chip-lime' : u.plan === 'Premium' ? 'chip-blue' : 'chip-ghost'}`}>{u.plan}</span></td>
-                <td><span className={`chip ${u.status === 'Active' ? 'chip-success' : u.status === 'Paused' ? 'chip-ghost' : 'chip-error'}`}>{u.status}</span></td>
-                <td className="text-secondary">{u.joined}</td>
+            {filtered.length === 0 ? (
+              <tr><td colSpan="7" className="text-center py-4 text-secondary">No users found.</td></tr>
+            ) : filtered.map(u => (
+              <tr key={u._id}>
+                <td style={{ fontWeight: 500 }}>{u.name || 'User'}</td>
+                <td className="text-secondary">{u.phone || u.email || 'N/A'}</td>
+                <td>{u.vehiclesCount || 0}</td>
+                <td><span className={`chip ${u.activePlan ? 'chip-lime' : 'chip-ghost'}`}>{u.activePlan || 'None'}</span></td>
+                <td><span className={`chip ${u.status === 'active' ? 'chip-success' : u.status === 'paused' ? 'chip-ghost' : 'chip-error'}`}>{u.status || 'Active'}</span></td>
+                <td className="text-secondary">{new Date(u.createdAt).toLocaleDateString()}</td>
                 <td><button style={{ color: 'var(--text-tertiary)', padding: 4 }}><MoreVertical size={16} /></button></td>
               </tr>
             ))}

@@ -1,19 +1,51 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Car } from 'lucide-react'
-import { mockUser } from '../../data/mockData'
+import apiClient from '../../services/apiClient'
 
 export default function VehicleManager() {
-  const [vehicles, setVehicles] = useState(mockUser.vehicles)
+  const [vehicles, setVehicles] = useState([])
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ model: '', number: '', parking: '' })
+  const [loading, setLoading] = useState(true)
 
-  const addVehicle = () => {
-    if (!form.model || !form.number) return
-    setVehicles([...vehicles, { id: Date.now(), ...form, color: 'var(--primary-blue)' }])
-    setForm({ model: '', number: '', parking: '' })
-    setAdding(false)
+  useEffect(() => {
+    fetchVehicles()
+  }, [])
+
+  const fetchVehicles = async () => {
+    try {
+      const res = await apiClient.get('/customer/vehicles')
+      setVehicles(res.vehicles || [])
+    } catch (err) {
+      console.error('Failed to fetch vehicles', err)
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const addVehicle = async () => {
+    if (!form.model || !form.number) return
+    try {
+      await apiClient.post('/customer/vehicles', { ...form, type: 'sedan', color: '#007AFF' })
+      setForm({ model: '', number: '', parking: '' })
+      setAdding(false)
+      fetchVehicles()
+    } catch (err) {
+      console.error('Failed to add vehicle', err)
+    }
+  }
+
+  const deleteVehicle = async (id) => {
+    try {
+      await apiClient.delete(`/customer/vehicles/${id}`)
+      fetchVehicles()
+    } catch (err) {
+      console.error('Failed to delete vehicle', err)
+    }
+  }
+
+  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
 
   return (
     <div style={{ padding: '0 20px' }}>
@@ -43,16 +75,19 @@ export default function VehicleManager() {
       )}
 
       <div className="flex flex-col gap-8" style={{ paddingBottom: 100 }}>
+        {vehicles.length === 0 && !adding && (
+          <div className="text-center text-secondary py-8">No vehicles added yet.</div>
+        )}
         {vehicles.map(v => (
-          <div key={v.id} className="glass" style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div key={v._id} className="glass" style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ width: 44, height: 44, borderRadius: 'var(--radius)', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-glass)' }}>
-              <Car size={22} style={{ color: v.color }} />
+              <Car size={22} style={{ color: v.color || 'var(--primary-blue)' }} />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, fontSize: 15 }}>{v.model}</div>
               <div className="text-body-sm text-secondary">{v.number} · {v.parking}</div>
             </div>
-            <button onClick={() => setVehicles(vehicles.filter(x => x.id !== v.id))} style={{ color: 'var(--error)', padding: 8 }}>
+            <button onClick={() => deleteVehicle(v._id)} style={{ color: 'var(--error)', padding: 8 }}>
               <Trash2 size={18} />
             </button>
           </div>

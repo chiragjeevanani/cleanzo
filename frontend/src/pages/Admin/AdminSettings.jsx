@@ -1,8 +1,10 @@
 import { useTheme } from '../../context/ThemeContext'
+import { useAuth } from '../../context/AuthContext'
 import { Sun, Moon, Shield, Bell, Globe, Save } from 'lucide-react'
 
 export default function AdminSettings() {
   const { theme, toggleTheme } = useTheme()
+  const { user } = useAuth()
 
   return (
     <div>
@@ -15,11 +17,11 @@ export default function AdminSettings() {
           <div className="flex flex-col gap-16">
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Name</label>
-              <input className="input-field" defaultValue="Admin User" />
+              <input className="input-field" defaultValue={user?.name || "Admin User"} />
             </div>
             <div>
-              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Email</label>
-              <input className="input-field" defaultValue="admin@cleanzo.in" />
+              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Email / Phone</label>
+              <input className="input-field" defaultValue={user?.email || user?.phone || "admin@cleanzo.in"} />
             </div>
             <button className="btn btn-blue btn-sm" style={{ alignSelf: 'flex-start' }}><Save size={14} /> Save Changes</button>
           </div>

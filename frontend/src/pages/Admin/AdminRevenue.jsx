@@ -1,8 +1,49 @@
+import { useState, useEffect } from 'react'
 import { Download } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { mockRevenueData } from '../../data/mockData'
+import apiClient from '../../services/apiClient'
 
 export default function AdminRevenue() {
+  const [revenueStats, setRevenueStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchRevenue = async () => {
+      try {
+        const res = await apiClient.get('/admin/revenue')
+        setRevenueStats(res)
+      } catch (err) {
+        console.error('Error fetching revenue stats:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchRevenue()
+  }, [])
+
+  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+
+  const summary = revenueStats?.summary || [
+    { label: 'This Month', value: '₹14.2L', trend: '+8.7%', trendColor: 'var(--success)' },
+    { label: 'Last Month', value: '₹13.5L', trend: '+5.2%', trendColor: 'var(--success)' },
+    { label: 'YTD Total', value: '₹90.7L', trend: '+12.4%', trendColor: 'var(--success)' },
+  ]
+
+  const chartData = revenueStats?.chartData || [
+    { month: 'Oct', revenue: 95000, subscriptions: 80000 },
+    { month: 'Nov', revenue: 102000, subscriptions: 85000 },
+    { month: 'Dec', revenue: 115000, subscriptions: 90000 },
+    { month: 'Jan', revenue: 112000, subscriptions: 88000 },
+    { month: 'Feb', revenue: 128000, subscriptions: 100000 },
+    { month: 'Mar', revenue: 142000, subscriptions: 110000 },
+    { month: 'Apr', revenue: 165000, subscriptions: 125000 },
+  ]
+
+  const topCustomers = revenueStats?.topCustomers || [
+    { name: 'Arjun Mehta', plan: 'Premium', months: 6, total: '₹11,994' },
+    { name: 'Priya Sharma', plan: 'Elite', months: 4, total: '₹13,996' },
+    { name: 'Ananya Iyer', plan: 'Elite', months: 3, total: '₹10,497' },
+  ]
   return (
     <div>
       <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
@@ -12,11 +53,7 @@ export default function AdminRevenue() {
 
       {/* Summary cards */}
       <div className="grid-3" style={{ gap: 16, marginBottom: 28 }}>
-        {[
-          { label: 'This Month', value: '₹14.2L', trend: '+8.7%', trendColor: 'var(--success)' },
-          { label: 'Last Month', value: '₹13.5L', trend: '+5.2%', trendColor: 'var(--success)' },
-          { label: 'YTD Total', value: '₹90.7L', trend: '+12.4%', trendColor: 'var(--success)' },
-        ].map((s, i) => (
+        {summary.map((s, i) => (
           <div key={i} className="glass" style={{ padding: 24 }}>
             <div className="text-body-sm text-secondary" style={{ marginBottom: 8 }}>{s.label}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800 }}>{s.value}</div>
@@ -30,7 +67,7 @@ export default function AdminRevenue() {
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, display: 'block', marginBottom: 20 }}>Monthly Revenue Trend</span>
         <div style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={mockRevenueData}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-glass)" />
               <XAxis dataKey="month" stroke="var(--text-tertiary)" fontSize={12} />
               <YAxis stroke="var(--text-tertiary)" fontSize={12} tickFormatter={v => `₹${(v/100000).toFixed(1)}L`} />
@@ -48,11 +85,7 @@ export default function AdminRevenue() {
         <table className="data-table">
           <thead><tr><th>Customer</th><th>Plan</th><th>Months</th><th>Total Paid</th></tr></thead>
           <tbody>
-            {[
-              { name: 'Arjun Mehta', plan: 'Premium', months: 6, total: '₹11,994' },
-              { name: 'Priya Sharma', plan: 'Elite', months: 4, total: '₹13,996' },
-              { name: 'Ananya Iyer', plan: 'Elite', months: 3, total: '₹10,497' },
-            ].map((c, i) => (
+            {topCustomers.map((c, i) => (
               <tr key={i}>
                 <td style={{ fontWeight: 500 }}>{c.name}</td>
                 <td><span className={`chip ${c.plan === 'Elite' ? 'chip-lime' : 'chip-blue'}`}>{c.plan}</span></td>

@@ -11,21 +11,21 @@ export const mockUser = {
 
 export const mockPackages = [
   {
-    id: 1, name: 'Standard Exterior', tier: 'Daily Clean',
-    price: 699, duration: 'Monthly', perDay: 23,
-    features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Doorstep Service', 'Windshield + Tire Rinse'],
+    id: 1, name: 'Basic Plan', tier: 'Essential Care',
+    price: 599, duration: 'Monthly', perDay: 20,
+    features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Doorstep Service', 'Windshield Rinse'],
     popular: false
   },
   {
-    id: 2, name: 'Premium Exterior', tier: 'Daily + Shine',
-    price: 1199, duration: 'Monthly', perDay: 40,
-    features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Liquid Wax Shine (Weekly)', 'Monthly Interior Add-on Available'],
+    id: 2, name: 'Standard Plan', tier: 'Popular Choice',
+    price: 999, duration: 'Monthly', perDay: 33,
+    features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Liquid Wax Shine (Weekly)', 'Tire Polish (Weekly)', 'Monthly Interior Add-on'],
     popular: true
   },
   {
-    id: 3, name: 'Full Care Pack', tier: 'All-in-One',
-    price: 2499, duration: 'Monthly', perDay: 83,
-    features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Weekly Interior Cleaning', 'Monthly Deep Detailing Add-on'],
+    id: 3, name: 'Elite Plan', tier: 'Luxury Care',
+    price: 1999, duration: 'Monthly', perDay: 66,
+    features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Interior Cleaning (Weekly)', 'Microfiber Deep Dry', 'Priority Support'],
     popular: false
   }
 ]
@@ -91,10 +91,10 @@ export const mockRevenueData = [
 ]
 
 export const mockAdminUsers = [
-  { id: 1, name: 'Arjun Mehta', phone: '+91 98765 43210', vehicles: 2, plan: 'Premium', status: 'Active', joined: '2025-01-15' },
+  { id: 1, name: 'Arjun Mehta', phone: '+91 98765 43210', vehicles: 2, plan: 'Standard', status: 'Active', joined: '2025-01-15' },
   { id: 2, name: 'Priya Sharma', phone: '+91 87654 32109', vehicles: 1, plan: 'Elite', status: 'Active', joined: '2025-02-20' },
   { id: 3, name: 'Vikram Patel', phone: '+91 76543 21098', vehicles: 1, plan: 'Basic', status: 'Active', joined: '2025-03-10' },
-  { id: 4, name: 'Neha Gupta', phone: '+91 65432 10987', vehicles: 3, plan: 'Premium', status: 'Paused', joined: '2025-01-22' },
+  { id: 4, name: 'Neha Gupta', phone: '+91 65432 10987', vehicles: 3, plan: 'Standard', status: 'Paused', joined: '2025-01-22' },
   { id: 5, name: 'Rohit Verma', phone: '+91 54321 09876', vehicles: 1, plan: 'Basic', status: 'Expired', joined: '2024-11-05' },
   { id: 6, name: 'Ananya Iyer', phone: '+91 43210 98765', vehicles: 2, plan: 'Elite', status: 'Active', joined: '2025-04-01' },
 ]
