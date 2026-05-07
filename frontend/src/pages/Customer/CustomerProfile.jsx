@@ -1,10 +1,25 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
-import { ChevronRight, Car, Sun, Moon, LogOut, HelpCircle, Shield, Bell, MapPin, FileText } from 'lucide-react'
-import { mockUser } from '../../data/mockData'
+import { useAuth } from '../../context/AuthContext'
+import { ChevronRight, Car, Sun, Moon, LogOut, HelpCircle, Shield, Bell, MapPin, FileText, Loader2 } from 'lucide-react'
 
 export default function CustomerProfile() {
   const { theme, toggleTheme } = useTheme()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await logout()
+      navigate('/customer')
+    } catch (err) {
+      console.error('Logout failed', err)
+      setIsLoggingOut(false)
+    }
+  }
 
   const menuItems = [
     { icon: Car, label: 'My Vehicles', to: '/customer/vehicles' },
@@ -18,10 +33,10 @@ export default function CustomerProfile() {
     <div style={{ padding: '0 20px' }}>
       <div style={{ padding: '24px 0', textAlign: 'center' }}>
         <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-blue), var(--accent-lime))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 28, fontWeight: 800, fontFamily: 'var(--font-display)', color: '#0A0A0A' }}>
-          {mockUser.name[0]}
+          {user?.name ? user.name[0].toUpperCase() : 'U'}
         </div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>{mockUser.name}</div>
-        <div className="text-body-sm text-secondary">{mockUser.phone}</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>{user?.name || 'User'}</div>
+        <div className="text-body-sm text-secondary">{user?.phone || user?.email || ''}</div>
       </div>
 
       {/* Theme toggle */}
@@ -47,9 +62,30 @@ export default function CustomerProfile() {
         ))}
       </div>
 
-      <Link to="/" className="btn btn-ghost w-full" style={{ color: 'var(--error)', borderColor: 'rgba(255,69,58,0.2)', marginBottom: 100 }}>
-        <LogOut size={16} /> Sign Out
-      </Link>
+      <button 
+        onClick={handleLogout} 
+        disabled={isLoggingOut}
+        className="btn btn-ghost w-full" 
+        style={{ 
+          color: 'var(--error)', 
+          borderColor: 'rgba(255,69,58,0.2)', 
+          marginBottom: 100,
+          background: isLoggingOut ? 'rgba(255,69,58,0.05)' : 'transparent',
+          height: 52
+        }}
+      >
+        {isLoggingOut ? (
+          <>
+            <Loader2 size={16} className="animate-spin" /> 
+            <span>Logging out...</span>
+          </>
+        ) : (
+          <>
+            <LogOut size={16} /> 
+            <span>Sign Out</span>
+          </>
+        )}
+      </button>
     </div>
   )
 }

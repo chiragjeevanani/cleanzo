@@ -1,21 +1,40 @@
+import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Share2, CheckCircle2, XCircle, ChevronRight, HelpCircle, Star, Plus, Minus } from 'lucide-react'
-import { mockPackages } from '../../data/mockData'
+import apiClient from '../../services/apiClient'
 
 export default function PlanDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const pkg = mockPackages.find(p => p.id === parseInt(id)) || mockPackages[0]
+  const [pkg, setPkg] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchPkg = async () => {
+      try {
+        const res = await apiClient.get(`/packages/${id}`)
+        setPkg(res.package)
+      } catch (err) {
+        console.error('Error fetching plan:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchPkg()
+  }, [id])
+
+  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (!pkg) return <div style={{ padding: 20, textAlign: 'center' }}>Plan not found</div>
 
   if (!pkg) return null
 
-  const includes = pkg.features
+  const includes = pkg.features || []
   const doesNotInclude = [
     'Deep interior shampooing',
     'Engine bay detailing',
     'Paint correction',
     'Pet hair removal (Elite only)'
-  ].filter(item => !pkg.features.includes(item))
+  ].filter(item => !(pkg.features || []).includes(item))
 
   const faqs = [
     { q: 'What are the service timings?', a: 'We work dedicatedly from 5:00 AM to 10:00 AM every morning so your car is ready before you leave for work.' },

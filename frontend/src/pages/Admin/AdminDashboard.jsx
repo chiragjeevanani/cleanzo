@@ -1,36 +1,63 @@
+import { useState, useEffect } from 'react'
 import { Users, CreditCard, TrendingUp, UserCog, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { mockAdminStats, mockRevenueData } from '../../data/mockData'
+import apiClient from '../../services/apiClient'
 
-const kpis = [
-  { label: 'Total Users', value: '12.8K', growth: mockAdminStats.userGrowth, icon: Users, color: 'var(--primary-blue)' },
-  { label: 'Subscriptions', value: '8.2K', growth: mockAdminStats.subGrowth, icon: CreditCard, color: 'var(--accent-lime)' },
-  { label: "Today's Revenue", value: '₹1.4L', growth: mockAdminStats.revenueGrowth, icon: TrendingUp, color: 'var(--success)' },
-  { label: 'Active Cleaners', value: '142', growth: mockAdminStats.cleanerGrowth, icon: UserCog, color: 'var(--warning)' },
-]
-
-const pieData = [
-  { name: 'Basic', value: 3200, color: 'var(--text-tertiary)' },
-  { name: 'Premium', value: 3800, color: 'var(--primary-blue)' },
-  { name: 'Elite', value: 1234, color: '#DFFF00' },
-]
-
-const recentActivity = [
-  { text: 'Arjun Mehta subscribed to Premium Detail', time: '2m ago', type: 'subscription' },
-  { text: 'Raj Kumar completed 6/6 tasks today', time: '15m ago', type: 'cleaner' },
-  { text: 'New user Sneha Roy registered', time: '1h ago', type: 'user' },
-  { text: '₹14,250 revenue collected today', time: '2h ago', type: 'revenue' },
-  { text: 'Amit Singh flagged for low completion rate', time: '3h ago', type: 'alert' },
-]
+const pieColors = ['var(--text-tertiary)', 'var(--primary-blue)', '#DFFF00', 'var(--accent-lime)']
 
 export default function AdminDashboard() {
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const res = await apiClient.get('/admin/dashboard')
+        setStats(res)
+      } catch (err) {
+        console.error('Error fetching dashboard stats:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDashboard()
+  }, [])
+
+  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+
+  // Use mock data fallback if API doesn't return full structure yet
+  const kpiData = stats?.kpis || [
+    { label: 'Total Users', value: stats?.usersCount || '0', growth: 12, icon: Users, color: 'var(--primary-blue)' },
+    { label: 'Subscriptions', value: stats?.subscriptionsCount || '0', growth: 8, icon: CreditCard, color: 'var(--accent-lime)' },
+    { label: "Today's Revenue", value: `₹${stats?.revenue || 0}`, growth: 15, icon: TrendingUp, color: 'var(--success)' },
+    { label: 'Active Cleaners', value: stats?.cleanersCount || '0', growth: 5, icon: UserCog, color: 'var(--warning)' },
+  ]
+
+  const pieData = stats?.pieData || [
+    { name: 'Basic', value: 3200, color: 'var(--text-tertiary)' },
+    { name: 'Premium', value: 3800, color: 'var(--primary-blue)' },
+    { name: 'Elite', value: 1234, color: '#DFFF00' },
+  ]
+
+  const revenueData = stats?.revenueData || [
+    { month: 'Oct', revenue: 95000 },
+    { month: 'Nov', revenue: 102000 },
+    { month: 'Dec', revenue: 115000 },
+    { month: 'Jan', revenue: 112000 },
+    { month: 'Feb', revenue: 128000 },
+    { month: 'Mar', revenue: 142000 },
+    { month: 'Apr', revenue: 165000 },
+  ]
+
+  const recentActivity = stats?.recentActivity || []
+
   return (
     <div>
       <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, marginBottom: 28 }}>Dashboard</h1>
 
       {/* KPI Cards */}
       <div className="grid-4" style={{ gap: 16, marginBottom: 28 }}>
-        {kpis.map((k, i) => (
+        {kpiData.map((k, i) => (
           <div key={i} className="glass" style={{ padding: 24 }}>
             <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
               <div style={{ width: 40, height: 40, borderRadius: 'var(--radius)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -57,7 +84,7 @@ export default function AdminDashboard() {
           </div>
           <div style={{ height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mockRevenueData}>
+              <AreaChart data={revenueData}>
                 <defs>
                   <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#007AFF" stopOpacity={0.3} />
@@ -105,7 +132,9 @@ export default function AdminDashboard() {
       <div className="glass" style={{ padding: 24 }}>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, display: 'block', marginBottom: 16 }}>Recent Activity</span>
         <div className="flex flex-col gap-4">
-          {recentActivity.map((a, i) => (
+          {recentActivity.length === 0 ? (
+            <div className="text-secondary text-center py-4">No recent activity</div>
+          ) : recentActivity.map((a, i) => (
             <div key={i} style={{ padding: '12px 0', borderBottom: i < recentActivity.length - 1 ? '1px solid var(--divider)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="text-body-sm">{a.text}</span>
               <span className="text-body-sm text-tertiary" style={{ whiteSpace: 'nowrap', marginLeft: 16 }}>{a.time}</span>

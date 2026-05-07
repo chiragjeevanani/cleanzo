@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 
 export default function PrivacyPolicy() {
+  const isAuthed = localStorage.getItem('cleanzo_authed') === 'true'
+
   return (
     <div style={{ padding: '0 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div className="app-header" style={{ padding: '16px 0', marginBottom: 12 }}>
-        <Link to="/customer/profile" className="flex items-center gap-8">
+        <Link to={isAuthed ? "/customer/profile" : "/"} className="flex items-center gap-8">
           <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Privacy Policy</span>
         </Link>
       </div>

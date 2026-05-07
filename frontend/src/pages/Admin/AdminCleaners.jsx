@@ -1,14 +1,27 @@
+import { useState, useEffect } from 'react'
 import { Star, MapPin, MoreVertical } from 'lucide-react'
-
-const cleaners = [
-  { id: 1, name: 'Raj Kumar', area: 'Sector 42-48', rating: 4.8, completion: 96, tasks: 1247, status: 'Active' },
-  { id: 2, name: 'Amit Singh', area: 'Sector 50-55', rating: 4.5, completion: 89, tasks: 934, status: 'Active' },
-  { id: 3, name: 'Suresh Yadav', area: 'Sector 30-36', rating: 4.9, completion: 98, tasks: 1532, status: 'Active' },
-  { id: 4, name: 'Mohan Lal', area: 'Sector 60-65', rating: 4.2, completion: 82, tasks: 678, status: 'On Leave' },
-  { id: 5, name: 'Deepak Sharma', area: 'Sector 70-75', rating: 4.6, completion: 91, tasks: 1105, status: 'Active' },
-]
+import apiClient from '../../services/apiClient'
 
 export default function AdminCleaners() {
+  const [cleaners, setCleaners] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchCleaners = async () => {
+      try {
+        const res = await apiClient.get('/admin/cleaners')
+        setCleaners(res.cleaners || [])
+      } catch (err) {
+        console.error('Error fetching cleaners:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchCleaners()
+  }, [])
+
+  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+
   return (
     <div>
       <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
@@ -21,19 +34,21 @@ export default function AdminCleaners() {
             <tr><th>Name</th><th>Area</th><th>Rating</th><th>Completion</th><th>Total Tasks</th><th>Status</th><th></th></tr>
           </thead>
           <tbody>
-            {cleaners.map(c => (
-              <tr key={c.id}>
-                <td style={{ fontWeight: 500 }}>{c.name}</td>
-                <td className="text-secondary"><span className="flex items-center gap-4"><MapPin size={12} />{c.area}</span></td>
-                <td><span className="flex items-center gap-4"><Star size={12} style={{ color: 'var(--accent-lime)' }} />{c.rating}</span></td>
+            {cleaners.length === 0 ? (
+              <tr><td colSpan="7" className="text-center py-4 text-secondary">No cleaners found.</td></tr>
+            ) : cleaners.map(c => (
+              <tr key={c._id}>
+                <td style={{ fontWeight: 500 }}>{c.name || 'Cleaner'}</td>
+                <td className="text-secondary"><span className="flex items-center gap-4"><MapPin size={12} />{c.area || 'Unassigned'}</span></td>
+                <td><span className="flex items-center gap-4"><Star size={12} style={{ color: 'var(--accent-lime)' }} />{c.rating || '4.5'}</span></td>
                 <td>
                   <div className="flex items-center gap-8">
-                    <div className="progress-track" style={{ width: 60 }}><div className="progress-fill" style={{ width: `${c.completion}%` }} /></div>
-                    <span className="text-body-sm">{c.completion}%</span>
+                    <div className="progress-track" style={{ width: 60 }}><div className="progress-fill" style={{ width: `${c.completionRate || 90}%` }} /></div>
+                    <span className="text-body-sm">{c.completionRate || 90}%</span>
                   </div>
                 </td>
-                <td>{c.tasks.toLocaleString()}</td>
-                <td><span className={`chip ${c.status === 'Active' ? 'chip-success' : 'chip-ghost'}`}>{c.status}</span></td>
+                <td>{(c.tasksCount || 0).toLocaleString()}</td>
+                <td><span className={`chip ${c.status === 'active' ? 'chip-success' : 'chip-ghost'}`}>{c.status || 'Active'}</span></td>
                 <td><button style={{ color: 'var(--text-tertiary)', padding: 4 }}><MoreVertical size={16} /></button></td>
               </tr>
             ))}

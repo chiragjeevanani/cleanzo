@@ -1,7 +1,46 @@
-import { Link } from 'react-router-dom'
+import { useState, useRef } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Camera, Image, Upload } from 'lucide-react'
+import apiClient from '../../services/apiClient'
 
 export default function PhotoUpload() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const taskId = searchParams.get('taskId')
+  const uploadType = searchParams.get('type') || 'before'
+
+  const [file, setFile] = useState(null)
+  const [preview, setPreview] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0]
+    if (selectedFile) {
+      setFile(selectedFile)
+      setPreview(URL.createObjectURL(selectedFile))
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!file || !taskId) return
+    setUploading(true)
+    const formData = new FormData()
+    formData.append('photo', file)
+    formData.append('type', uploadType)
+
+    try {
+      await apiClient.post(`/cleaner/tasks/${taskId}/photo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      navigate(`/cleaner/tasks/${taskId}`)
+    } catch (err) {
+      console.error('Photo upload failed', err)
+      alert('Photo upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
@@ -9,13 +48,32 @@ export default function PhotoUpload() {
       </div>
 
       <div className="glass" style={{ padding: 40, textAlign: 'center', marginBottom: 20, borderStyle: 'dashed' }}>
-        <Camera size={40} style={{ color: 'var(--text-tertiary)', margin: '0 auto 16px' }} />
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Take a Photo</div>
-        <p className="text-body-sm text-secondary" style={{ marginBottom: 20 }}>Capture the vehicle before or after cleaning</p>
-        <div className="flex gap-8 justify-center">
-          <button className="btn btn-primary"><Camera size={16} /> Camera</button>
-          <button className="btn btn-ghost"><Image size={16} /> Gallery</button>
-        </div>
+        <input 
+          type="file" 
+          accept="image/*" 
+          ref={fileInputRef} 
+          onChange={handleFileChange} 
+          style={{ display: 'none' }} 
+        />
+        {preview ? (
+          <div style={{ marginBottom: 16 }}>
+            <img src={preview} alt="Preview" style={{ width: '100%', borderRadius: 12, objectFit: 'cover' }} />
+            <button className="btn btn-ghost btn-sm mt-4" onClick={() => { setFile(null); setPreview(null); }}>
+              Remove Photo
+            </button>
+          </div>
+        ) : (
+          <>
+            <Camera size={40} style={{ color: 'var(--text-tertiary)', margin: '0 auto 16px' }} />
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Take a Photo</div>
+            <p className="text-body-sm text-secondary" style={{ marginBottom: 20 }}>Capture the vehicle {uploadType} cleaning</p>
+            <div className="flex gap-8 justify-center">
+              <button className="btn btn-primary" onClick={() => fileInputRef.current?.click()}>
+                <Camera size={16} /> Choose Photo
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="glass" style={{ padding: 16, marginBottom: 20 }}>
@@ -23,7 +81,9 @@ export default function PhotoUpload() {
         <textarea className="input-field" rows={3} placeholder="Any observations or notes..." style={{ resize: 'vertical' }} />
       </div>
 
-      <button className="btn btn-blue w-full btn-lg" style={{ marginBottom: 100 }}><Upload size={16} /> Submit Photos</button>
+      <button disabled={!file || uploading} className={`btn btn-blue w-full btn-lg ${(!file || uploading) ? 'opacity-50' : ''}`} style={{ marginBottom: 100 }} onClick={handleUpload}>
+        <Upload size={16} /> {uploading ? 'Uploading...' : 'Submit Photos'}
+      </button>
     </div>
   )
 }

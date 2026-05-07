@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { Home, CreditCard, Clock, User } from 'lucide-react'
 import CustomerHome from './CustomerHome'
@@ -26,9 +26,10 @@ const tabs = [
 ]
 
 export default function CustomerApp() {
-  const [authed] = useState(true) // mock auth
+  const { user, loading, logout } = useAuth()
 
-  if (!authed) return <CustomerAuth />
+  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (!user) return <Navigate to="/login" replace />
 
   return (
     <div className="app-shell">
@@ -36,7 +37,7 @@ export default function CustomerApp() {
         <Route index element={<CustomerHome />} />
         <Route path="subscriptions" element={<SubscriptionDetail />} />
         <Route path="history" element={<ServiceHistory />} />
-        <Route path="profile" element={<CustomerProfile />} />
+        <Route path="profile" element={<CustomerProfile onLogout={logout} />} />
         <Route path="vehicles" element={<VehicleManager />} />
         <Route path="packages" element={<PackageSelect />} />
         <Route path="plan/:id" element={<PlanDetail />} />

@@ -5,12 +5,13 @@ import { ArrowLeft, Search, ChevronDown, ChevronUp, MessageCircle, PhoneCall } f
 export default function HelpSupport() {
   const [search, setSearch] = useState('')
   const [openFaq, setOpenFaq] = useState(null)
+  const isAuthed = localStorage.getItem('cleanzo_authed') === 'true'
 
   const faqs = [
-    { id: 1, q: 'How do I reschedule a cleaning?', a: 'You can reschedule any cleaning up to 12 hours before the scheduled time by navigating to your Service History and tapping "Reschedule".' },
-    { id: 2, q: 'What happens if it rains?', a: 'If inclement weather prevents us from servicing your vehicle, we will automatically credit your account for a skipped service or offer a free reschedule.' },
-    { id: 3, q: 'Are your cleaning products safe for ceramic coats?', a: 'Yes, all our chemicals are pH-neutral and completely safe for ceramic coatings, waxes, and factory clear coats.' },
-    { id: 4, q: 'How do I change my subscription plan?', a: 'Navigate to the "Plans" tab in your app and select "Upgrade" or "Modify" on your current active plan.' }
+    { id: 1, q: 'What happens if it rains?', a: 'During heavy rain, we pause our services for safety. The missed day will be automatically added back to your subscription validity, extending your plan.' },
+    { id: 2, q: 'Are services available during curfews or elections?', a: 'No, services are suspended during government-mandated curfews, lockdowns, or election days. All such missed days are credited back to your subscription.' },
+    { id: 3, q: 'Why was my car not cleaned today?', a: 'Our cleaning staff is entitled to one scheduled leave per month. This is already accounted for in our pricing and will not be added to your validity. Check your notifications for any other reasons.' },
+    { id: 4, q: 'How do I add interior cleaning to my plan?', a: 'Standard daily plans focus on exterior. You can purchase "Interior Deep Clean" as a one-time add-on from your dashboard anytime.' }
   ]
 
   const filteredFaqs = faqs.filter(f => f.q.toLowerCase().includes(search.toLowerCase()))
@@ -18,7 +19,7 @@ export default function HelpSupport() {
   return (
     <div style={{ padding: '0 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div className="app-header" style={{ padding: '16px 0', marginBottom: 12 }}>
-        <Link to="/customer/profile" className="flex items-center gap-8">
+        <Link to={isAuthed ? "/customer/profile" : "/"} className="flex items-center gap-8">
           <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Help & Support</span>
         </Link>
       </div>

@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 
 export default function TermsOfService() {
+  const isAuthed = localStorage.getItem('cleanzo_authed') === 'true'
+  
   return (
     <div style={{ padding: '0 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div className="app-header" style={{ padding: '16px 0', marginBottom: 12 }}>
-        <Link to="/customer/profile" className="flex items-center gap-8">
+        <Link to={isAuthed ? "/customer/profile" : "/"} className="flex items-center gap-8">
           <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Terms of Service</span>
         </Link>
       </div>
@@ -31,12 +33,23 @@ export default function TermsOfService() {
           </section>
 
           <section>
-            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>4. Payment & Subscriptions</h3>
-            <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>Subscription plans are billed automatically on a recurring monthly or annual basis. You may cancel your subscription at any time through the app settings, but no refunds or credits will be provided for partial months or unused service days.</p>
+            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>4. Service Availability & External Factors</h3>
+            <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>Cleanzo strives to provide 365-day service. However, services may be temporarily suspended due to external factors beyond our control, including:</p>
+            <ul className="text-secondary text-body-sm" style={{ paddingLeft: 20, marginTop: 8, listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <li>Heavy Rain or extreme weather conditions.</li>
+              <li>Government imposed Curfews or Lockdowns.</li>
+              <li>Election day restrictions or local disturbances.</li>
+            </ul>
+            <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6, marginTop: 12 }}>In such cases, any missed service days will be **automatically added back** to your subscription plan, extending your validity.</p>
           </section>
 
           <section>
-            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>5. Liability & Damages</h3>
+            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>5. Leave Policy</h3>
+            <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>Our cleaning staff is entitled to **one scheduled leave per month**. This day is already factored into our competitive pricing model and will **not be added back** to your subscription validity. Any additional leaves taken by the staff beyond this will be credited back to your account.</p>
+          </section>
+
+          <section>
+            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>6. Liability & Damages</h3>
             <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>While we take the utmost care, Cleanzo is not liable for pre-existing damage, loose parts, mechanical issues, or internal electronic failures. We recommend securing or removing all valuables from the vehicle prior to service. Any claims for damage must be reported within 24 hours of service completion.</p>
           </section>
 
