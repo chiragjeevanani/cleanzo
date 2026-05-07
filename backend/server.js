@@ -12,6 +12,8 @@ import { ApiError } from './src/utils/ApiError.js';
 import { startCronJobs } from './src/cron/referralCron.js';
 
 dotenv.config();
+// Trigger restart after fixing sharp dependency issue
+
 
 const seedAdminOnStartup = async () => {
   try {
@@ -87,7 +89,7 @@ app.use((err, req, res, next) => {
 
 // ─── START ───────────────────────────────────────
 const start = async () => {
-  const server = app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, () => {
     console.log(`🚀 Cleanzo API running on http://localhost:${PORT}`);
     console.log(`📋 Health: http://localhost:${PORT}/api/health`);
   });

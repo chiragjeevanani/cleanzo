@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Upload, CheckCircle2, AlertCircle, X, RotateCcw, Shield, User, CreditCard, FileText } from 'lucide-react'
+import { Camera, Upload, CheckCircle2, AlertCircle, X, RotateCcw, Shield, CreditCard, FileText } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { optimizeImage } from '../../utils/imageOptimizer'
 
 // ─── Step definitions ────────────────────────────
 const STEPS = [
@@ -212,20 +213,32 @@ export default function CleanerKYC() {
   const step = STEPS[currentStep]
   const allDone = Object.values(files).every(Boolean)
 
-  const handleCapture = (file, dataUrl) => {
+  const handleCapture = async (file, dataUrl) => {
     const id = cameraTarget
-    setFiles(prev => ({ ...prev, [id]: file }))
-    setPreviews(prev => ({ ...prev, [id]: dataUrl }))
+    try {
+      const optimized = await optimizeImage(file, { maxWidth: 800, quality: 0.7 })
+      setFiles(prev => ({ ...prev, [id]: optimized }))
+      setPreviews(prev => ({ ...prev, [id]: dataUrl }))
+    } catch (e) {
+      console.error('Photo optimization failed', e)
+      setFiles(prev => ({ ...prev, [id]: file }))
+      setPreviews(prev => ({ ...prev, [id]: dataUrl }))
+    }
     setShowCamera(false)
   }
 
-  const handleFile = (file) => {
+  const handleFile = async (file) => {
     if (!file) return
     const id = step.id
-    setFiles(prev => ({ ...prev, [id]: file }))
-    const reader = new FileReader()
-    reader.onload = e => setPreviews(prev => ({ ...prev, [id]: e.target.result }))
-    reader.readAsDataURL(file)
+    try {
+      const optimized = await optimizeImage(file, { maxWidth: 1000, quality: 0.7 })
+      setFiles(prev => ({ ...prev, [id]: optimized }))
+      setPreviews(prev => ({ ...prev, [id]: URL.createObjectURL(optimized) }))
+    } catch (e) {
+      console.error('File optimization failed', e)
+      setFiles(prev => ({ ...prev, [id]: file }))
+      setPreviews(prev => ({ ...prev, [id]: URL.createObjectURL(file) }))
+    }
   }
 
   const openCamera = (id) => {
