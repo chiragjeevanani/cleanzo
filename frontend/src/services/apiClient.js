@@ -1,4 +1,8 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const BASE_URL = import.meta.env.VITE_API_URL;
+
+if (!BASE_URL) {
+  console.warn("⚠️ VITE_API_URL is not defined in your environment (.env file). API calls may fail.");
+}
 
 const apiClient = {
   get: (url) => request(url, { method: 'GET' }),
