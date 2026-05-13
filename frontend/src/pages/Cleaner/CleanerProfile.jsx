@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import { MapPin, Star, Award, Sun, Moon, LogOut, Loader2 } from 'lucide-react'
@@ -7,19 +7,13 @@ import { MapPin, Star, Award, Sun, Moon, LogOut, Loader2 } from 'lucide-react'
 export default function CleanerProfile() {
   const { theme, toggleTheme } = useTheme()
   const { user, logout } = useAuth()
-  const navigate = useNavigate()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     setIsLoggingOut(true)
-    try {
-      await logout()
-      navigate('/cleaner')
-    } catch (err) {
-      console.error('Logout failed', err)
-      setIsLoggingOut(false)
-    }
+    logout()
   }
+  const completionRate = user?.completionRate ?? 0
   const circumference = 2 * Math.PI * 40
 
   return (
@@ -38,11 +32,11 @@ export default function CleanerProfile() {
           <svg width="100" height="100" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
             <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border-glass)" strokeWidth="5" />
             <circle cx="50" cy="50" r="40" fill="none" stroke="var(--accent-lime)" strokeWidth="5"
-              strokeDasharray={circumference} strokeDashoffset={circumference - (95 / 100) * circumference}
+              strokeDasharray={circumference} strokeDashoffset={circumference - (completionRate / 100) * circumference}
               strokeLinecap="round" />
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800 }}>95%</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800 }}>{completionRate}%</span>
           </div>
         </div>
         <div className="text-body-sm text-secondary">Completion Rate</div>
@@ -50,8 +44,8 @@ export default function CleanerProfile() {
 
       <div className="flex flex-col gap-8" style={{ marginBottom: 20 }}>
         {[
-          { icon: Star, label: 'Rating', value: `4.9 ★` },
-          { icon: MapPin, label: 'Area', value: 'Central Zone' },
+          { icon: Star, label: 'Rating', value: user?.rating ? `${user.rating.toFixed(1)} ★` : 'N/A' },
+          { icon: MapPin, label: 'Area', value: user?.assignedArea || 'Not assigned' },
         ].map((r, i) => (
           <div key={i} className="glass" style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="flex items-center gap-12">

@@ -5,9 +5,12 @@ import apiClient from '../../services/apiClient'
 
 const pieColors = ['var(--text-tertiary)', 'var(--primary-blue)', '#DFFF00', 'var(--accent-lime)']
 
+const ICON_MAP = { Users, CreditCard, TrendingUp, UserCog }
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -15,7 +18,7 @@ export default function AdminDashboard() {
         const res = await apiClient.get('/admin/dashboard')
         setStats(res)
       } catch (err) {
-        console.error('Error fetching dashboard stats:', err)
+        setError('Failed to load dashboard.')
       } finally {
         setLoading(false)
       }
@@ -23,22 +26,61 @@ export default function AdminDashboard() {
     fetchDashboard()
   }, [])
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return (
+    <div>
+      <div className="skeleton" style={{ width: 160, height: 28, borderRadius: 8, marginBottom: 28 }} />
+      <div className="grid-4" style={{ gap: 16, marginBottom: 28 }}>
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="glass" style={{ padding: 24 }}>
+            <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
+              <div className="skeleton" style={{ width: 40, height: 40, borderRadius: 'var(--radius)' }} />
+              <div className="skeleton" style={{ width: 48, height: 18, borderRadius: 6 }} />
+            </div>
+            <div className="skeleton" style={{ width: 100, height: 32, borderRadius: 8, marginBottom: 8 }} />
+            <div className="skeleton" style={{ width: 130, height: 13, borderRadius: 6 }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 28 }}>
+        <div className="glass" style={{ padding: 24 }}>
+          <div className="skeleton" style={{ width: 180, height: 20, borderRadius: 8, marginBottom: 20 }} />
+          <div className="skeleton" style={{ height: 260, borderRadius: 12 }} />
+        </div>
+        <div className="glass" style={{ padding: 24 }}>
+          <div className="skeleton" style={{ width: 150, height: 20, borderRadius: 8, marginBottom: 20 }} />
+          <div className="skeleton" style={{ height: 180, borderRadius: 12, marginBottom: 16 }} />
+          <div className="flex flex-col gap-8">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex justify-between">
+                <div className="skeleton" style={{ width: 70, height: 12, borderRadius: 6 }} />
+                <div className="skeleton" style={{ width: 36, height: 12, borderRadius: 6 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="glass" style={{ padding: 24 }}>
+        <div className="skeleton" style={{ width: 160, height: 20, borderRadius: 8, marginBottom: 16 }} />
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} style={{ padding: '12px 0', borderBottom: '1px solid var(--divider)', display: 'flex', justifyContent: 'space-between' }}>
+            <div className="skeleton" style={{ width: '65%', height: 13, borderRadius: 6 }} />
+            <div className="skeleton" style={{ width: 60, height: 13, borderRadius: 6 }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
-  // Use mock data fallback if API doesn't return full structure yet
-  const kpiData = stats?.kpis || [
-    { label: 'Total Users', value: stats?.usersCount || '0', growth: 12, icon: Users, color: 'var(--primary-blue)' },
-    { label: 'Subscriptions', value: stats?.subscriptionsCount || '0', growth: 8, icon: CreditCard, color: 'var(--accent-lime)' },
-    { label: "Today's Revenue", value: `₹${stats?.revenue || 0}`, growth: 15, icon: TrendingUp, color: 'var(--success)' },
-    { label: 'Active Cleaners', value: stats?.cleanersCount || '0', growth: 5, icon: UserCog, color: 'var(--warning)' },
-  ]
+  const kpiData = (stats?.kpiData || []).map(k => ({ ...k, icon: ICON_MAP[k.icon] || Users }))
 
+  const isPieDefault = !stats?.pieData
   const pieData = stats?.pieData || [
     { name: 'Basic', value: 3200, color: 'var(--text-tertiary)' },
     { name: 'Premium', value: 3800, color: 'var(--primary-blue)' },
     { name: 'Elite', value: 1234, color: '#DFFF00' },
   ]
 
+  const isRevenueDefault = !stats?.revenueData
   const revenueData = stats?.revenueData || [
     { month: 'Oct', revenue: 95000 },
     { month: 'Nov', revenue: 102000 },
@@ -54,6 +96,11 @@ export default function AdminDashboard() {
   return (
     <div>
       <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, marginBottom: 28 }}>Dashboard</h1>
+      {error && (
+        <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 20, fontSize: 14 }}>
+          {error}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid-4" style={{ gap: 16, marginBottom: 28 }}>
@@ -99,6 +146,9 @@ export default function AdminDashboard() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          {isRevenueDefault && (
+            <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>Sample data — no revenue records yet</p>
+          )}
         </div>
 
         {/* Subscription Distribution */}
@@ -125,6 +175,9 @@ export default function AdminDashboard() {
               </div>
             ))}
           </div>
+          {isPieDefault && (
+            <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-tertiary)', marginTop: 10 }}>Sample data — no subscriptions yet</p>
+          )}
         </div>
       </div>
 

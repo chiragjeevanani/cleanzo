@@ -1,8 +1,14 @@
 import Customer from '../models/Customer.js';
 import Vehicle, { VEHICLE_PRICING } from '../models/Vehicle.js';
 import Subscription from '../models/Subscription.js';
+import Payment from '../models/Payment.js';
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
+import Society from '../models/Society.js';
+import Package from '../models/Package.js';
+import Settings from '../models/Settings.js';
+import Rating from '../models/Rating.js';
+import Cleaner from '../models/Cleaner.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
@@ -15,28 +21,33 @@ export const getProfile = asyncHandler(async (req, res) => {
 });
 
 export const updateProfile = asyncHandler(async (req, res) => {
-  const { name, email, city } = req.body;
-  const customer = await Customer.findByIdAndUpdate(req.user._id, { name, email, city }, { new: true, runValidators: true });
+  const { firstName, lastName, email, city } = req.body;
+  const update = Object.fromEntries(
+    Object.entries({ firstName, lastName, email, city }).filter(([, v]) => v !== undefined && v !== '')
+  );
+  if (Object.keys(update).length === 0) throw new ApiError(400, 'No valid fields provided');
+  const customer = await Customer.findByIdAndUpdate(req.user._id, update, { new: true, runValidators: true });
   res.json({ success: true, user: customer });
 });
 
 // ─── VEHICLES ────────────────────────────────────
 export const getVehicles = asyncHandler(async (req, res) => {
-  const vehicles = await Vehicle.find({ customer: req.user._id, isActive: true }).sort('-createdAt');
+  const vehicles = await Vehicle.find({ customer: req.user._id, isActive: true }).sort('-createdAt').lean();
   res.json({ success: true, vehicles });
 });
 
 export const addVehicle = asyncHandler(async (req, res) => {
-  const { model, number, parking, color, type } = req.body;
-  if (!model || !number) throw new ApiError(400, 'Model and number are required');
-  const vehicle = await Vehicle.create({ customer: req.user._id, model, number, parking, color, type });
+  const { brand, model, number, parking, color, category } = req.body;
+  if (!brand || !model || !number) throw new ApiError(400, 'Brand, model, and number are required');
+  const vehicle = await Vehicle.create({ customer: req.user._id, brand, model, number, parking, color, category });
   res.status(201).json({ success: true, vehicle });
 });
 
 export const updateVehicle = asyncHandler(async (req, res) => {
+  const { brand, model, number, parking, color, category } = req.body;
   const vehicle = await Vehicle.findOneAndUpdate(
     { _id: req.params.id, customer: req.user._id },
-    req.body,
+    { brand, model, number, parking, color, category },
     { new: true, runValidators: true }
   );
   if (!vehicle) throw new ApiError(404, 'Vehicle not found');
@@ -59,7 +70,8 @@ export const getSubscriptions = asyncHandler(async (req, res) => {
     .populate('vehicle', 'model number parking color')
     .populate('package', 'name tier price features')
     .populate('assignedCleaner', 'name phone rating')
-    .sort('-createdAt');
+    .sort('-createdAt')
+    .lean();
   res.json({ success: true, subscriptions });
 });
 
@@ -73,8 +85,6 @@ export const getSubscriptionById = asyncHandler(async (req, res) => {
 });
 
 export const getSocieties = asyncHandler(async (req, res) => {
-  const { default: Society } = await import('../models/Society.js');
-  // Return all active societies and their slots
   const societies = await Society.find({ isActive: true }).select('name city address slots');
   res.json({ success: true, societies });
 });
@@ -88,47 +98,84 @@ export const createSubscription = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Package is required for standard subscriptions');
   }
 
-  const [vehicle, pkg, { default: Society }] = await Promise.all([
+  // Non-trial subscriptions must have a backend-verified payment
+  if (!isTrial) {
+    if (!paymentId) throw new ApiError(400, 'Payment is required for non-trial subscriptions');
+    const verifiedPayment = await Payment.findOne({ paymentId, customer: req.user._id });
+    if (!verifiedPayment) {
+      throw new ApiError(400, 'Payment not verified. Please complete payment before subscribing.');
+    }
+  }
+
+  // Referrer reward only applies to a customer's very first non-trial subscription
+  const isFirstNonTrial = !isTrial && req.user.referredBy
+    ? (await Subscription.countDocuments({ customer: req.user._id, isTrial: false })) === 0
+    : false;
+
+  const [vehicle, pkg, referrer] = await Promise.all([
     Vehicle.findOne({ _id: vehicleId, customer: req.user._id, isActive: true }),
-    packageId ? (await import('../models/Package.js')).default.findById(packageId) : null,
-    import('../models/Society.js'),
+    packageId ? Package.findById(packageId) : null,
+    isFirstNonTrial ? Customer.findById(req.user.referredBy) : null,
   ]);
 
   if (!vehicle) throw new ApiError(404, 'Vehicle not found');
   if (!isTrial && !pkg) throw new ApiError(404, 'Package not found');
 
+  // Duplicate active subscription check
+  const existing = await Subscription.findOne({ customer: req.user._id, vehicle: vehicleId, status: 'Active' });
+  if (existing) throw new ApiError(409, 'An active subscription already exists for this vehicle');
+
   const society = await Society.findById(societyId);
   if (!society || !society.isActive) throw new ApiError(404, 'Society not found or inactive');
+
+  if (!Array.isArray(society.slots)) throw new ApiError(500, 'Society configuration error');
 
   const slot = society.slots.find(s => s.slotId === slotId);
   if (!slot) throw new ApiError(404, 'Slot not found');
 
-  let basePrice = isTrial ? 30 : (VEHICLE_PRICING[vehicle.category] || pkg.price);
+  // Load admin-configurable pricing from Settings
+  const [trialSetting, prioritySetting] = await Promise.all([
+    Settings.findOne({ key: 'trialPrice' }),
+    Settings.findOne({ key: 'prioritySlotFee' }),
+  ]);
+  const trialPrice = trialSetting?.value ?? 30;
+  const prioritySlotFee = prioritySetting?.value ?? 99;
+
+  let basePrice = isTrial ? trialPrice : (VEHICLE_PRICING[vehicle.category] || pkg.price);
   let priorityFee = 0;
 
-  // Check slot capacity and apply priority fee if full
-  if (slot.currentCount >= slot.maxVehicles) {
-    priorityFee = 99;
+  // Atomic slot increment: only succeeds if currentCount < maxVehicles
+  const updatedSociety = await Society.findOneAndUpdate(
+    { _id: societyId, slots: { $elemMatch: { slotId, currentCount: { $lt: slot.maxVehicles } } } },
+    { $inc: { 'slots.$.currentCount': 1 } },
+    { new: true }
+  );
+
+  if (!updatedSociety) {
+    // Slot was full — apply priority fee and increment unconditionally
+    priorityFee = prioritySlotFee;
+    await Society.updateOne(
+      { _id: societyId, 'slots.slotId': slotId },
+      { $inc: { 'slots.$.currentCount': 1 } }
+    );
   }
 
   // Calculate final amount
   let finalAmount = basePrice + priorityFee;
 
   // Apply Referral Discount (only for standard subscription, not trial)
-  if (!isTrial && req.user.referralDiscount && req.user.referralDiscount.isActive) {
-    const discount = finalAmount * (req.user.referralDiscount.percentage / 100);
-    finalAmount = finalAmount - discount;
-
-    // Deactivate discount after use
-    req.user.referralDiscount.isActive = false;
-    await req.user.save();
+  // Atomic update: only succeeds if discount is still active — eliminates race condition
+  if (!isTrial && req.user.referralDiscount?.isActive) {
+    const claimed = await Customer.findOneAndUpdate(
+      { _id: req.user._id, 'referralDiscount.isActive': true },
+      { $set: { 'referralDiscount.isActive': false } },
+      { new: true }
+    );
+    if (claimed) {
+      const discount = finalAmount * (req.user.referralDiscount.percentage / 100);
+      finalAmount = finalAmount - discount;
+    }
   }
-
-  // Increment slot count
-  await Society.updateOne(
-    { _id: societyId, 'slots.slotId': slotId },
-    { $inc: { 'slots.$.currentCount': 1 } }
-  );
 
   const startDate = new Date();
   const endDate = new Date();
@@ -152,18 +199,15 @@ export const createSubscription = asyncHandler(async (req, res) => {
     paymentId,
   });
 
-  // Referral Reward (Give referrer a discount)
-  if (!isTrial && req.user.referredBy) {
-    const { default: Customer } = await import('../models/Customer.js');
-    const referrer = await Customer.findById(req.user.referredBy);
-    if (referrer) {
-      referrer.referralDiscount = {
-        isActive: true,
-        percentage: 25,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Valid for 7 days
-      };
-      await referrer.save();
-    }
+  // Referral Reward (Give referrer a discount) — atomic, no race condition
+  if (referrer) {
+    await Customer.findByIdAndUpdate(referrer._id, {
+      $set: {
+        'referralDiscount.isActive': true,
+        'referralDiscount.percentage': 25,
+        'referralDiscount.expiresAt': new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
   }
 
   res.status(201).json({ success: true, subscription: sub });
@@ -174,13 +218,14 @@ export const skipService = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required to skip service');
 
+  // Validate date is a proper ISO date string (YYYY-MM-DD or ISO 8601)
+  const skipDate = new Date(date);
+  if (isNaN(skipDate.getTime())) throw new ApiError(400, 'Invalid date format. Use YYYY-MM-DD.');
+  skipDate.setHours(0, 0, 0, 0);
+
   const sub = await Subscription.findOne({ _id: req.params.id, customer: req.user._id });
   if (!sub) throw new ApiError(404, 'Subscription not found');
   if (sub.status !== 'Active') throw new ApiError(400, 'Only active subscriptions can be skipped');
-
-  // BRD §10.1 — 1-day advance notice required
-  const skipDate = new Date(date);
-  skipDate.setHours(0, 0, 0, 0);
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(0, 0, 0, 0);
@@ -253,7 +298,7 @@ export const skipService = asyncHandler(async (req, res) => {
   // BRD §10.2 — Auto-extend subscription endDate by 1 day per skip
   sub.skippedDays += 1;
   sub.endDate = new Date(sub.endDate.getTime() + 24 * 60 * 60 * 1000);
-  await sub.save();
+  await sub.save({ validateModifiedOnly: true });
 
   res.json({
     success: true,
@@ -267,17 +312,18 @@ export const skipService = asyncHandler(async (req, res) => {
 // ─── HISTORY ─────────────────────────────────────
 export const getHistory = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const skip = (page - 1) * limit;
 
+  const filter = { customer: req.user._id, status: { $in: ['completed', 'skipped'] } };
   const [tasks, total] = await Promise.all([
-    Task.find({ customer: req.user._id })
+    Task.find(filter)
       .populate('vehicle', 'model number')
       .populate('cleaner', 'name')
       .sort('-date')
       .skip(skip)
       .limit(limit),
-    Task.countDocuments({ customer: req.user._id }),
+    Task.countDocuments(filter),
   ]);
 
   res.json({ success: true, tasks, page, totalPages: Math.ceil(total / limit), total });
@@ -289,9 +335,8 @@ export const rateTask = asyncHandler(async (req, res) => {
 
   const task = await Task.findOne({ _id: req.params.id, customer: req.user._id, status: 'completed' });
   if (!task) throw new ApiError(404, 'Completed task not found');
+  if (!task.cleaner) throw new ApiError(400, 'Cannot rate a task without an assigned cleaner');
 
-  const { default: Rating } = await import('../models/Rating.js');
-  
   const existing = await Rating.findOne({ task: task._id });
   if (existing) throw new ApiError(400, 'Task already rated');
 
@@ -303,13 +348,24 @@ export const rateTask = asyncHandler(async (req, res) => {
     feedback
   });
 
+  // Recalculate and persist the cleaner's average rating
+  const [agg] = await Rating.aggregate([
+    { $match: { cleaner: task.cleaner } },
+    { $group: { _id: null, avg: { $avg: '$score' } } },
+  ]);
+  if (agg) {
+    await Cleaner.findByIdAndUpdate(task.cleaner, {
+      rating: Math.round(agg.avg * 10) / 10,
+    });
+  }
+
   res.status(201).json({ success: true, rating });
 });
 
 // ─── NOTIFICATIONS ───────────────────────────────
 export const getNotifications = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const skip = (page - 1) * limit;
 
   const [notifications, total] = await Promise.all([
@@ -336,8 +392,19 @@ export const getAddresses = asyncHandler(async (req, res) => {
 });
 
 export const addAddress = asyncHandler(async (req, res) => {
+  const { label, line1, line2, city, pincode, isDefault } = req.body;
+  if (!line1 || !city) throw new ApiError(400, 'Address line1 and city are required');
   const customer = await Customer.findById(req.user._id);
-  customer.addresses.push(req.body);
-  await customer.save();
+  customer.addresses.push({ label, line1, line2, city, pincode, isDefault });
+  await customer.save({ validateModifiedOnly: true });
   res.status(201).json({ success: true, addresses: customer.addresses });
+});
+
+export const deleteAddress = asyncHandler(async (req, res) => {
+  const customer = await Customer.findById(req.user._id);
+  const index = customer.addresses.findIndex(a => a._id.toString() === req.params.id);
+  if (index === -1) throw new ApiError(404, 'Address not found');
+  customer.addresses.splice(index, 1);
+  await customer.save({ validateModifiedOnly: true });
+  res.json({ success: true, addresses: customer.addresses });
 });

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
-import { upload, kycUpload } from '../middleware/upload.js';
+import { upload, kycUpload, validateImageBytes } from '../middleware/upload.js';
 import * as ctrl from '../controllers/cleaner.controller.js';
 
 const router = Router();
@@ -14,7 +14,7 @@ router.put('/availability', ctrl.toggleAvailability);
 router.get('/tasks/today', ctrl.getTodayTasks);
 router.get('/tasks/:id', ctrl.getTaskById);
 router.put('/tasks/:id/status', ctrl.updateTaskStatus);
-router.post('/tasks/:id/photo', upload.single('photo'), ctrl.uploadTaskPhotos);
+router.post('/tasks/:id/photo', upload.single('photo'), validateImageBytes, ctrl.uploadTaskPhotos);
 
 router.get('/history', ctrl.getHistory);
 
@@ -27,6 +27,7 @@ router.post(
     { name: 'aadhaar',    maxCount: 1 },
     { name: 'pan',        maxCount: 1 },
   ]),
+  validateImageBytes,
   ctrl.submitKyc
 );
 

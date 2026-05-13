@@ -1,13 +1,18 @@
+import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Edit2, ToggleLeft, ToggleRight, Plus, X, Check, Package } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { useToast } from '../../context/ToastContext'
 
 export default function AdminPackages() {
+  const { showToast } = useToast()
   const [packages, setPackages] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
+  const [editPkg, setEditPkg] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     tier: 'STANDARD',
@@ -16,6 +21,25 @@ export default function AdminPackages() {
     features: '',
     popular: false
   })
+
+  const closeModal = () => {
+    setShowAddModal(false)
+    setEditPkg(null)
+    setFormData({ name: '', tier: 'STANDARD', price: '', category: 'sedan', features: '', popular: false })
+  }
+
+  const handleEdit = (pkg) => {
+    setEditPkg(pkg)
+    setFormData({
+      name: pkg.name,
+      tier: pkg.tier || 'STANDARD',
+      price: String(pkg.price),
+      category: pkg.category || 'sedan',
+      features: (pkg.features || []).join(', '),
+      popular: pkg.popular || false,
+    })
+    setShowAddModal(true)
+  }
 
   useEffect(() => {
     fetchPackages()
@@ -26,7 +50,7 @@ export default function AdminPackages() {
       const res = await apiClient.get('/admin/packages')
       setPackages(res.packages || [])
     } catch (err) {
-      console.error('Error fetching packages:', err)
+      setError('Failed to load packages.')
     } finally {
       setLoading(false)
     }
@@ -37,35 +61,46 @@ export default function AdminPackages() {
       await apiClient.put(`/admin/packages/${id}`, { isActive: !isActive })
       setPackages(packages.map(p => p._id === id ? { ...p, isActive: !isActive } : p))
     } catch (err) {
-      console.error('Error toggling package', err)
+      setError(err?.message || 'Failed to update package status.')
     }
   }
 
   const handleAdd = async (e) => {
     e.preventDefault()
+    if (!formData.name.trim()) { setError('Package name is required'); return }
+    if (!formData.price || Number(formData.price) <= 0) { setError('Price must be greater than 0'); return }
     setSaving(true)
+    setError('')
     try {
       const payload = {
         ...formData,
         price: Number(formData.price),
         features: formData.features.split(',').map(f => f.trim()).filter(f => f)
       }
-      await apiClient.post('/admin/packages', payload)
+      if (editPkg) {
+        await apiClient.put(`/admin/packages/${editPkg._id}`, payload)
+      } else {
+        await apiClient.post('/admin/packages', payload)
+      }
       await fetchPackages()
-      setShowAddModal(false)
-      setFormData({ name: '', tier: 'STANDARD', price: '', category: 'sedan', features: '', popular: false })
+      showToast(editPkg ? 'Package updated' : 'Package created')
+      closeModal()
     } catch (err) {
-      console.error('Error adding package', err)
-      alert('Failed to add package')
+      setError(err?.message || (editPkg ? 'Failed to update package' : 'Failed to add package'))
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return <PageLoader />
 
   return (
     <div style={{ position: 'relative' }}>
+      {error && (
+        <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 16, fontSize: 14 }}>
+          {error}
+        </div>
+      )}
       <div className="flex justify-between items-center animate-fade-in" style={{ marginBottom: 32 }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Service Packages</h1>
@@ -127,7 +162,7 @@ export default function AdminPackages() {
               ))}
             </div>
 
-            <button className="btn btn-ghost w-full" style={{ borderRadius: 14, fontSize: 13, border: '1px solid var(--divider)' }}>
+            <button className="btn btn-ghost w-full" style={{ borderRadius: 14, fontSize: 13, border: '1px solid var(--divider)' }} onClick={() => handleEdit(pkg)}>
               <Edit2 size={14} /> Edit Details
             </button>
           </div>
@@ -154,11 +189,11 @@ export default function AdminPackages() {
 
             <div className="flex justify-between items-start mb-48">
               <div>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 800, letterSpacing: '-0.03em' }}>Create Package</h2>
-                <p className="text-secondary" style={{ fontSize: 16, marginTop: 6 }}>Design a new premium service subscription</p>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 800, letterSpacing: '-0.03em' }}>{editPkg ? 'Edit Package' : 'Create Package'}</h2>
+                <p className="text-secondary" style={{ fontSize: 16, marginTop: 6 }}>{editPkg ? 'Update this service plan' : 'Design a new premium service subscription'}</p>
               </div>
-              <button className="glass flex items-center justify-center hover:scale-110 transition-all" 
-                onClick={() => setShowAddModal(false)} 
+              <button className="glass flex items-center justify-center hover:scale-110 transition-all"
+                onClick={closeModal}
                 style={{ width: 44, height: 44, borderRadius: 16 }}>
                 <X size={20} />
               </button>
@@ -224,7 +259,7 @@ export default function AdminPackages() {
 
               <button disabled={saving} className="btn btn-primary w-full" type="submit" 
                 style={{ padding: '22px', borderRadius: 24, fontSize: 18, fontWeight: 800, marginTop: 8, boxShadow: 'var(--shadow-glow-lime)', transition: 'all 0.3s' }}>
-                {saving ? 'Creating your plan...' : 'Publish Service Package'}
+                {saving ? (editPkg ? 'Saving...' : 'Creating your plan...') : (editPkg ? 'Save Changes' : 'Publish Service Package')}
               </button>
             </form>
           </div>

@@ -29,9 +29,9 @@ export const verifyOtpSchema = Joi.object({
     .messages({ 'string.pattern.base': 'Phone number must be exactly 10 digits.' }),
 
   code: Joi.string()
-    .pattern(/^[0-9]{4,6}$/)
+    .pattern(/^[0-9]{6}$/)
     .required()
-    .messages({ 'string.pattern.base': 'OTP must be numeric.' }),
+    .messages({ 'string.pattern.base': 'OTP must be a 6-digit number.' }),
 
   role: Joi.string()
     .valid('customer', 'crew', 'cleaner')

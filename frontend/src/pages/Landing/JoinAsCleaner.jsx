@@ -111,7 +111,7 @@ const JoinAsCleaner = () => {
         setError('Please fill in all mandatory profile fields');
         return false;
       }
-      if (phone.length < 10) {
+      if (phone.length !== 10) {
         setError('Enter a valid 10-digit mobile number');
         return false;
       }

@@ -1,111 +1,133 @@
-import { useState, useEffect } from 'react';
-import { 
-  IndianRupee, TrendingUp, Calendar, AlertCircle, 
-  ArrowRight, ShieldCheck, Download 
-} from 'lucide-react';
-import apiClient from '../../services/apiClient';
+import PageLoader from '../../components/PageLoader'
+import { useState, useEffect } from 'react'
+import { IndianRupee, TrendingUp, Calendar, AlertCircle, ShieldCheck, Download } from 'lucide-react'
+import apiClient from '../../services/apiClient'
+import { useToast } from '../../context/ToastContext'
 
-const CleanerEarnings = () => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function CleanerEarnings() {
+  const { showToast } = useToast()
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchEarnings = async () => {
       try {
-        const res = await apiClient.get('/cleaner/earnings');
-        setData(res);
+        const res = await apiClient.get('/cleaner/earnings')
+        setData(res)
       } catch (err) {
-        console.error('Failed to fetch earnings');
+        setError('Failed to load earnings.')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-    fetchEarnings();
-  }, []);
+    }
+    fetchEarnings()
+  }, [])
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (loading) return <PageLoader />
 
   return (
-    <div className="p-6 pb-24 space-y-6">
-      <header className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900">My Earnings</h1>
-          <p className="text-gray-500 font-medium">Current Month Payout</p>
+    <div style={{ padding: '0 20px 100px' }}>
+      {error && (
+        <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 16, fontSize: 14 }}>
+          {error}
         </div>
-        <div className="w-12 h-12 bg-lime-100 rounded-2xl flex items-center justify-center text-lime-700">
-          <TrendingUp size={24} />
-        </div>
-      </header>
+      )}
 
-      {/* Main Earnings Card */}
-      <div className="bg-black rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-lime-200/20">
-        <div className="absolute top-0 right-0 p-8 opacity-10">
-          <IndianRupee size={120} />
+      {/* Header */}
+      <div className="flex items-center justify-between" style={{ padding: '24px 0 20px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>My Earnings</h1>
+          <p className="text-secondary" style={{ fontSize: 13, marginTop: 3 }}>Current month payout</p>
         </div>
-        <div className="relative z-10">
-          <span className="text-lime-400 text-sm font-bold tracking-widest uppercase mb-2 block">Total Earned</span>
-          <div className="flex items-end gap-2 mb-8">
-            <span className="text-5xl font-black italic">₹{data?.totalEarnings?.toLocaleString()}</span>
-            <span className="text-gray-400 font-bold mb-1">.00</span>
+        <div style={{ width: 48, height: 48, borderRadius: 16, background: 'rgba(var(--accent-lime-rgb, 223,255,0), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-lime)' }}>
+          <TrendingUp size={22} />
+        </div>
+      </div>
+
+      {/* Hero Earnings Card */}
+      <div style={{
+        borderRadius: 36,
+        padding: '36px 32px',
+        marginBottom: 20,
+        background: 'linear-gradient(145deg, #0d0d0d 0%, #1a1a1a 100%)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {/* Background icon watermark */}
+        <div style={{ position: 'absolute', top: -10, right: -10, opacity: 0.06, color: 'var(--accent-lime)', pointerEvents: 'none' }}>
+          <IndianRupee size={140} />
+        </div>
+
+        <div style={{ position: 'relative' }}>
+          <span style={{ color: 'var(--accent-lime)', fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Total Earned</span>
+          <div className="flex items-end" style={{ gap: 6, marginBottom: 28 }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 52, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-2px' }}>
+              ₹{data?.totalEarnings?.toLocaleString() ?? '—'}
+            </span>
+            <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 700, marginBottom: 6 }}>.00</span>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl">
-              <span className="text-[10px] uppercase font-black text-gray-400 block mb-1">Present Days</span>
-              <span className="text-xl font-bold">{data?.presentDays} Days</span>
+
+          <div className="grid-2" style={{ gap: 12 }}>
+            <div style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)', padding: '14px 18px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 4 }}>Present Days</span>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#fff' }}>{data?.presentDays ?? 0} Days</span>
             </div>
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-3xl">
-              <span className="text-[10px] uppercase font-black text-gray-400 block mb-1">Daily Rate</span>
-              <span className="text-xl font-bold">₹{data?.dailyRate}</span>
+            <div style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(12px)', padding: '14px 18px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 4 }}>Daily Rate</span>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#fff' }}>₹{data?.dailyRate ?? 0}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Breakdown Section */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-black text-gray-900 ml-1">Payment Breakdown</h3>
-        <div className="bg-white rounded-[2rem] border border-gray-100 p-6 space-y-4">
-          <div className="flex justify-between items-center py-2">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400">
-                <Calendar size={18} />
-              </div>
-              <span className="font-bold text-gray-700">Standard Service</span>
+      {/* Payment Breakdown */}
+      <div className="glass" style={{ padding: 24, borderRadius: 28, marginBottom: 16 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Payment Breakdown</div>
+
+        <div className="flex justify-between items-center" style={{ paddingBottom: 14 }}>
+          <div className="flex items-center gap-12">
+            <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Calendar size={16} style={{ color: 'var(--text-tertiary)' }} />
             </div>
-            <span className="font-bold text-gray-900">₹{data?.totalEarnings}</span>
+            <span className="text-body-sm" style={{ fontWeight: 600 }}>Standard Service</span>
           </div>
-          <div className="flex justify-between items-center py-2 border-t border-gray-50">
-            <div className="flex items-center gap-3 text-gray-400">
-              <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center">
-                <AlertCircle size={18} />
-              </div>
-              <span className="font-bold">Bonus / Incentives</span>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>₹{data?.totalEarnings ?? 0}</span>
+        </div>
+
+        <div className="flex justify-between items-center" style={{ paddingTop: 14, paddingBottom: 14, borderTop: '1px solid var(--divider)' }}>
+          <div className="flex items-center gap-12">
+            <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AlertCircle size={16} style={{ color: 'var(--text-tertiary)' }} />
             </div>
-            <span className="font-bold text-gray-400">₹0</span>
+            <span className="text-body-sm text-tertiary" style={{ fontWeight: 600 }}>Bonus / Incentives</span>
           </div>
-          <div className="pt-4 border-t-2 border-dashed border-gray-100 flex justify-between items-center">
-            <span className="text-sm font-black uppercase text-gray-400">Net Payable</span>
-            <span className="text-2xl font-black text-lime-600">₹{data?.totalEarnings}</span>
-          </div>
+          <span className="text-tertiary" style={{ fontWeight: 700, fontSize: 15 }}>₹0</span>
+        </div>
+
+        <div className="flex justify-between items-center" style={{ paddingTop: 16, borderTop: '2px dashed var(--divider)' }}>
+          <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-tertiary)' }}>Net Payable</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--accent-lime)' }}>₹{data?.totalEarnings ?? 0}</span>
         </div>
       </div>
 
       {/* Info Banner */}
-      <div className="bg-lime-50 rounded-3xl p-6 flex gap-4">
-        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-lime-600 flex-shrink-0 shadow-sm">
-          <ShieldCheck size={24} />
+      <div style={{ background: 'rgba(var(--accent-lime-rgb, 223,255,0), 0.05)', borderRadius: 24, padding: '20px 20px', marginBottom: 16, border: '1px solid rgba(var(--accent-lime-rgb, 223,255,0), 0.12)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-lime)', flexShrink: 0 }}>
+          <ShieldCheck size={22} />
         </div>
         <div>
-          <h4 className="font-bold text-gray-900">Secure Payout</h4>
-          <p className="text-sm text-gray-600 leading-relaxed">Payments are processed on the 1st of every month directly to your registered bank account.</p>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Secure Payout</div>
+          <p className="text-secondary" style={{ fontSize: 13, lineHeight: 1.6 }}>Payments are processed on the 1st of every month directly to your registered bank account.</p>
         </div>
       </div>
 
-      <button className="w-full py-5 bg-gray-100 text-gray-900 rounded-3xl font-black flex items-center justify-center gap-2">
-        <Download size={20} /> Download Statement
+      {/* Download Button */}
+      <button className="btn btn-ghost w-full" style={{ borderRadius: 24, padding: '18px', fontWeight: 800, fontSize: 15, gap: 8 }} onClick={() => showToast('Statement download coming soon', 'info')}>
+        <Download size={18} /> Download Statement
       </button>
     </div>
-  );
-};
-
-export default CleanerEarnings;
+  )
+}

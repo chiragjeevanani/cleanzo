@@ -1,7 +1,7 @@
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 if (!BASE_URL) {
-  console.warn("⚠️ VITE_API_URL is not defined in your environment (.env file). API calls may fail.");
+  console.warn('⚠️ VITE_API_URL is not defined in your environment (.env file). API calls may fail.');
 }
 
 const apiClient = {
@@ -9,7 +9,6 @@ const apiClient = {
   post: (url, data) => request(url, { method: 'POST', body: JSON.stringify(data) }),
   put: (url, data) => request(url, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (url) => request(url, { method: 'DELETE' }),
-  // For multipart/form-data uploads — do NOT set Content-Type, browser does it
   uploadForm: (url, formData) => request(url, { method: 'POST', body: formData, _multipart: true }),
 };
 
@@ -17,25 +16,34 @@ async function request(url, options = {}) {
   const token = localStorage.getItem('token');
   const headers = { ...options.headers };
 
-  // Don't set Content-Type for multipart/form-data — browser handles it
   if (!options._multipart) {
     headers['Content-Type'] = 'application/json';
   }
-
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
+  let response;
+  try {
+    response = await fetch(`${BASE_URL}${url}`, { ...options, headers });
+  } catch (networkErr) {
+    const err = new Error('Network error — check your connection');
+    err.status = 0;
+    throw err;
+  }
 
-  const response = await fetch(`${BASE_URL}${url}`, {
-    ...options,
-    headers,
-  });
-
-  const data = await response.json();
+  // Guard: server may return non-JSON (502, nginx error pages, etc.)
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    const err = new Error(`Server error (${response.status})`);
+    err.status = response.status;
+    throw err;
+  }
 
   if (!response.ok) {
-    // Handle token refresh logic
+    // Attempt token refresh on 401
     if (response.status === 401) {
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken && !options._retry) {
@@ -50,15 +58,26 @@ async function request(url, options = {}) {
             localStorage.setItem('token', refreshData.token);
             return request(url, { ...options, _retry: true });
           }
-        } catch (err) {
-          // Refresh failed - logout
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          window.location.href = '/customer';
+        } catch {
+          // Refresh failed — clear session and redirect
         }
+        const role = localStorage.getItem('userRole');
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userRole');
+        window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        setTimeout(() => {
+          window.location.href = (role === 'admin' || role === 'superadmin') ? '/admin/login' : '/login';
+        }, 1500);
+        return;
       }
     }
-    throw data;
+
+    // Throw a proper Error instance with the server message
+    const err = new Error(data?.message || `Request failed (${response.status})`);
+    err.status = response.status;
+    err.data = data;
+    throw err;
   }
 
   return data;

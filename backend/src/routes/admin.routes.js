@@ -9,12 +9,15 @@ router.use(protect, authorize('admin', 'superadmin'));
 router.get('/dashboard', ctrl.getDashboard);
 
 router.get('/users', ctrl.getUsers);
+router.post('/users', ctrl.createUser);
 router.get('/users/:id', ctrl.getUserById);
 router.put('/users/:id', ctrl.updateUser);
+router.delete('/users/:id', ctrl.deleteUser);
 
 router.get('/cleaners', ctrl.getCleaners);
 router.post('/cleaners', ctrl.addCleaner);
 router.put('/cleaners/:id', ctrl.updateCleaner);
+router.delete('/cleaners/:id', ctrl.deleteCleaner);
 
 router.get('/packages', ctrl.getAllPackages);
 router.post('/packages', ctrl.createPackage);
@@ -24,6 +27,7 @@ router.get('/subscriptions', ctrl.getAllSubscriptions);
 
 router.get('/revenue', ctrl.getRevenue);
 
+router.get('/notifications', ctrl.getAdminNotifications);
 router.post('/notifications/broadcast', ctrl.broadcastNotification);
 
 // Societies
@@ -36,5 +40,13 @@ router.delete('/societies/:id', ctrl.deleteSociety);
 router.get('/cleaner-applications', ctrl.getCleanerApplications);
 router.put('/cleaner-applications/:id', ctrl.updateCleanerApplicationStatus);
 router.delete('/cleaner-applications/:id', ctrl.deleteCleanerApplication);
+
+// Cleaner KYC Review
+router.get('/cleaner-kyc', ctrl.getCleanerKycList);
+router.put('/cleaner-kyc/:id', ctrl.reviewCleanerKyc);
+
+// Settings
+router.get('/settings', ctrl.getSettings);
+router.put('/settings/:key', ctrl.updateSetting);
 
 export default router;

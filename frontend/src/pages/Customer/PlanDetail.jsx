@@ -1,3 +1,4 @@
+import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Share2, CheckCircle2, XCircle, ChevronRight, HelpCircle, Star, Plus, Minus } from 'lucide-react'
@@ -23,7 +24,7 @@ export default function PlanDetail() {
     fetchPkg()
   }, [id])
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return <PageLoader />
   if (!pkg) return <div style={{ padding: 20, textAlign: 'center' }}>Plan not found</div>
 
   if (!pkg) return null

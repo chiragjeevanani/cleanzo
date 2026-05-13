@@ -280,7 +280,7 @@ export default function CleanerKYC() {
       <p className="text-secondary" style={{ maxWidth: 320, lineHeight: 1.6 }}>
         Our operations team will verify your documents and activate your account within <strong>24 hours</strong>.
       </p>
-      <button onClick={() => window.location.href = '/cleaner'} className="btn-primary" style={{ padding: '14px 32px', borderRadius: 14, fontSize: 16 }}>
+      <button onClick={() => navigate('/cleaner')} className="btn-primary" style={{ padding: '14px 32px', borderRadius: 14, fontSize: 16 }}>
         Go to Dashboard
       </button>
     </div>

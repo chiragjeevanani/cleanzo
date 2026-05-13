@@ -28,6 +28,7 @@ router.put('/notifications/:id/read', ctrl.markNotificationRead);
 
 router.get('/addresses', ctrl.getAddresses);
 router.post('/addresses', ctrl.addAddress);
+router.delete('/addresses/:id', ctrl.deleteAddress);
 
 router.get('/societies', ctrl.getSocieties);
 

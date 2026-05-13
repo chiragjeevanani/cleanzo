@@ -1,3 +1,4 @@
+import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react';
 import { Check, X, Eye, FileText, User, Trash2, AlertCircle } from 'lucide-react';
 import apiClient from '../../services/apiClient';
@@ -9,6 +10,8 @@ export default function AdminApplications() {
   const [selectedApp, setSelectedApp] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
 
@@ -47,32 +50,59 @@ export default function AdminApplications() {
         setShowModal(false);
       }
     } catch (err) {
-      alert(err.message || 'Update failed');
+      setActionError(err.message || 'Update failed. Please try again.');
     } finally {
       setProcessing(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this application permanently?')) return;
     try {
       setProcessing(true);
       const res = await apiClient.delete(`/admin/cleaner-applications/${id}`);
       if (res.success) {
         setApplications(prev => prev.filter(app => app._id !== id));
         setShowModal(false);
+        setConfirmDeleteId(null);
       }
     } catch (err) {
-      alert(err.message || 'Delete failed');
+      setActionError(err.message || 'Delete failed. Please try again.');
+      setConfirmDeleteId(null);
     } finally {
       setProcessing(false);
     }
   };
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>;
+  if (loading) return <PageLoader />;
 
   return (
     <div style={{ animation: 'fadeIn 0.5s ease' }}>
+      {actionError && (
+        <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 16, fontSize: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {actionError}
+          <button onClick={() => setActionError('')} style={{ background: 'none', border: 'none', color: '#ff5555', cursor: 'pointer', padding: 0, lineHeight: 1 }}>✕</button>
+        </div>
+      )}
+
+      {/* Confirm Delete Modal */}
+      {confirmDeleteId && (
+        <div className="modal-overlay" style={{ backdropFilter: 'blur(20px)', backgroundColor: 'rgba(0,0,0,0.85)' }}>
+          <div className="glass animate-scale-in" style={{ width: 420, padding: '40px 48px', borderRadius: 32, border: '1px solid rgba(255,50,50,0.2)', boxShadow: 'var(--shadow-lg)', textAlign: 'center' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,50,50,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <Trash2 size={24} color="var(--error)" />
+            </div>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Delete Application?</h2>
+            <p className="text-secondary" style={{ fontSize: 14, marginBottom: 28 }}>This will permanently delete this application and cannot be undone.</p>
+            <div className="flex gap-12">
+              <button className="btn btn-glass w-full" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+              <button className="btn w-full" style={{ background: 'var(--error)', color: '#fff', borderRadius: 14 }} disabled={processing} onClick={() => handleDelete(confirmDeleteId)}>
+                {processing ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Recruitments</h1>
@@ -133,7 +163,7 @@ export default function AdminApplications() {
                         <Check size={16} />
                       </button>
                     )}
-                    <button className="btn-icon btn-glass text-error" onClick={() => handleDelete(app._id)}>
+                    <button className="btn-icon btn-glass text-error" onClick={() => setConfirmDeleteId(app._id)}>
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -257,7 +287,7 @@ export default function AdminApplications() {
                 <div className="text-secondary text-sm flex items-center gap-8">
                   <Check size={16} /> Application has been processed
                 </div>
-                <button className="btn btn-ghost text-error flex items-center gap-8" onClick={() => handleDelete(selectedApp._id)}>
+                <button className="btn btn-ghost text-error flex items-center gap-8" onClick={() => { setConfirmDeleteId(selectedApp._id); setShowModal(false); }}>
                   <Trash2 size={16} /> Delete Application
                 </button>
               </div>

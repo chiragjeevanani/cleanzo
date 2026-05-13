@@ -8,6 +8,7 @@ export default function CleanerDashboard() {
   const { user } = useAuth()
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -15,7 +16,7 @@ export default function CleanerDashboard() {
         const res = await apiClient.get('/cleaner/tasks')
         setTasks(res.tasks || [])
       } catch (err) {
-        console.error('Error fetching tasks', err)
+        setError('Failed to load tasks.')
       } finally {
         setLoading(false)
       }
@@ -27,10 +28,72 @@ export default function CleanerDashboard() {
   const inProgress = tasks.filter(t => t.status === 'in-progress').length
   const completed = tasks.filter(t => t.status === 'completed').length
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return (
+    <div style={{ padding: '0 20px' }}>
+      {/* Header */}
+      <div style={{ padding: '20px 0' }}>
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="skeleton" style={{ width: 90, height: 12, borderRadius: 6, marginBottom: 10 }} />
+            <div className="skeleton" style={{ width: 140, height: 22, borderRadius: 8 }} />
+          </div>
+          <div className="skeleton" style={{ width: 72, height: 26, borderRadius: 20 }} />
+        </div>
+      </div>
+      {/* Big count card */}
+      <div className="glass" style={{ padding: 28, textAlign: 'center', marginBottom: 20 }}>
+        <div className="skeleton" style={{ width: 100, height: 11, borderRadius: 6, margin: '0 auto 12px' }} />
+        <div className="skeleton" style={{ width: 80, height: 64, borderRadius: 12, margin: '0 auto 10px' }} />
+        <div className="skeleton" style={{ width: 120, height: 12, borderRadius: 6, margin: '0 auto' }} />
+      </div>
+      {/* Stats grid */}
+      <div className="grid-3" style={{ gap: 10, marginBottom: 24 }}>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="glass" style={{ padding: 16, textAlign: 'center' }}>
+            <div className="skeleton" style={{ width: 18, height: 18, borderRadius: '50%', margin: '0 auto 8px' }} />
+            <div className="skeleton" style={{ width: 32, height: 24, borderRadius: 6, margin: '0 auto 6px' }} />
+            <div className="skeleton" style={{ width: 56, height: 11, borderRadius: 6, margin: '0 auto' }} />
+          </div>
+        ))}
+      </div>
+      {/* Operations grid */}
+      <div className="grid-2" style={{ gap: 12, marginBottom: 20 }}>
+        {[1, 2].map(i => (
+          <div key={i} className="glass" style={{ padding: 20 }}>
+            <div className="flex justify-between items-start" style={{ marginBottom: 10 }}>
+              <div className="skeleton" style={{ width: 40, height: 40, borderRadius: 12 }} />
+              <div className="skeleton" style={{ width: 16, height: 16, borderRadius: 4 }} />
+            </div>
+            <div className="skeleton" style={{ width: 60, height: 11, borderRadius: 6, marginBottom: 8 }} />
+            <div className="skeleton" style={{ width: 100, height: 18, borderRadius: 6 }} />
+          </div>
+        ))}
+      </div>
+      {/* Performance card */}
+      <div className="glass" style={{ padding: 20, marginBottom: 20 }}>
+        <div className="skeleton" style={{ width: 90, height: 11, borderRadius: 6, marginBottom: 16 }} />
+        <div className="flex justify-between" style={{ marginBottom: 8 }}>
+          <div className="skeleton" style={{ width: 110, height: 13, borderRadius: 6 }} />
+          <div className="skeleton" style={{ width: 36, height: 13, borderRadius: 6 }} />
+        </div>
+        <div className="skeleton" style={{ width: '100%', height: 6, borderRadius: 3, marginBottom: 14 }} />
+        <div className="flex justify-between">
+          <div className="skeleton" style={{ width: 80, height: 13, borderRadius: 6 }} />
+          <div className="skeleton" style={{ width: 100, height: 13, borderRadius: 6 }} />
+        </div>
+      </div>
+      {/* CTA button */}
+      <div className="skeleton" style={{ width: '100%', height: 52, borderRadius: 'var(--radius)', marginBottom: 100 }} />
+    </div>
+  )
 
   return (
     <div style={{ padding: '0 20px' }}>
+      {error && (
+        <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', margin: '12px 0', fontSize: 14 }}>
+          {error}
+        </div>
+      )}
       {/* Header */}
       <div style={{ padding: '20px 0' }}>
         <div className="flex justify-between items-center">
@@ -70,7 +133,7 @@ export default function CleanerDashboard() {
       <div className="grid-2" style={{ gap: 12, marginBottom: 20 }}>
         <Link to="/cleaner/earnings" className="glass" style={{ padding: 20, textDecoration: 'none', color: 'inherit' }}>
           <div className="flex justify-between items-start mb-2">
-            <div style={{ width: 40, height: 40, background: 'var(--accent-lime)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyCenter: 'center', color: 'black' }}>
+            <div style={{ width: 40, height: 40, background: 'var(--accent-lime)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black' }}>
                <IndianRupee size={20} />
             </div>
             <ArrowRight size={16} className="text-secondary" />
@@ -80,7 +143,7 @@ export default function CleanerDashboard() {
         </Link>
         <Link to="/cleaner/attendance" className="glass" style={{ padding: 20, textDecoration: 'none', color: 'inherit' }}>
           <div className="flex justify-between items-start mb-2">
-            <div style={{ width: 40, height: 40, background: '#EFF6FF', borderRadius: 12, display: 'flex', alignItems: 'center', justifyCenter: 'center', color: '#1E40AF' }}>
+            <div style={{ width: 40, height: 40, background: '#EFF6FF', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1E40AF' }}>
                <Calendar size={20} />
             </div>
             <ArrowRight size={16} className="text-secondary" />
@@ -99,7 +162,7 @@ export default function CleanerDashboard() {
         </div>
         <div className="progress-track"><div className="progress-fill" style={{ width: `${tasks.length > 0 ? (completed/tasks.length)*100 : 0}%`, background: 'var(--success)' }} /></div>
         <div className="flex justify-between text-body-sm text-secondary" style={{ marginTop: 14 }}>
-          <span>Rating: ★ 4.9</span>
+          <span>Rating: ★ {user?.rating?.toFixed(1) || 'N/A'}</span>
           <span>{completed} total completed</span>
         </div>
       </div>

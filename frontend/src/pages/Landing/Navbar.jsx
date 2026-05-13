@@ -6,9 +6,9 @@ import './Navbar.css'
 
 const navLinks = [
   { label: 'Services', href: '#services' },
-  { label: 'Pricing', href: '#pricing' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'Testimonials', href: '#testimonials' },
+  { label: 'Process', href: '#process' },
+  { label: 'Gallery', href: '#gallery' },
+  { label: 'Reviews', href: '#testimonials' },
 ]
 
 export default function Navbar() {
@@ -40,23 +40,21 @@ export default function Navbar() {
       <nav className={`landing-nav ${scrolled ? 'nav-scrolled' : ''} ${hidden ? 'nav-hidden' : ''}`}>
         <div className="nav-inner">
           <Link to="/" className="nav-logo">
-            <img src="/logo.png" alt="Cleanzo" className="nav-logo-img" />
-            <span className="nav-logo-text">Cleanzo</span>
+            <span className="nav-logo-text">CLEANZO</span>
           </Link>
 
-          <div className="nav-links hide-mobile">
-            {navLinks.map(link => (
-              <button key={link.href} className="nav-link" onClick={() => scrollTo(link.href)}>
-                {link.label}
-              </button>
-            ))}
+          <div className="nav-links hide-mobile" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+            <button className="nav-link" onClick={() => scrollTo('#services')}>SERVICES</button>
+            <button className="nav-link" onClick={() => scrollTo('#pricing')}>PRICING</button>
+            <button className="nav-link" onClick={() => scrollTo('#precision')}>MISSION</button>
+            <button className="nav-link" onClick={() => scrollTo('#process')}>PROTOCOL</button>
           </div>
 
           <div className="nav-actions">
             <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <Link to="/login" className="btn btn-primary btn-sm hide-mobile">Get Started</Link>
+            <Link to="/login" className="btn btn-primary btn-sm hide-mobile" style={{ fontWeight: 900 }}>RESERVE NOW</Link>
             <button className="nav-hamburger" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Menu">
               {mobileOpen ? <X size={22} /> : <Menu size={22} />}
             </button>

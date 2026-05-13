@@ -10,6 +10,7 @@ import TermsOfService from './pages/Customer/Profile/TermsOfService'
 import PrivacyPolicy from './pages/Customer/Profile/PrivacyPolicy'
 import HelpSupport from './pages/Customer/Profile/HelpSupport'
 import CustomerAuth from './pages/Customer/CustomerAuth'
+import ForgotPassword from './pages/Customer/ForgotPassword'
 import JoinAsCleaner from './pages/Landing/JoinAsCleaner'
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<CustomerAuth />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/help" element={<HelpSupport />} />

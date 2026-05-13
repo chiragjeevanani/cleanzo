@@ -6,45 +6,83 @@ import compression from 'compression';
 import morgan from 'morgan';
 import connectDB from './src/config/db.js';
 import Admin from './src/models/Admin.js';
+import Settings from './src/models/Settings.js';
 import routes from './src/routes/index.js';
 import { apiLimiter } from './src/middleware/rateLimiter.js';
 import { ApiError } from './src/utils/ApiError.js';
 import { startCronJobs } from './src/cron/referralCron.js';
 
 dotenv.config();
-// Trigger restart after fixing sharp dependency issue
+
+// Fail fast if required secrets are missing — never silently use defaults in any env
+if (!process.env.JWT_SECRET) {
+  console.error('❌ FATAL: JWT_SECRET is not set. Refusing to start.');
+  process.exit(1);
+}
+if (!process.env.JWT_REFRESH_SECRET) {
+  console.error('❌ FATAL: JWT_REFRESH_SECRET is not set. Refresh tokens would share the access secret, undermining token rotation. Refusing to start.');
+  process.exit(1);
+}
 
 
 const seedAdminOnStartup = async () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (isProduction && (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD)) {
+    console.error('❌ FATAL: ADMIN_EMAIL and ADMIN_PASSWORD must be set in production. Refusing to start with default credentials.');
+    process.exit(1);
+  }
+
+  const adminEmail = process.env.ADMIN_EMAIL || 'superadmin@gmail.com';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'password123';
+
+  if (!isProduction && !process.env.ADMIN_PASSWORD) {
+    console.warn('⚠️  WARNING: Using default admin password (password123). Set ADMIN_PASSWORD env var before going to production.');
+  }
+
   try {
-    const existing = await Admin.findOne({ email: process.env.ADMIN_EMAIL || 'superadmin@gmail.com' });
+    const existing = await Admin.findOne({ email: adminEmail });
     if (!existing) {
       await Admin.create({
         name: 'Super Admin',
-        email: process.env.ADMIN_EMAIL || 'superadmin@gmail.com',
-        password: process.env.ADMIN_PASSWORD || 'password123',
+        email: adminEmail,
+        password: adminPassword,
         role: 'superadmin',
       });
-      console.log('✅ Auto-seeded superadmin: superadmin@gmail.com');
+      console.log(`✅ Auto-seeded superadmin: ${adminEmail}`);
     }
   } catch (err) {
     console.error('❌ Auto-seed failed:', err.message);
   }
 };
 
+const seedSettingsOnStartup = async () => {
+  const defaults = [
+    { key: 'trialPrice',              value: 30,  description: 'One-day trial subscription price (₹)' },
+    { key: 'prioritySlotFee',         value: 99,  description: 'Priority slot surcharge when slot is full (₹)' },
+    { key: 'referralDiscountPercent', value: 25,  description: 'Discount % applied to new user on referral' },
+    { key: 'referralExpiryDays',      value: 7,   description: 'Days the referral discount stays valid' },
+  ];
+  try {
+    for (const s of defaults) {
+      await Settings.findOneAndUpdate({ key: s.key }, s, { upsert: true, new: true });
+    }
+    console.log('✅ Settings defaults ensured');
+  } catch (err) {
+    console.error('❌ Settings seed failed:', err.message);
+  }
+};
+
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-// Start cron jobs
-startCronJobs();
 
 // ─── SECURITY & PERFORMANCE ─────────────────────
 app.use(helmet());
 app.use(compression());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://cleanzo.in', 'https://www.cleanzo.in']
-    : ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    ? ['https://cleanzo.in', 'https://www.cleanzo.in', 'https://admin.cleanzo.in']
+    : ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173'],
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -97,6 +135,8 @@ const start = async () => {
   try {
     await connectDB();
     await seedAdminOnStartup();
+    await seedSettingsOnStartup();
+    startCronJobs();
   } catch (err) {
     console.error('❌ Async startup error:', err.message);
   }

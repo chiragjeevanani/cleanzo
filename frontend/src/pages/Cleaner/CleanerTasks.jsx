@@ -10,6 +10,7 @@ export default function CleanerTasks() {
   const [filter, setFilter] = useState('all')
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -17,7 +18,7 @@ export default function CleanerTasks() {
         const res = await apiClient.get('/cleaner/tasks')
         setTasks(res.tasks || [])
       } catch (err) {
-        console.error('Error fetching tasks', err)
+        setError('Failed to load tasks.')
       } finally {
         setLoading(false)
       }
@@ -27,10 +28,41 @@ export default function CleanerTasks() {
 
   const filtered = filter === 'all' ? tasks : tasks.filter(t => t.status === filter)
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return (
+    <div style={{ padding: '0 20px' }}>
+      <div className="app-header" style={{ padding: '16px 0' }}>
+        <div style={{ width: 20, height: 20 }} />
+        <div className="skeleton" style={{ width: 120, height: 18, borderRadius: 8 }} />
+        <div style={{ width: 20 }} />
+      </div>
+      <div className="flex gap-8" style={{ marginBottom: 20 }}>
+        {[80, 65, 95, 85].map((w, i) => (
+          <div key={i} className="skeleton" style={{ width: w, height: 28, borderRadius: 20 }} />
+        ))}
+      </div>
+      <div className="flex flex-col gap-8">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="glass" style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div className="skeleton" style={{ width: 4, height: 48, borderRadius: 2, flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div className="skeleton" style={{ width: '55%', height: 14, borderRadius: 8, marginBottom: 10 }} />
+              <div className="skeleton" style={{ width: '78%', height: 12, borderRadius: 8, marginBottom: 8 }} />
+              <div className="skeleton" style={{ width: '48%', height: 11, borderRadius: 8 }} />
+            </div>
+            <div className="skeleton" style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0 }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
   return (
     <div style={{ padding: '0 20px' }}>
+      {error && (
+        <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', margin: '12px 0', fontSize: 14 }}>
+          {error}
+        </div>
+      )}
       <div className="app-header" style={{ padding: '16px 0' }}>
         <Link to="/cleaner" className="flex items-center gap-8"><ArrowLeft size={20} /></Link>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Today's Tasks</span>
@@ -56,14 +88,14 @@ export default function CleanerTasks() {
             <div style={{ width: 4, height: 48, borderRadius: 2, background: statusColors[t.status] || 'var(--text-secondary)', flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
               <div className="flex justify-between items-center" style={{ marginBottom: 4 }}>
-                <span style={{ fontWeight: 600, fontSize: 15 }}>{t.vehicleName || 'Vehicle'}</span>
+                <span style={{ fontWeight: 600, fontSize: 15 }}>{t.vehicle?.model || 'Vehicle'}</span>
                 <span className="chip" style={{ background: `${statusColors[t.status]}20`, color: statusColors[t.status], fontSize: 10 }}>
                   {statusLabels[t.status] || t.status}
                 </span>
               </div>
-              <div className="text-body-sm text-secondary">{t.customerName || 'Customer'} · {t.packageName || 'Cleaning'}</div>
+              <div className="text-body-sm text-secondary">{t.customer?.name || t.customer?.phone || 'Customer'} · {t.packageName || 'Cleaning'}</div>
               <div className="flex items-center gap-12 text-body-sm text-tertiary" style={{ marginTop: 6 }}>
-                <span className="flex items-center gap-4"><MapPin size={12} /> {t.location || 'Location'}</span>
+                <span className="flex items-center gap-4"><MapPin size={12} /> {t.vehicle?.parking || 'Location'}</span>
                 <span className="flex items-center gap-4"><Clock size={12} /> {t.scheduledTime || 'Morning'}</span>
               </div>
             </div>

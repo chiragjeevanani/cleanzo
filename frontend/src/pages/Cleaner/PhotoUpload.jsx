@@ -13,6 +13,7 @@ export default function PhotoUpload() {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef(null)
 
   const handleFileChange = (e) => {
@@ -35,13 +36,10 @@ export default function PhotoUpload() {
       formData.append('photo', optimizedFile)
       formData.append('type', uploadType)
 
-      await apiClient.post(`/cleaner/tasks/${taskId}/photo`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      await apiClient.uploadForm(`/cleaner/tasks/${taskId}/photo`, formData)
       navigate(`/cleaner/tasks/${taskId}`)
     } catch (err) {
-      console.error('Photo upload failed', err)
-      alert('Photo upload failed. Please try again.')
+      setUploadError('Photo upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
@@ -86,6 +84,11 @@ export default function PhotoUpload() {
         <textarea className="input-field" rows={3} placeholder="Any observations or notes..." style={{ resize: 'vertical' }} />
       </div>
 
+      {uploadError && (
+        <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 12, fontSize: 14 }}>
+          {uploadError}
+        </div>
+      )}
       <button disabled={!file || uploading} className={`btn btn-blue w-full btn-lg ${(!file || uploading) ? 'opacity-50' : ''}`} style={{ marginBottom: 100 }} onClick={handleUpload}>
         <Upload size={16} /> {uploading ? 'Uploading...' : 'Submit Photos'}
       </button>

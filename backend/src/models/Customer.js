@@ -9,14 +9,14 @@ const generateReferralCode = () =>
 
 
 const customerSchema = new Schema({
-  firstName:    { type: String, required: true, trim: true },
-  lastName:     { type: String, required: true, trim: true },
+  firstName:    { type: String, required: true, trim: true, maxlength: 50 },
+  lastName:     { type: String, required: true, trim: true, maxlength: 50 },
   // Virtual 'name' field for backward compatibility
   phone:        { type: String, required: true, unique: true, index: true },
-  email:        { type: String, required: true, unique: true, trim: true, lowercase: true },
+  email:        { type: String, required: true, unique: true, trim: true, lowercase: true, maxlength: 100 },
   password:     { type: String, required: true, select: false },
   avatar:       { type: String, default: null },
-  city:         { type: String, required: true },
+  city:         { type: String, required: true, trim: true, maxlength: 50 },
   role:         { type: String, default: 'customer', enum: ['customer'] },
   referralCode: { type: String, unique: true, sparse: true },
   referredBy:   { type: Schema.Types.ObjectId, ref: 'Customer', default: null },

@@ -8,19 +8,24 @@ export default function CustomerHome() {
   const { user } = useAuth()
   const [subscription, setSubscription] = useState(null)
   const [history, setHistory] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [subsRes, histRes] = await Promise.all([
+        const [subsRes, histRes, notifRes] = await Promise.all([
           apiClient.get('/customer/subscriptions'),
-          apiClient.get('/customer/history?limit=3')
+          apiClient.get('/customer/history?limit=3'),
+          apiClient.get('/customer/notifications'),
         ])
-        setSubscription(subsRes.subscriptions[0]) // Get the first active sub
+        const activeSub = (subsRes.subscriptions || []).find(s => s.status === 'Active') || null
+        setSubscription(activeSub)
         setHistory(histRes.tasks || [])
+        setUnreadCount((notifRes.notifications || []).filter(n => !n.read).length)
       } catch (err) {
-        console.error('Error fetching home data:', err)
+        setError('Failed to load data. Please refresh.')
       } finally {
         setLoading(false)
       }
@@ -31,7 +36,48 @@ export default function CustomerHome() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return (
+    <div className="app-shell">
+      <div className="app-header" style={{ padding: '24px var(--margin-side)', background: 'transparent' }}>
+        <div>
+          <div className="skeleton" style={{ width: 80, height: 12, borderRadius: 6, marginBottom: 10 }} />
+          <div className="skeleton" style={{ width: 150, height: 28, borderRadius: 8 }} />
+        </div>
+        <div className="skeleton" style={{ width: 48, height: 48, borderRadius: 16, flexShrink: 0 }} />
+      </div>
+      <div className="container">
+        <div className="skeleton" style={{ height: 188, borderRadius: 32, marginBottom: 32 }} />
+        <div style={{ marginBottom: 40 }}>
+          <div className="skeleton" style={{ width: 100, height: 11, borderRadius: 6, marginBottom: 16, marginLeft: 8 }} />
+          <div className="grid-3" style={{ gap: 14 }}>
+            {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 96, borderRadius: 24 }} />)}
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between" style={{ marginBottom: 16, padding: '0 8px' }}>
+            <div className="skeleton" style={{ width: 100, height: 11, borderRadius: 6 }} />
+            <div className="skeleton" style={{ width: 52, height: 11, borderRadius: 6 }} />
+          </div>
+          <div className="flex flex-col gap-10">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="glass" style={{ padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 20 }}>
+                <div className="flex items-center gap-14">
+                  <div className="skeleton" style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0 }} />
+                  <div>
+                    <div className="skeleton" style={{ width: 120, height: 14, borderRadius: 6, marginBottom: 8 }} />
+                    <div className="skeleton" style={{ width: 88, height: 12, borderRadius: 6 }} />
+                  </div>
+                </div>
+                <div className="skeleton" style={{ width: 60, height: 22, borderRadius: 8, flexShrink: 0 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
 
   return (
     <div className="app-shell animate-fade-in">
@@ -45,7 +91,9 @@ export default function CustomerHome() {
           <div className="glass flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: 16 }}>
             <Bell size={20} className="text-secondary" />
           </div>
-          <div style={{ position: 'absolute', top: 10, right: 10, width: 10, height: 10, borderRadius: '50%', background: 'var(--error)', border: '2px solid var(--bg-primary)' }} />
+          {unreadCount > 0 && (
+            <div style={{ position: 'absolute', top: 10, right: 10, width: 10, height: 10, borderRadius: '50%', background: 'var(--error)', border: '2px solid var(--bg-primary)' }} />
+          )}
         </Link>
       </div>
 
@@ -83,12 +131,14 @@ export default function CustomerHome() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                    <div className="text-label" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>NEXT WASH</div>
-                   <div style={{ fontWeight: 700, fontSize: 14 }}>{new Date(subscription.nextWash).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
+                   <div style={{ fontWeight: 700, fontSize: 14 }}>
+                     {subscription.nextWash ? new Date(subscription.nextWash).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
+                   </div>
                 </div>
               </div>
 
               <div className="progress-track" style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
-                <div className="progress-fill" style={{ width: `${(subscription.completedDays / subscription.totalDays) * 100}%`, borderRadius: 3, boxShadow: '0 0 12px var(--accent-lime)' }} />
+                <div className="progress-fill" style={{ width: `${subscription.totalDays > 0 ? (subscription.completedDays / subscription.totalDays) * 100 : 0}%`, borderRadius: 3, boxShadow: '0 0 12px var(--accent-lime)' }} />
               </div>
             </div>
           </Link>

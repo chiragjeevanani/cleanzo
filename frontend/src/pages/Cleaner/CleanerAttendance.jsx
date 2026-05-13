@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { 
-  Calendar as CalendarIcon, CheckCircle2, XCircle, 
+import {
+  Calendar as CalendarIcon, CheckCircle2, XCircle,
   Clock, ChevronLeft, ChevronRight, Info
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
@@ -8,26 +8,38 @@ import apiClient from '../../services/apiClient';
 const CleanerAttendance = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   useEffect(() => {
     const fetchAttendance = async () => {
+      setLoading(true);
+      setError('');
       try {
-        const res = await apiClient.get('/cleaner/attendance');
-        setHistory(res.history);
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth(); // 0-indexed, matches backend
+        const res = await apiClient.get(`/cleaner/attendance?year=${year}&month=${month}`);
+        setHistory(res.history || []);
       } catch (err) {
-        console.error('Failed to fetch attendance');
+        setError('Failed to load attendance.');
       } finally {
         setLoading(false);
       }
     };
     fetchAttendance();
-  }, []);
+  }, [currentMonth]);
 
-  // Helper to get days in month
+  const prevMonth = () => {
+    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
   const daysInMonth = getDaysInMonth(currentMonth.getFullYear(), currentMonth.getMonth());
-  
+
   const stats = {
     present: history.filter(h => h.status === 'present').length,
     absent: history.filter(h => h.status === 'absent').length,
@@ -44,17 +56,23 @@ const CleanerAttendance = () => {
           <p className="text-gray-500 font-medium">Monthly History</p>
         </div>
         <div className="flex items-center gap-2 bg-gray-100 p-2 rounded-2xl">
-          <button className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-gray-600">
+          <button onClick={prevMonth} className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-gray-600">
             <ChevronLeft size={20} />
           </button>
           <span className="px-2 font-black text-sm uppercase">
             {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
           </span>
-          <button className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-gray-600">
+          <button onClick={nextMonth} className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm text-gray-600">
             <ChevronRight size={20} />
           </button>
         </div>
       </header>
+
+      {error && (
+        <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', fontSize: 14 }}>
+          {error}
+        </div>
+      )}
 
       {/* Stats Summary */}
       <div className="grid grid-cols-3 gap-4">
@@ -79,12 +97,15 @@ const CleanerAttendance = () => {
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const dayNum = i + 1;
             const dateStr = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayNum).toISOString().split('T')[0];
-            const record = history.find(h => h.date.startsWith(dateStr));
-            
-            const isToday = new Date().getDate() === dayNum && new Date().getMonth() === currentMonth.getMonth();
+            const record = history.find(h => h.date && h.date.startsWith(dateStr));
+
+            const today = new Date();
+            const isToday = today.getDate() === dayNum
+              && today.getMonth() === currentMonth.getMonth()
+              && today.getFullYear() === currentMonth.getFullYear();
 
             return (
-              <div 
+              <div
                 key={dayNum}
                 className={`p-4 rounded-3xl flex items-center justify-between border ${isToday ? 'border-lime-400 bg-lime-50/30' : 'border-gray-50 bg-white'}`}
               >
@@ -106,7 +127,7 @@ const CleanerAttendance = () => {
                     )}
                   </div>
                 </div>
-                
+
                 {record?.status === 'present' ? (
                   <CheckCircle2 className="text-green-500" size={24} />
                 ) : record?.status === 'leave' ? (

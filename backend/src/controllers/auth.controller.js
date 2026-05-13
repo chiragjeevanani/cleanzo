@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import Customer from '../models/Customer.js';
 import Cleaner from '../models/Cleaner.js';
 import Admin from '../models/Admin.js';
+import Settings from '../models/Settings.js';
+import RefreshToken from '../models/RefreshToken.js';
 import { sendOtp, verifyOtp } from '../services/otp.service.js';
 import { normalizePhone } from '../utils/helpers.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -14,9 +16,26 @@ const generateToken = (id, role) =>
   });
 
 const generateRefreshToken = (id, role) =>
-  jwt.sign({ id, role }, process.env.JWT_SECRET, {
+  jwt.sign({ id, role }, process.env.JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
   });
+
+const REFRESH_EXPIRES_MS = () => {
+  const raw = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
+  const match = raw.match(/^(\d+)([dh])$/);
+  if (!match) return 30 * 24 * 60 * 60 * 1000;
+  const [, n, unit] = match;
+  return unit === 'd' ? Number(n) * 86400000 : Number(n) * 3600000;
+};
+
+const storeRefreshToken = async (token, userId, role) => {
+  await RefreshToken.create({
+    token,
+    user: userId,
+    role,
+    expiresAt: new Date(Date.now() + REFRESH_EXPIRES_MS()),
+  });
+};
 
 const userResponse = (user, role) => ({
   _id: user._id,
@@ -29,8 +48,8 @@ const userResponse = (user, role) => ({
   city: user.city,
   referralCode: user.referralCode,
   avatar: user.avatar,
-  kycStatus: user.kycStatus, // Important for crew members
-  kycRejectionNote: user.kycRejectionNote,
+  kycStatus: user.kycStatus,
+  ...(role === 'cleaner' && { kycRejectionNote: user.kycRejectionNote }),
 });
 
 // ─── SEND OTP ─────────────────────────────────────
@@ -74,12 +93,12 @@ export const handleSendOtp = asyncHandler(async (req, res) => {
     });
   }
 
-  const result = await sendOtp(phone, targetRole, mode);
+  const result = await sendOtp(phone, targetRole);
   if (!result.success) {
     return res.status(400).json({
       success: false,
       message: result.message,
-      debug: result.debug
+      ...(process.env.NODE_ENV !== 'production' && { debug: result.debug })
     });
   }
 
@@ -117,11 +136,18 @@ export const handleVerifyOtp = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'First name, last name, email, password, and city are required for signup');
       }
 
-      // Handle referral
+      // Handle referral — load discount config from admin-controlled Settings
       let referredByCustomer = null;
       if (referralCode) {
         referredByCustomer = await Customer.findOne({ referralCode: referralCode.toUpperCase() });
       }
+
+      const [discountSetting, expirySetting] = await Promise.all([
+        Settings.findOne({ key: 'referralDiscountPercent' }),
+        Settings.findOne({ key: 'referralExpiryDays' }),
+      ]);
+      const referralPercent = discountSetting?.value ?? 25;
+      const referralExpiryDays = expirySetting?.value ?? 7;
 
       user = await Customer.create({
         firstName,
@@ -131,16 +157,15 @@ export const handleVerifyOtp = asyncHandler(async (req, res) => {
         password,
         city,
         referredBy: referredByCustomer?._id || null,
-        // Apply referral discount if referral code is valid
         referralDiscount: referredByCustomer ? {
           isActive: true,
-          percentage: 25,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          percentage: referralPercent,
+          expiresAt: new Date(Date.now() + referralExpiryDays * 24 * 60 * 60 * 1000),
         } : { isActive: false, percentage: 0 },
       });
     }
     user.lastLogin = new Date();
-    await user.save();
+    await user.save({ validateModifiedOnly: true });
 
   } else if (targetRole === 'cleaner') {
     user = await Cleaner.findOne({ phone: normalized });
@@ -156,11 +181,12 @@ export const handleVerifyOtp = asyncHandler(async (req, res) => {
       });
     }
     user.lastLogin = new Date();
-    await user.save();
+    await user.save({ validateModifiedOnly: true });
   }
 
   const token = generateToken(user._id, targetRole);
   const refreshToken = generateRefreshToken(user._id, targetRole);
+  await storeRefreshToken(refreshToken, user._id, targetRole);
 
   res.json({
     success: true,
@@ -196,10 +222,11 @@ export const handlePasswordLogin = asyncHandler(async (req, res) => {
   }
 
   user.lastLogin = new Date();
-  await user.save();
+  await user.save({ validateModifiedOnly: true });
 
   const token = generateToken(user._id, targetRole);
   const refreshToken = generateRefreshToken(user._id, targetRole);
+  await storeRefreshToken(refreshToken, user._id, targetRole);
 
   res.json({
     success: true,
@@ -226,10 +253,11 @@ export const handleAdminLogin = asyncHandler(async (req, res) => {
   }
 
   admin.lastLogin = new Date();
-  await admin.save();
+  await admin.save({ validateModifiedOnly: true });
 
   const token = generateToken(admin._id, admin.role);
   const refreshToken = generateRefreshToken(admin._id, admin.role);
+  await storeRefreshToken(refreshToken, admin._id, admin.role);
 
   res.json({
     success: true,
@@ -253,10 +281,84 @@ export const handleRefreshToken = asyncHandler(async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) throw new ApiError(400, 'Refresh token required');
 
-  const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
-  const token = generateToken(decoded.id, decoded.role);
+  let decoded;
+  try {
+    decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+  } catch {
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
 
-  res.json({ success: true, token });
+  const stored = await RefreshToken.findOne({ token: refreshToken });
+  if (!stored) throw new ApiError(401, 'Refresh token has been revoked');
+
+  await RefreshToken.deleteOne({ _id: stored._id });
+
+  const newToken = generateToken(decoded.id, decoded.role);
+  const newRefreshToken = generateRefreshToken(decoded.id, decoded.role);
+  await storeRefreshToken(newRefreshToken, decoded.id, decoded.role);
+
+  res.json({ success: true, token: newToken, refreshToken: newRefreshToken });
+});
+
+// ─── LOGOUT ────────────────────────────────────────
+/**
+ * POST /api/auth/logout
+ * Body: { refreshToken }
+ */
+export const handleLogout = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.body;
+  if (refreshToken) {
+    await RefreshToken.deleteOne({ token: refreshToken });
+  }
+  res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// ─── FORGOT PASSWORD ───────────────────────────────
+/**
+ * POST /api/auth/forgot-password
+ * Body: { phone }
+ */
+export const handleForgotPassword = asyncHandler(async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) throw new ApiError(400, 'Phone number is required');
+
+  const normalized = normalizePhone(phone);
+  const customer = await Customer.findOne({ phone: normalized });
+  if (!customer) throw new ApiError(404, 'No account found with this phone number');
+
+  const result = await sendOtp(normalized, 'customer');
+  if (!result.success) {
+    return res.status(400).json({ success: false, message: result.message });
+  }
+
+  res.json({ success: true, message: 'OTP sent to your registered phone number' });
+});
+
+// ─── RESET PASSWORD ────────────────────────────────
+/**
+ * POST /api/auth/reset-password
+ * Body: { phone, code, newPassword }
+ */
+export const handleResetPassword = asyncHandler(async (req, res) => {
+  const { phone, code, newPassword } = req.body;
+  if (!phone || !code || !newPassword) {
+    throw new ApiError(400, 'Phone, OTP code, and new password are required');
+  }
+  if (newPassword.length < 8) {
+    throw new ApiError(400, 'Password must be at least 8 characters');
+  }
+
+  const normalized = normalizePhone(phone);
+  const result = await verifyOtp(normalized, code, 'customer');
+  if (!result.success) throw new ApiError(400, result.message);
+
+  const customer = await Customer.findOne({ phone: normalized }).select('+password');
+  if (!customer) throw new ApiError(404, 'Customer not found');
+
+  customer.password = newPassword;
+  await customer.save({ validateModifiedOnly: true }); // pre-save hook bcrypts the password
+
+  res.json({ success: true, message: 'Password reset successfully. Please log in with your new password.' });
 });
 
 // ─── GET ME ────────────────────────────────────────

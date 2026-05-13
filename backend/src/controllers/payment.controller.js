@@ -2,6 +2,7 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import asyncHandler from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
+import Payment from '../models/Payment.js';
 
 let razorpay = null;
 try {
@@ -22,6 +23,7 @@ try {
 export const createOrder = asyncHandler(async (req, res) => {
   const { amount, currency = 'INR', packageId, vehicleId } = req.body;
   if (!amount) throw new ApiError(400, 'Amount is required');
+  if (amount < 1 || amount > 100000) throw new ApiError(400, 'Amount must be between ₹1 and ₹1,00,000');
 
   const options = {
     amount: Math.round(amount * 100), // Razorpay expects paise
@@ -35,16 +37,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   };
 
   if (!razorpay) {
-    // If Razorpay is not configured, simulate successful order creation for testing
-    console.warn('Razorpay is not configured, returning mock order');
-    return res.json({ 
-      success: true, 
-      order: {
-        id: `order_mock_${Date.now()}`,
-        amount: options.amount,
-        currency: options.currency
-      }
-    });
+    throw new ApiError(503, 'Payment service is not configured. Please contact support.');
   }
 
   const order = await razorpay.orders.create(options);
@@ -63,14 +56,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   }
 
   if (!razorpay) {
-    // If Razorpay is not configured, simulate successful verification for testing
-    console.warn('Razorpay is not configured, skipping signature verification');
-    return res.json({
-      success: true,
-      message: 'Mock payment verified successfully',
-      paymentId: razorpay_payment_id,
-      orderId: razorpay_order_id,
-    });
+    throw new ApiError(503, 'Payment service is not configured. Please contact support.');
   }
 
   const body = razorpay_order_id + '|' + razorpay_payment_id;
@@ -81,6 +67,27 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 
   if (expectedSignature !== razorpay_signature) {
     throw new ApiError(400, 'Payment verification failed — signature mismatch');
+  }
+
+  // Idempotent: skip insert if this paymentId was already recorded
+  const existing = await Payment.findOne({ paymentId: razorpay_payment_id });
+  if (!existing) {
+    // Fetch order amount from Razorpay so we store the authoritative value
+    let amount;
+    try {
+      const order = await razorpay.orders.fetch(razorpay_order_id);
+      amount = order.amount; // paise
+    } catch (_) {
+      // Non-fatal: amount is informational only
+    }
+
+    await Payment.create({
+      customer:  req.user._id,
+      orderId:   razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+      amount,
+    });
   }
 
   res.json({
@@ -96,5 +103,6 @@ export const verifyPayment = asyncHandler(async (req, res) => {
  * Returns the Razorpay key_id for frontend
  */
 export const getKey = asyncHandler(async (req, res) => {
-  res.json({ success: true, key: process.env.RAZORPAY_KEY_ID || 'rzp_test_mockkey' });
+  if (!process.env.RAZORPAY_KEY_ID) throw new ApiError(503, 'Payment service is not configured. Please contact support.');
+  res.json({ success: true, key: process.env.RAZORPAY_KEY_ID });
 });
