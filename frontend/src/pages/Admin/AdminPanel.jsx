@@ -1,17 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut } from 'lucide-react'
-import AdminDashboard from './AdminDashboard'
-import AdminUsers from './AdminUsers'
-import AdminCleaners from './AdminCleaners'
-import AdminPackages from './AdminPackages'
-import AdminSubscriptions from './AdminSubscriptions'
-import AdminRevenue from './AdminRevenue'
-import AdminContent from './AdminContent'
-import AdminSettings from './AdminSettings'
-import AdminApplications from './AdminApplications'
+import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut, User } from 'lucide-react'
+import PageLoader from '../../components/PageLoader'
+import ErrorBoundary from '../../components/ErrorBoundary'
+
+const AdminDashboard    = lazy(() => import('./AdminDashboard'))
+const AdminUsers        = lazy(() => import('./AdminUsers'))
+const AdminCleaners     = lazy(() => import('./AdminCleaners'))
+const AdminPackages     = lazy(() => import('./AdminPackages'))
+const AdminSubscriptions= lazy(() => import('./AdminSubscriptions'))
+const AdminRevenue      = lazy(() => import('./AdminRevenue'))
+const AdminContent      = lazy(() => import('./AdminContent'))
+const AdminSettings     = lazy(() => import('./AdminSettings'))
+const AdminApplications = lazy(() => import('./AdminApplications'))
+const AdminProfile      = lazy(() => import('./AdminProfile'))
+const AdminNotifications= lazy(() => import('./AdminNotifications'))
 
 const navItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -22,6 +27,7 @@ const navItems = [
   { path: '/admin/subscriptions', icon: CreditCard, label: 'Subscriptions' },
   { path: '/admin/revenue', icon: TrendingUp, label: 'Revenue' },
   { path: '/admin/content', icon: FileText, label: 'Content' },
+  { path: '/admin/notifications', icon: Bell, label: 'Notifications' },
   { path: '/admin/settings', icon: Settings, label: 'Settings' },
 ]
 
@@ -29,24 +35,39 @@ export default function AdminPanel() {
   const { theme, toggleTheme } = useTheme()
   const { user, loading, logout } = useAuth()
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  const [globalSearch, setGlobalSearch] = useState('')
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  useEffect(() => {
+    const handler = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      if (!mobile) setSidebarOpen(true)
+    }
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+
+  if (loading) return <PageLoader />
   if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) return <Navigate to="/admin/login" replace />
 
-  const handleLogout = async () => {
-    try {
-      await logout()
-      navigate('/admin/login')
-    } catch (err) {
-      console.error('Logout failed', err)
-    }
+  const handleLogout = () => {
+    logout()
   }
 
   return (
     <div style={{ minHeight: '100vh' }}>
+      {/* Mobile backdrop */}
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 99, backdropFilter: 'blur(4px)' }}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="admin-sidebar" style={{ transform: sidebarOpen ? 'none' : 'translateX(-100%)' }}>
+      <aside className="admin-sidebar" style={{ transform: sidebarOpen ? 'none' : 'translateX(-100%)', zIndex: isMobile ? 100 : undefined }}>
         <div className="sidebar-logo">
           <img src="/logo.png" alt="Cleanzo" />
           <span>Cleanzo</span>
@@ -61,6 +82,11 @@ export default function AdminPanel() {
           ))}
         </div>
         <div style={{ borderTop: '1px solid var(--divider)', paddingTop: 16 }}>
+          <NavLink to="/admin/profile"
+            className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}>
+            <User size={20} />
+            <span>Profile</span>
+          </NavLink>
           <div className="sidebar-nav-item" style={{ cursor: 'pointer' }} onClick={toggleTheme}>
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
@@ -73,41 +99,60 @@ export default function AdminPanel() {
       </aside>
 
       {/* Main */}
-      <div className="admin-main" style={{ marginLeft: sidebarOpen ? 240 : 0, transition: 'margin-left var(--transition)' }}>
+      <div className="admin-main" style={{ marginLeft: isMobile ? 0 : (sidebarOpen ? 240 : 0), transition: 'margin-left var(--transition)' }}>
         {/* Top bar */}
         <div className="flex justify-between items-center" style={{ marginBottom: 32 }}>
           <div className="flex items-center gap-16">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="btn-icon btn-glass" style={{ display: 'none' }}>
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="btn-icon btn-glass">
               {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
             <div style={{ position: 'relative', width: 320 }}>
               <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-              <input className="input-field" placeholder="Search users, cleaners, orders..." style={{ paddingLeft: 40 }} />
+              <input
+                className="input-field"
+                placeholder="Search users, cleaners..."
+                style={{ paddingLeft: 40 }}
+                value={globalSearch}
+                onChange={e => setGlobalSearch(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && globalSearch.trim()) {
+                    navigate(`/admin/users?q=${encodeURIComponent(globalSearch.trim())}`)
+                    setGlobalSearch('')
+                  }
+                }}
+              />
             </div>
           </div>
           <div className="flex items-center gap-12">
-            <button className="theme-toggle" style={{ position: 'relative' }}>
+            <button className="theme-toggle" onClick={() => navigate('/admin/notifications')}>
               <Bell size={18} />
-              <div style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: '50%', background: 'var(--error)' }} />
             </button>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-blue), var(--accent-lime))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'var(--font-display)', color: '#0A0A0A' }}>
+            <button
+              onClick={() => navigate('/admin/profile')}
+              style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-blue), var(--accent-lime))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'var(--font-display)', color: '#0A0A0A', cursor: 'pointer', border: 'none' }}>
               {user?.name ? user.name[0].toUpperCase() : 'A'}
-            </div>
+            </button>
           </div>
         </div>
 
-        <Routes>
-          <Route index element={<AdminDashboard />} />
-          <Route path="users" element={<AdminUsers />} />
-          <Route path="cleaners" element={<AdminCleaners />} />
-          <Route path="applications" element={<AdminApplications />} />
-          <Route path="packages" element={<AdminPackages />} />
-          <Route path="subscriptions" element={<AdminSubscriptions />} />
-          <Route path="revenue" element={<AdminRevenue />} />
-          <Route path="content" element={<AdminContent />} />
-          <Route path="settings" element={<AdminSettings />} />
-          <Route path="*" element={<Navigate to="/admin" replace />} />
-        </Routes>
+        <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="cleaners" element={<AdminCleaners />} />
+            <Route path="applications" element={<AdminApplications />} />
+            <Route path="packages" element={<AdminPackages />} />
+            <Route path="subscriptions" element={<AdminSubscriptions />} />
+            <Route path="revenue" element={<AdminRevenue />} />
+            <Route path="content" element={<AdminContent />} />
+            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="settings" element={<AdminSettings />} />
+            <Route path="profile" element={<AdminProfile />} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
+          </Routes>
+        </Suspense>
+        </ErrorBoundary>
       </div>
     </div>
   )

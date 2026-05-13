@@ -1,15 +1,19 @@
+import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MapPin, User, Package, Camera, CheckCircle2 } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { useToast } from '../../context/ToastContext'
 
 export default function TaskDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [task, setTask] = useState(null)
   const [status, setStatus] = useState('pending')
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [updateError, setUpdateError] = useState('')
 
   useEffect(() => {
     const fetchTask = async () => {
@@ -18,7 +22,7 @@ export default function TaskDetail() {
         setTask(res.task)
         setStatus(res.task.status)
       } catch (err) {
-        console.error('Error fetching task details', err)
+        setUpdateError('Failed to load task details. Please go back and try again.')
       } finally {
         setLoading(false)
       }
@@ -34,17 +38,17 @@ export default function TaskDetail() {
       await apiClient.put(`/cleaner/tasks/${id}/status`, { status: nextStatus })
       setStatus(nextStatus)
       if (nextStatus === 'completed') {
+        showToast('Task completed!')
         setTimeout(() => navigate('/cleaner/tasks'), 1500)
       }
     } catch (err) {
-      console.error('Failed to update status', err)
-      alert('Failed to update status')
+      setUpdateError('Failed to update status. Please try again.')
     } finally {
       setUpdating(false)
     }
   }
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return <PageLoader />
   if (!task) return <div style={{ padding: 20, textAlign: 'center' }}>Task not found</div>
 
   const statusFlow = { pending: 'in-progress', 'in-progress': 'completed' }
@@ -60,13 +64,13 @@ export default function TaskDetail() {
 
       {/* Car Info */}
       <div className="glass" style={{ padding: 24, marginBottom: 16 }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, marginBottom: 4 }}>{task.vehicleName || 'Vehicle'}</div>
-        <div className="text-body-sm" style={{ color: 'var(--accent-lime)', fontWeight: 600, marginBottom: 16 }}>{task.vehicleName || 'Plate'}</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, marginBottom: 4 }}>{task.vehicle?.model || 'Vehicle'}</div>
+        <div className="text-body-sm" style={{ color: 'var(--accent-lime)', fontWeight: 600, marginBottom: 16 }}>{task.vehicle?.number || 'Plate'}</div>
         <div className="flex flex-col gap-12">
           {[
-            { icon: User, label: 'Customer', value: task.customerName || 'Customer' },
-            { icon: Package, label: 'Package', value: task.packageName || 'Cleaning' },
-            { icon: MapPin, label: 'Location', value: task.location || 'Location' },
+            { icon: User, label: 'Customer', value: task.customer?.name || task.customer?.phone || 'Customer' },
+            { icon: Package, label: 'Package', value: task.packageName || task.subscription?.package?.name || 'Cleaning' },
+            { icon: MapPin, label: 'Location', value: task.vehicle?.parking || 'Location' },
           ].map((r, i) => (
             <div key={i} className="flex items-center gap-12">
               <r.icon size={16} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
@@ -95,6 +99,11 @@ export default function TaskDetail() {
 
       {/* Status action */}
       <div style={{ paddingBottom: 100 }}>
+        {updateError && (
+          <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 12, fontSize: 14 }}>
+            {updateError}
+          </div>
+        )}
         {status !== 'completed' ? (
           <button disabled={updating} className={`btn btn-primary w-full btn-lg ${updating ? 'opacity-50' : ''}`} onClick={handleUpdateStatus}>
             {updating ? 'Updating...' : btnLabels[status]}

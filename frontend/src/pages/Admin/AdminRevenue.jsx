@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react'
 import { Download } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import apiClient from '../../services/apiClient'
+import { useToast } from '../../context/ToastContext'
 
 export default function AdminRevenue() {
+  const { showToast } = useToast()
   const [revenueStats, setRevenueStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchRevenue = async () => {
@@ -13,7 +16,7 @@ export default function AdminRevenue() {
         const res = await apiClient.get('/admin/revenue')
         setRevenueStats(res)
       } catch (err) {
-        console.error('Error fetching revenue stats:', err)
+        setError('Failed to load revenue data.')
       } finally {
         setLoading(false)
       }
@@ -21,7 +24,25 @@ export default function AdminRevenue() {
     fetchRevenue()
   }, [])
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return (
+    <div>
+      <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
+        <div className="skeleton" style={{ height: 32, width: 140, borderRadius: 8 }} />
+        <div className="skeleton" style={{ height: 32, width: 110, borderRadius: 8 }} />
+      </div>
+      <div className="grid-3" style={{ gap: 16, marginBottom: 28 }}>
+        {[0,1,2].map(i => <div key={i} className="glass skeleton" style={{ height: 100, borderRadius: 16 }} />)}
+      </div>
+      <div className="glass skeleton" style={{ height: 280, borderRadius: 16, marginBottom: 28 }} />
+      <div className="glass" style={{ overflow: 'hidden', borderRadius: 16 }}>
+        {[0,1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 52, margin: '8px 16px', borderRadius: 8 }} />)}
+      </div>
+    </div>
+  )
+
+  const isSummaryDefault = !revenueStats?.summary
+  const isChartDefault = !revenueStats?.chartData
+  const isCustomersDefault = !revenueStats?.topCustomers
 
   const summary = revenueStats?.summary || [
     { label: 'This Month', value: '₹14.2L', trend: '+8.7%', trendColor: 'var(--success)' },
@@ -46,13 +67,18 @@ export default function AdminRevenue() {
   ]
   return (
     <div>
+      {error && (
+        <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 16, fontSize: 14 }}>
+          {error}
+        </div>
+      )}
       <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Revenue</h1>
-        <button className="btn btn-ghost btn-sm"><Download size={14} /> Export CSV</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => showToast('CSV export coming soon', 'info')}><Download size={14} /> Export CSV</button>
       </div>
 
       {/* Summary cards */}
-      <div className="grid-3" style={{ gap: 16, marginBottom: 28 }}>
+      <div className="grid-3" style={{ gap: 16, marginBottom: isSummaryDefault ? 8 : 28 }}>
         {summary.map((s, i) => (
           <div key={i} className="glass" style={{ padding: 24 }}>
             <div className="text-body-sm text-secondary" style={{ marginBottom: 8 }}>{s.label}</div>
@@ -61,6 +87,9 @@ export default function AdminRevenue() {
           </div>
         ))}
       </div>
+      {isSummaryDefault && (
+        <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 28 }}>Sample data — no revenue records yet</p>
+      )}
 
       {/* Revenue Line Chart */}
       <div className="glass" style={{ padding: 24, marginBottom: 28 }}>
@@ -77,11 +106,17 @@ export default function AdminRevenue() {
             </LineChart>
           </ResponsiveContainer>
         </div>
+        {isChartDefault && (
+          <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>Sample data — no revenue records yet</p>
+        )}
       </div>
 
       {/* Top customers */}
       <div className="glass" style={{ padding: 24 }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, display: 'block', marginBottom: 16 }}>Top Customers by Revenue</span>
+        <div className="flex items-center gap-12" style={{ marginBottom: 16 }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Top Customers by Revenue</span>
+          {isCustomersDefault && <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>sample data</span>}
+        </div>
         <table className="data-table">
           <thead><tr><th>Customer</th><th>Plan</th><th>Months</th><th>Total Paid</th></tr></thead>
           <tbody>

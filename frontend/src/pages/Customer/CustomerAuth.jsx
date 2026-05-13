@@ -52,7 +52,16 @@ function Field({ label, icon: Icon, children, action }) {
 // ─── Main Component ──────────────────────────────
 export default function CustomerAuth() {
   const navigate = useNavigate()
-  const { login, loginWithPassword } = useAuth()
+  const { user, loading: authLoading, login, loginWithPassword } = useAuth()
+
+  // Redirect already-authenticated users to their portal
+  useEffect(() => {
+    if (authLoading || !user) return
+    const role = user.role
+    if (role === 'admin' || role === 'superadmin') navigate('/admin', { replace: true })
+    else if (role === 'cleaner') navigate('/cleaner', { replace: true })
+    else navigate('/customer', { replace: true })
+  }, [user, authLoading, navigate])
 
   const [role, setRole] = useState('customer')   // customer | crew
   const [mode, setMode] = useState('login')       // login | signup
@@ -68,7 +77,7 @@ export default function CustomerAuth() {
     password: '',
     city: '',
     referralCode: '',
-    otp: ['', '', '', ''],
+    otp: ['', '', '', '', '', ''],
   })
 
   const [timer, setTimer] = useState(30)
@@ -103,6 +112,11 @@ export default function CustomerAuth() {
   const handleSendOtp = async (e) => {
     e.preventDefault()
     setErrorMsg('')
+    const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^91/, '')
+    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setErrorMsg('Enter a valid 10-digit Indian mobile number')
+      return
+    }
     setLoading(true)
     try {
       await apiClient.post('/auth/send-otp', { phone: formData.phone, role, mode })
@@ -154,6 +168,11 @@ export default function CustomerAuth() {
   const handlePasswordLogin = async (e) => {
     e.preventDefault()
     setErrorMsg('')
+    const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^91/, '')
+    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setErrorMsg('Enter a valid 10-digit Indian mobile number')
+      return
+    }
     setLoading(true)
     try {
       const res = await loginWithPassword(formData.phone, formData.password, role)
@@ -175,13 +194,23 @@ export default function CustomerAuth() {
     const next = [...formData.otp]
     next[i] = val
     setFormData(prev => ({ ...prev, otp: next }))
-    if (val && i < 3) document.getElementById(`otp-${i + 1}`)?.focus()
+    if (val && i < 5) document.getElementById(`otp-${i + 1}`)?.focus()
   }
 
   const handleOtpKeyDown = (e, i) => {
     if (e.key === 'Backspace' && !formData.otp[i] && i > 0) {
       document.getElementById(`otp-${i - 1}`)?.focus()
     }
+  }
+
+  const handleOtpPaste = (e) => {
+    e.preventDefault()
+    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (!digits) return
+    const next = ['', '', '', '', '', '']
+    for (let i = 0; i < digits.length; i++) next[i] = digits[i]
+    setFormData(prev => ({ ...prev, otp: next }))
+    document.getElementById(`otp-${Math.min(digits.length, 5)}`)?.focus()
   }
 
   // ── Success Screen ──
@@ -238,7 +267,7 @@ export default function CustomerAuth() {
             </h1>
             <p className="text-secondary" style={{ maxWidth: '80%', margin: '0 auto', fontSize: 15 }}>
               {step === 'otp'
-                ? 'Enter the 4-digit code sent to your phone.'
+                ? 'Enter the 6-digit code sent to your phone.'
                 : mode === 'login'
                   ? `Sign in to your ${role === 'crew' ? 'crew' : 'customer'} portal.`
                   : `Join the Cleanzo ${role === 'crew' ? 'crew' : 'family'} today.`}
@@ -273,7 +302,7 @@ export default function CustomerAuth() {
             {/* OTP Step */}
             {step === 'otp' ? (
               <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <button type="button" onClick={() => { setStep('form'); setFormData(p => ({ ...p, otp: ['', '', '', ''] })) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', padding: 0, width: 'fit-content' }}>
+                <button type="button" onClick={() => { setStep('form'); setFormData(p => ({ ...p, otp: ['', '', '', '', '', ''] })) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', padding: 0, width: 'fit-content' }}>
                   ← Edit number
                 </button>
                 <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
@@ -287,13 +316,14 @@ export default function CustomerAuth() {
                       value={d}
                       onChange={e => handleOtpInput(e.target.value, i)}
                       onKeyDown={e => handleOtpKeyDown(e, i)}
+                      onPaste={handleOtpPaste}
                       style={{ width: 64, height: 64, textAlign: 'center', fontSize: 26, fontWeight: 700, borderRadius: 16, border: '2px solid var(--border-glass)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }}
                       onFocus={e => e.target.style.borderColor = 'var(--accent-lime)'}
                       onBlur={e => e.target.style.borderColor = 'var(--border-glass)'}
                     />
                   ))}
                 </div>
-                <button type="submit" disabled={loading || formData.otp.join('').length < 4} className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
+                <button type="submit" disabled={loading || formData.otp.join('').length < 6} className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
                   {loading ? 'Verifying…' : 'Verify Account'}
                 </button>
                 <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
@@ -320,6 +350,8 @@ export default function CustomerAuth() {
                 </button>
                 <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
                   <button type="button" onClick={() => setUseOtp(true)} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontWeight: 600, cursor: 'pointer' }}>Use OTP instead</button>
+                  {' · '}
+                  <button type="button" onClick={() => navigate('/forgot-password')} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontWeight: 500, cursor: 'pointer', fontSize: 13 }}>Forgot password?</button>
                 </p>
               </form>
 

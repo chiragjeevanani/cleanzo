@@ -1,0 +1,134 @@
+.process-section {
+  background: var(--bg-primary);
+  border-top: 1px solid var(--divider);
+}
+
+.process-container {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 100px;
+  align-items: center;
+}
+
+.process-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.process-intro {
+  color: var(--text-secondary);
+  font-size: 16px;
+  max-width: 400px;
+  margin-bottom: 48px;
+}
+
+.process-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.process-step {
+  padding: 24px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: all var(--transition);
+  cursor: pointer;
+}
+
+.process-step.active {
+  background: var(--bg-surface);
+  border-color: var(--border-glass);
+  box-shadow: var(--shadow-md);
+}
+
+.step-number {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--primary-blue);
+  margin-bottom: 8px;
+}
+
+.step-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  transition: color var(--transition);
+}
+
+.process-step.active .step-title {
+  color: var(--accent-lime);
+}
+
+.step-desc {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: all var(--transition);
+}
+
+.process-step.active .step-desc {
+  height: auto;
+  opacity: 1;
+  margin-top: 8px;
+}
+
+.process-visual {
+  position: relative;
+}
+
+.process-image-container {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.process-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.process-stats {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  padding: 40px;
+  display: flex;
+  gap: 48px;
+}
+
+.process-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+@media (max-width: 960px) {
+  .process-container {
+    grid-template-columns: 1fr;
+    gap: 64px;
+  }
+}

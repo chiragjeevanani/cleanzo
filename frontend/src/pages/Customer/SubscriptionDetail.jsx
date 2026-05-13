@@ -1,21 +1,24 @@
+import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Calendar, SkipForward, Clock, TrendingUp } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { useToast } from '../../context/ToastContext'
 
 export default function SubscriptionDetail() {
+  const { showToast } = useToast()
   const [subscription, setSubscription] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchSub = async () => {
       try {
         const res = await apiClient.get('/customer/subscriptions')
-        if (res.subscriptions && res.subscriptions.length > 0) {
-          setSubscription(res.subscriptions[0]) // just showing first active one
-        }
+        const active = (res.subscriptions || []).find(s => s.status === 'Active') || res.subscriptions?.[0] || null
+        if (active) setSubscription(active)
       } catch (err) {
-        console.error('Error fetching subscription', err)
+        setError('Failed to load subscription. Please refresh.')
       } finally {
         setLoading(false)
       }
@@ -23,7 +26,8 @@ export default function SubscriptionDetail() {
     fetchSub()
   }, [])
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return <PageLoader />
+  if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
   if (!subscription) return <div style={{ padding: 20, textAlign: 'center' }}>No active subscription found.</div>
 
   const completed = subscription.completedDays || 0
@@ -94,7 +98,7 @@ export default function SubscriptionDetail() {
       <div className="flex flex-col gap-8" style={{ paddingBottom: 100 }}>
         <div className="flex gap-8">
           <Link to="/customer/skip" className="btn btn-ghost" style={{ flex: 1 }}>Skip Day</Link>
-          <button className="btn btn-primary" style={{ flex: 1 }}><TrendingUp size={16} /> Extend</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => showToast('Subscription extension coming soon', 'info')}><TrendingUp size={16} /> Extend</button>
         </div>
         <Link to="/customer/packages" className="btn glass w-full" style={{ border: '1px dashed var(--border-glass)' }}>
           Upgrade or Change Plan

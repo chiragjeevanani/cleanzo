@@ -1,24 +1,11 @@
 import { Router } from 'express';
-import { upload, cloudinary } from '../middleware/upload.js';
+import { upload } from '../middleware/upload.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import CleanerApplication from '../models/CleanerApplication.js';
 import { ApiError } from '../utils/ApiError.js';
+import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 
 const router = Router();
-
-// Helper to upload buffer to Cloudinary
-const uploadBufferToCloudinary = (buffer, folder) => {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: 'auto' },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result.secure_url);
-      }
-    );
-    uploadStream.end(buffer);
-  });
-};
 
 /**
  * POST /api/public/cleaner-apply
@@ -35,9 +22,18 @@ router.post('/cleaner-apply', upload.fields([
     referenceName, referencePhone 
   } = req.body;
 
-  // Simple validation
   if (!name || !phone || !age || !city) {
-    throw new ApiError(400, 'Missing required fields');
+    throw new ApiError(400, 'Missing required fields: name, phone, age, and city are required');
+  }
+  if (!/^\d{10}$/.test(phone)) {
+    throw new ApiError(400, 'Phone must be exactly 10 digits');
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new ApiError(400, 'Invalid email format');
+  }
+  const ageNum = parseInt(age, 10);
+  if (isNaN(ageNum) || ageNum < 18 || ageNum > 65) {
+    throw new ApiError(400, 'Age must be between 18 and 65');
   }
 
   const kyc = {};
@@ -77,6 +73,23 @@ router.post('/cleaner-apply', upload.fields([
     success: true,
     message: 'Application submitted successfully. We will contact you soon.',
     applicationId: application._id
+  });
+}));
+
+/**
+ * GET /api/public/settings
+ * Returns public-facing settings (trial price, etc.)
+ */
+router.get('/settings', asyncHandler(async (req, res) => {
+  const { default: Settings } = await import('../models/Settings.js');
+  const [trialSetting, prioritySetting] = await Promise.all([
+    Settings.findOne({ key: 'trialPrice' }),
+    Settings.findOne({ key: 'prioritySlotFee' }),
+  ]);
+  res.json({
+    success: true,
+    trialPrice: trialSetting?.value ?? 30,
+    prioritySlotFee: prioritySetting?.value ?? 99,
   });
 }));
 

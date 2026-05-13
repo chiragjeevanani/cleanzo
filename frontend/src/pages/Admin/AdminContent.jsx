@@ -1,25 +1,33 @@
 import { useState } from 'react'
 import { Image, Send, Eye, Loader2 } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { useToast } from '../../context/ToastContext'
 
 export default function AdminContent() {
+  const { showToast } = useToast()
   const [notification, setNotification] = useState({ title: '', body: '', audience: 'All Users' })
   const [sending, setSending] = useState(false)
+  const [notifFeedback, setNotifFeedback] = useState(null) // { type: 'success'|'error', message }
+
+  const audienceToTarget = { 'All Users': 'all', 'Active Subscribers': 'customers', 'Expired Subscribers': 'customers', 'Cleaners Only': 'cleaners' }
 
   const handleSendNotification = async () => {
-    if (!notification.title || !notification.body) return alert('Title and Message are required')
+    if (!notification.title || !notification.body) {
+      setNotifFeedback({ type: 'error', message: 'Title and Message are required.' })
+      return
+    }
     setSending(true)
+    setNotifFeedback(null)
     try {
-      await apiClient.post('/admin/notifications/broadcast', {
+      const res = await apiClient.post('/admin/notifications/broadcast', {
         title: notification.title,
         message: notification.body,
-        // Optional mapping based on backend needs, for now just pass strings
+        target: audienceToTarget[notification.audience] || 'all',
       })
-      alert('Notification broadcasted successfully!')
+      setNotifFeedback({ type: 'success', message: res.message || 'Notification broadcasted successfully!' })
       setNotification({ ...notification, title: '', body: '' })
     } catch (err) {
-      console.error('Failed to send notification', err)
-      alert('Failed to send notification')
+      setNotifFeedback({ type: 'error', message: err?.message || 'Failed to send notification. Please try again.' })
     } finally {
       setSending(false)
     }
@@ -48,8 +56,8 @@ export default function AdminContent() {
             </div>
           </div>
           <div className="flex gap-8">
-            <button className="btn btn-ghost" style={{ flex: 1 }}><Eye size={14} /> Preview</button>
-            <button className="btn btn-primary" style={{ flex: 1 }}>Publish Banner</button>
+            <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => showToast('Banner preview coming soon', 'info')}><Eye size={14} /> Preview</button>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => showToast('Banner publishing coming soon', 'info')}>Publish Banner</button>
           </div>
         </div>
       </div>
@@ -75,6 +83,16 @@ export default function AdminContent() {
               <option>Cleaners Only</option>
             </select>
           </div>
+          {notifFeedback && (
+            <div style={{
+              padding: '12px 16px', borderRadius: 12, fontSize: 14,
+              background: notifFeedback.type === 'success' ? 'rgba(101,199,55,0.1)' : 'rgba(255,50,50,0.08)',
+              border: `1px solid ${notifFeedback.type === 'success' ? 'rgba(101,199,55,0.3)' : 'rgba(255,50,50,0.2)'}`,
+              color: notifFeedback.type === 'success' ? 'var(--success)' : '#ff5555',
+            }}>
+              {notifFeedback.message}
+            </div>
+          )}
           <button className="btn btn-blue" onClick={handleSendNotification} disabled={sending}>
             {sending ? <><Loader2 size={14} className="animate-spin" /> Sending...</> : <><Send size={14} /> Send Notification</>}
           </button>

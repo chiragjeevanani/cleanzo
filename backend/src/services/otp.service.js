@@ -1,33 +1,38 @@
 import axios from 'axios';
+import bcrypt from 'bcryptjs';
 import Otp from '../models/Otp.js';
 import { normalizePhone, generateOtp } from '../utils/helpers.js';
 
-// Dev bypass: phone 9111966732 always accepts OTP 1234
+// Dev bypass — only active in non-production environments
 const DEV_BYPASS_PHONE = '9111966732';
-const DEV_BYPASS_OTP = '1234';
+const DEV_BYPASS_OTP = '123456';
 
 /**
  * Send OTP via SMSIndiaHub
  */
 export async function sendOtp(phone, role) {
   const normalized = normalizePhone(phone);
-  
+  const isDev = process.env.NODE_ENV !== 'production';
+
   // Delete any existing OTP for this phone
   await Otp.deleteMany({ phone: normalized });
 
-  // Generate OTP (use bypass for dev phone)
-  const code = normalized === DEV_BYPASS_PHONE ? DEV_BYPASS_OTP : generateOtp();
+  // Generate OTP (use bypass for dev phone in non-production only)
+  const code = (isDev && normalized === DEV_BYPASS_PHONE) ? DEV_BYPASS_OTP : generateOtp();
+
+  // Hash before storing
+  const hashedCode = await bcrypt.hash(code, 10);
 
   // Save to DB with 5 min expiry
   await Otp.create({
     phone: normalized,
-    code,
+    code: hashedCode,
     role,
     expiresAt: new Date(Date.now() + 5 * 60 * 1000),
   });
 
-  // Skip SMS ONLY for bypass phone. Real SMS will be sent if API key is present.
-  if (normalized === DEV_BYPASS_PHONE) {
+  // Skip SMS for dev bypass phone in non-production
+  if (isDev && normalized === DEV_BYPASS_PHONE) {
     console.log(`[DEV OTP BYPASS] ${normalized} → ${code}`);
     return { success: true, message: 'OTP sent (bypass mode)' };
   }
@@ -55,15 +60,13 @@ export async function sendOtp(phone, role) {
         TemplateId: process.env.SMS_DLT_TEMPLATE_ID,
       }
     });
-    
-    console.log('SMSIndiaHub Response:', response.data);
-    
+
     // Check if the response indicates failure
     if (response.data && response.data.ErrorCode !== '000') {
-       return { 
-         success: false, 
+       return {
+         success: false,
          message: `SMS Error: ${response.data.ErrorMessage || 'Unknown API Error'}`,
-         debug: response.data 
+         debug: response.data
        };
     }
 
@@ -80,7 +83,7 @@ export async function sendOtp(phone, role) {
 export async function verifyOtp(phone, code, role) {
   const normalized = normalizePhone(phone);
 
-  const otpRecord = await Otp.findOne({ phone: normalized, role });
+  const otpRecord = await Otp.findOne({ phone: normalized, role, expiresAt: { $gt: new Date() } });
 
   if (!otpRecord) {
     return { success: false, message: 'OTP not found or expired' };
@@ -91,7 +94,8 @@ export async function verifyOtp(phone, code, role) {
     return { success: false, message: 'Too many attempts. Please request a new OTP.' };
   }
 
-  if (otpRecord.code !== code) {
+  const isMatch = await bcrypt.compare(code, otpRecord.code);
+  if (!isMatch) {
     otpRecord.attempts += 1;
     await otpRecord.save();
     return { success: false, message: 'Invalid OTP' };

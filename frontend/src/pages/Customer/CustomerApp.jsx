@@ -1,22 +1,25 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { useTheme } from '../../context/ThemeContext'
 import { Home, CreditCard, Clock, User } from 'lucide-react'
-import CustomerHome from './CustomerHome'
-import CustomerAuth from './CustomerAuth'
-import VehicleManager from './VehicleManager'
-import PackageSelect from './PackageSelect'
-import BookingFlow from './BookingFlow'
-import SubscriptionDetail from './SubscriptionDetail'
-import SkipService from './SkipService'
-import ServiceHistory from './ServiceHistory'
-import Notifications from './Notifications'
-import CustomerProfile from './CustomerProfile'
-import SavedAddresses from './Profile/SavedAddresses'
-import TermsOfService from './Profile/TermsOfService'
-import PrivacyPolicy from './Profile/PrivacyPolicy'
-import HelpSupport from './Profile/HelpSupport'
-import PlanDetail from './PlanDetail'
+import PageLoader from '../../components/PageLoader'
+import ErrorBoundary from '../../components/ErrorBoundary'
+
+const CustomerHome       = lazy(() => import('./CustomerHome'))
+const CustomerAuth       = lazy(() => import('./CustomerAuth'))
+const VehicleManager     = lazy(() => import('./VehicleManager'))
+const PackageSelect      = lazy(() => import('./PackageSelect'))
+const BookingFlow        = lazy(() => import('./BookingFlow'))
+const SubscriptionDetail = lazy(() => import('./SubscriptionDetail'))
+const SkipService        = lazy(() => import('./SkipService'))
+const ServiceHistory     = lazy(() => import('./ServiceHistory'))
+const Notifications      = lazy(() => import('./Notifications'))
+const CustomerProfile    = lazy(() => import('./CustomerProfile'))
+const SavedAddresses     = lazy(() => import('./Profile/SavedAddresses'))
+const TermsOfService     = lazy(() => import('./Profile/TermsOfService'))
+const PrivacyPolicy      = lazy(() => import('./Profile/PrivacyPolicy'))
+const HelpSupport        = lazy(() => import('./Profile/HelpSupport'))
+const PlanDetail         = lazy(() => import('./PlanDetail'))
 
 const tabs = [
   { path: '/customer', icon: Home, label: 'Home', end: true },
@@ -28,29 +31,33 @@ const tabs = [
 export default function CustomerApp() {
   const { user, loading, logout } = useAuth()
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login" replace />
 
   return (
     <div className="app-shell">
-      <Routes>
-        <Route index element={<CustomerHome />} />
-        <Route path="subscriptions" element={<SubscriptionDetail />} />
-        <Route path="history" element={<ServiceHistory />} />
-        <Route path="profile" element={<CustomerProfile onLogout={logout} />} />
-        <Route path="vehicles" element={<VehicleManager />} />
-        <Route path="packages" element={<PackageSelect />} />
-        <Route path="plan/:id" element={<PlanDetail />} />
-        <Route path="booking" element={<BookingFlow />} />
-        <Route path="skip" element={<SkipService />} />
-        <Route path="notifications" element={<Notifications />} />
-        <Route path="addresses" element={<SavedAddresses />} />
-        <Route path="terms" element={<TermsOfService />} />
-        <Route path="privacy" element={<PrivacyPolicy />} />
-        <Route path="help" element={<HelpSupport />} />
-        <Route path="auth" element={<CustomerAuth />} />
-        <Route path="*" element={<Navigate to="/customer" replace />} />
-      </Routes>
+      <ErrorBoundary>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route index element={<CustomerHome />} />
+          <Route path="subscriptions" element={<SubscriptionDetail />} />
+          <Route path="history" element={<ServiceHistory />} />
+          <Route path="profile" element={<CustomerProfile />} />
+          <Route path="vehicles" element={<VehicleManager />} />
+          <Route path="packages" element={<PackageSelect />} />
+          <Route path="plan/:id" element={<PlanDetail />} />
+          <Route path="booking" element={<BookingFlow />} />
+          <Route path="skip" element={<SkipService />} />
+          <Route path="notifications" element={<Notifications />} />
+          <Route path="addresses" element={<SavedAddresses />} />
+          <Route path="terms" element={<TermsOfService />} />
+          <Route path="privacy" element={<PrivacyPolicy />} />
+          <Route path="help" element={<HelpSupport />} />
+          <Route path="auth" element={<CustomerAuth />} />
+          <Route path="*" element={<Navigate to="/customer" replace />} />
+        </Routes>
+      </Suspense>
+      </ErrorBoundary>
 
       <nav className="bottom-nav">
         {tabs.map(t => (

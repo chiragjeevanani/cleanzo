@@ -1,3 +1,4 @@
+import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Star, X } from 'lucide-react'
@@ -7,15 +8,17 @@ function RatingModal({ task, onClose, onSubmit }) {
   const [score, setScore] = useState(0)
   const [feedback, setFeedback] = useState('')
   const [loading, setLoading] = useState(false)
+  const [ratingError, setRatingError] = useState('')
 
   const handleSubmit = async () => {
     if (!score) return
     setLoading(true)
+    setRatingError('')
     try {
       await apiClient.post(`/customer/tasks/${task._id}/rate`, { score, feedback })
       onSubmit(task._id)
     } catch (err) {
-      alert(err.message || 'Failed to submit rating')
+      setRatingError(err.message || 'Failed to submit rating')
     } finally {
       setLoading(false)
     }
@@ -28,7 +31,7 @@ function RatingModal({ task, onClose, onSubmit }) {
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Rate your clean</h3>
           <button onClick={onClose} style={{ background: 'var(--bg-glass)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)' }}><X size={20} /></button>
         </div>
-        <p className="text-secondary text-body-sm" style={{ marginBottom: 20 }}>How was the cleaning for {task.vehicleName || 'your vehicle'} on {new Date(task.date).toLocaleDateString()}?</p>
+        <p className="text-secondary text-body-sm" style={{ marginBottom: 20 }}>How was the cleaning for {task.vehicle?.model || 'your vehicle'} on {new Date(task.date).toLocaleDateString()}?</p>
         
         <div className="flex justify-center gap-12" style={{ marginBottom: 24 }}>
           {[1,2,3,4,5].map(star => (
@@ -46,9 +49,14 @@ function RatingModal({ task, onClose, onSubmit }) {
           style={{ width: '100%', padding: '12px 16px', borderRadius: 12, minHeight: 80, border: '1px solid var(--border-glass)', background: 'transparent', color: 'white', resize: 'vertical', marginBottom: 20 }}
         />
 
-        <button 
-          onClick={handleSubmit} 
-          disabled={!score || loading} 
+        {ratingError && (
+          <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 12, fontSize: 13 }}>
+            {ratingError}
+          </div>
+        )}
+        <button
+          onClick={handleSubmit}
+          disabled={!score || loading}
           className={`btn btn-primary w-full ${(!score || loading) ? 'opacity-50' : ''}`}>
           {loading ? 'Submitting...' : 'Submit Review'}
         </button>
@@ -60,6 +68,7 @@ function RatingModal({ task, onClose, onSubmit }) {
 export default function ServiceHistory() {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [ratingTask, setRatingTask] = useState(null)
   const [ratedTaskIds, setRatedTaskIds] = useState(new Set()) // In a real app, backend would return if task is rated
 
@@ -69,7 +78,7 @@ export default function ServiceHistory() {
         const res = await apiClient.get('/customer/history')
         setHistory(res.tasks || [])
       } catch (err) {
-        console.error('Error fetching history:', err)
+        setError('Failed to load service history. Please refresh.')
       } finally {
         setLoading(false)
       }
@@ -82,7 +91,8 @@ export default function ServiceHistory() {
     setRatingTask(null)
   }
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return <PageLoader />
+  if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>

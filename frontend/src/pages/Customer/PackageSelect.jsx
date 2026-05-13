@@ -1,3 +1,4 @@
+import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Check, ArrowRight, ChevronRight } from 'lucide-react'
@@ -7,6 +8,7 @@ export default function PackageSelect() {
   const [packages, setPackages] = useState([])
   const [activeSub, setActiveSub] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -16,11 +18,10 @@ export default function PackageSelect() {
           apiClient.get('/customer/subscriptions')
         ])
         setPackages(pkgRes.packages || [])
-        if (subRes.subscriptions && subRes.subscriptions.length > 0) {
-          setActiveSub(subRes.subscriptions[0])
-        }
+        const activeSub = (subRes.subscriptions || []).find(s => s.status === 'Active')
+        if (activeSub) setActiveSub(activeSub)
       } catch (err) {
-        console.error('Error fetching packages', err)
+        setError('Failed to load packages. Please refresh.')
       } finally {
         setLoading(false)
       }
@@ -28,7 +29,8 @@ export default function PackageSelect() {
     fetchData()
   }, [])
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return <PageLoader />
+  if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>

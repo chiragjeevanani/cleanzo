@@ -1,3 +1,4 @@
+import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Check, Car, CreditCard, ShieldCheck, MapPin, Clock, Info } from 'lucide-react'
@@ -17,6 +18,8 @@ export default function BookingFlow() {
   const [vehicles, setVehicles] = useState([])
   const [packages, setPackages] = useState([])
   const [activeSubscriptions, setActiveSubscriptions] = useState([])
+  const [trialPrice, setTrialPrice] = useState(30)
+  const [prioritySlotFee, setPrioritySlotFee] = useState(99)
   
   // Selections
   const [selectedSociety, setSelectedSociety] = useState(null)
@@ -26,47 +29,55 @@ export default function BookingFlow() {
   const [specialInstructions, setSpecialInstructions] = useState('')
   
   const [loading, setLoading] = useState(true)
+  const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [paymentError, setPaymentError] = useState('')
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [sRes, vRes, pRes, subRes] = await Promise.all([
+        const [sRes, vRes, pRes, subRes, settingsRes] = await Promise.all([
           apiClient.get('/customer/societies'),
           apiClient.get('/customer/vehicles'),
           apiClient.get('/packages'),
-          apiClient.get('/customer/subscriptions')
+          apiClient.get('/customer/subscriptions'),
+          apiClient.get('/public/settings'),
         ])
         setSocieties(sRes.societies || [])
         setVehicles(vRes.vehicles || [])
         setPackages(pRes.packages || [])
         setActiveSubscriptions(subRes.subscriptions || [])
+        if (settingsRes.trialPrice) setTrialPrice(settingsRes.trialPrice)
+        if (settingsRes.prioritySlotFee) setPrioritySlotFee(settingsRes.prioritySlotFee)
         
         if (sRes.societies?.length > 0) setSelectedSociety(sRes.societies[0])
         if (vRes.vehicles?.length > 0) setSelectedVehicle(vRes.vehicles[0])
       } catch (err) {
-        console.error('Error fetching data for booking', err)
+        setPaymentError('Failed to load booking data. Please go back and try again.')
       } finally {
         setLoading(false)
       }
     }
     fetchData()
 
-    // Load Razorpay script
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.async = true
-    document.body.appendChild(script)
-
-    return () => {
-      document.body.removeChild(script)
+    // Load Razorpay script — only enable Pay button after onload fires
+    if (window.Razorpay) {
+      setRazorpayReady(true)
+    } else {
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.async = true
+      script.onload = () => setRazorpayReady(true)
+      script.onerror = () => setPaymentError('Failed to load payment gateway. Please refresh.')
+      document.body.appendChild(script)
+      return () => { document.body.removeChild(script) }
     }
   }, [])
 
   // Calculate pricing
   const basePrice = selectedPkg?.price || 0
   const isSlotFull = selectedSlot ? (selectedSlot.currentCount >= selectedSlot.maxVehicles) : false
-  const priorityFee = (isSlotFull && !selectedPkg?.isTrial) ? 99 : 0
+  const priorityFee = (isSlotFull && !selectedPkg?.isTrial) ? prioritySlotFee : 0
   let subtotal = basePrice + priorityFee
   
   const hasReferralDiscount = user?.referralDiscount?.isActive && !selectedPkg?.isTrial
@@ -76,7 +87,8 @@ export default function BookingFlow() {
   const handlePayment = async () => {
     if (!selectedPkg || !selectedVehicle || !selectedSociety || !selectedSlot) return
     setProcessing(true)
-    
+    setPaymentError('')
+
     try {
       // 1. Get Razorpay key
       const keyRes = await apiClient.get('/payment/key')
@@ -85,6 +97,7 @@ export default function BookingFlow() {
       // 2. Create Order
       const orderRes = await apiClient.post('/payment/create-order', {
         amount: finalAmount,
+        currency: 'INR',
         packageId: selectedPkg._id || 'trial',
         vehicleId: selectedVehicle._id
       })
@@ -107,11 +120,11 @@ export default function BookingFlow() {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature
             })
-            
-            // 5. Actually Create Subscription!
+
+            // 5. Create Subscription
             await apiClient.post('/customer/subscriptions', {
               vehicleId: selectedVehicle._id,
-              packageId: selectedPkg._id || null, // null if trial
+              packageId: selectedPkg._id || null,
               isTrial: selectedPkg.isTrial || false,
               societyId: selectedSociety._id,
               slotId: selectedSlot.slotId,
@@ -119,11 +132,10 @@ export default function BookingFlow() {
               paymentId: response.razorpay_payment_id
             })
 
-            // On success, navigate to subscriptions
             navigate('/customer/subscriptions')
           } catch (verifyErr) {
-            console.error('Payment verification failed', verifyErr)
-            alert('Payment verification or subscription creation failed. Please contact support.')
+            setProcessing(false)
+            setPaymentError('Payment verification or subscription creation failed. Please contact support.')
           }
         },
         prefill: {
@@ -132,27 +144,29 @@ export default function BookingFlow() {
           email: user?.email || ''
         },
         theme: {
-          color: '#DFFF00' // primary accent color
+          color: '#DFFF00'
+        },
+        modal: {
+          ondismiss: () => setProcessing(false)
         }
       }
 
-      // 4. Open Razorpay checkout
+      // 4. Open Razorpay checkout — rzp.open() is non-blocking, do NOT put setProcessing(false)
+      // in a finally block here; the modal handlers above manage it instead
       const rzp = new window.Razorpay(options)
-      rzp.on('payment.failed', function (response){
-        console.error('Payment failed', response.error)
-        alert(`Payment failed: ${response.error.description}`)
+      rzp.on('payment.failed', function (response) {
+        setProcessing(false)
+        setPaymentError(`Payment failed: ${response.error.description}`)
       })
       rzp.open()
-      
+
     } catch (err) {
-      console.error('Payment initialization failed', err)
-      alert('Failed to initiate payment. Please try again.')
-    } finally {
       setProcessing(false)
+      setPaymentError(err?.message || 'Failed to initiate payment. Please try again.')
     }
   }
 
-  if (loading) return <div className="loader-overlay"><div className="loader"></div></div>
+  if (loading) return <PageLoader />
 
   return (
     <div className="app-shell animate-fade-in" style={{ paddingBottom: 120 }}>
@@ -322,6 +336,12 @@ export default function BookingFlow() {
             </div>
             
             <div className="flex flex-col gap-16">
+              {packages.filter(p => p.category === selectedVehicle?.category).length === 0 && (
+                <div className="glass" style={{ padding: 32, textAlign: 'center', borderRadius: 24, border: '1px solid var(--border-glass)' }}>
+                  <p className="text-secondary text-body-sm" style={{ marginBottom: 8 }}>No plans available for <strong>{selectedVehicle?.category}</strong> yet.</p>
+                  <p className="text-secondary" style={{ fontSize: 12 }}>Try the Trial Wash below, or contact support.</p>
+                </div>
+              )}
               {packages.filter(p => p.category === selectedVehicle?.category).map((p, i) => {
                 const isSelected = selectedPkg?._id === p._id;
                 return (
@@ -363,7 +383,7 @@ export default function BookingFlow() {
 
               <div className="divider" style={{ margin: '8px 0' }} />
               
-              <button className="glass" onClick={() => setSelectedPkg({ isTrial: true, name: '1-Day Trial Wash', price: 30, _id: null })}
+              <button className="glass" onClick={() => setSelectedPkg({ isTrial: true, name: '1-Day Trial Wash', price: trialPrice, _id: null })}
                 style={{ 
                   padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
                   borderRadius: 20, borderColor: selectedPkg?.isTrial ? 'var(--accent-lime)' : 'var(--border-glass)',
@@ -378,7 +398,7 @@ export default function BookingFlow() {
                     <div className="text-body-sm text-secondary">Experience Cleanzo once</div>
                   </div>
                 </div>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>₹30</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>₹{trialPrice}</span>
               </button>
             </div>
 
@@ -472,10 +492,15 @@ export default function BookingFlow() {
               <span className="text-body-sm text-secondary font-medium leading-relaxed">Secured payment via Razorpay. Your transaction is encrypted & 100% safe.</span>
             </div>
 
+            {paymentError && (
+              <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginTop: 8, fontSize: 14 }}>
+                {paymentError}
+              </div>
+            )}
             <div className="flex gap-16" style={{ marginTop: 8 }}>
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 20, padding: 20 }} onClick={() => setStep(2)}>Back</button>
-              <button disabled={processing} className="btn btn-primary" style={{ flex: 2, borderRadius: 24, fontWeight: 800, fontSize: 20, padding: 22, boxShadow: 'var(--shadow-glow-lime)' }} onClick={handlePayment}>
-                {processing ? 'Connecting...' : `Pay ₹${finalAmount}`}
+              <button disabled={processing || !razorpayReady} className="btn btn-primary" style={{ flex: 2, borderRadius: 24, fontWeight: 800, fontSize: 20, padding: 22, boxShadow: 'var(--shadow-glow-lime)' }} onClick={handlePayment}>
+                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${finalAmount}`}
               </button>
             </div>
           </div>

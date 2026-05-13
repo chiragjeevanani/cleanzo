@@ -3,7 +3,7 @@ import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { v2 as cloudinary } from 'cloudinary';
+import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -13,14 +13,14 @@ export const getProfile = asyncHandler(async (req, res) => {
 
 export const updateProfile = asyncHandler(async (req, res) => {
   const { name, email, assignedArea } = req.body;
-  const cleaner = await Cleaner.findByIdAndUpdate(req.user._id, { name, email, assignedArea }, { new: true });
+  const cleaner = await Cleaner.findByIdAndUpdate(req.user._id, { name, email, assignedArea }, { new: true, runValidators: true });
   res.json({ success: true, user: cleaner });
 });
 
 export const toggleAvailability = asyncHandler(async (req, res) => {
   const cleaner = await Cleaner.findById(req.user._id);
   cleaner.isAvailable = !cleaner.isAvailable;
-  await cleaner.save();
+  await cleaner.save({ validateModifiedOnly: true });
   res.json({ success: true, isAvailable: cleaner.isAvailable });
 });
 
@@ -38,7 +38,8 @@ export const getTodayTasks = asyncHandler(async (req, res) => {
     .populate('vehicle', 'model number parking color')
     .populate('customer', 'name phone')
     .populate('subscription', 'package')
-    .sort('scheduledTime');
+    .sort('scheduledTime')
+    .lean();
 
   res.json({ success: true, tasks });
 });
@@ -56,67 +57,71 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
   const allowed = ['in-progress', 'completed'];
   if (!allowed.includes(status)) throw new ApiError(400, 'Invalid status');
 
+  // Fetch task first so we can guard against double-completion
+  const task = await Task.findOne({ _id: req.params.id, cleaner: req.user._id });
+  if (!task) throw new ApiError(404, 'Task not found');
+  if (task.status === 'completed') throw new ApiError(400, 'Task is already completed');
+
   const update = { status, notes };
+
   if (status === 'completed') {
     update.completedTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    
-    // Update cleaner stats
-    const cleaner = await Cleaner.findById(req.user._id);
-    cleaner.totalCompleted += 1;
-    await cleaner.save();
 
-    // Update subscription completed days
-    const task = await Task.findById(req.params.id);
-    if (task) {
-      const sub = await (await import('../models/Subscription.js')).default.findById(task.subscription);
-      if (sub) {
-        sub.completedDays += 1;
-        sub.remainingDays = sub.totalDays - sub.completedDays - sub.skippedDays;
-        await sub.save();
-      }
+    // Update cleaner stats — only when transitioning TO completed (not already there)
+    const [cleaner, totalAssigned] = await Promise.all([
+      Cleaner.findById(req.user._id),
+      Task.countDocuments({ cleaner: req.user._id }),
+    ]);
+    cleaner.totalCompleted += 1;
+    cleaner.completionRate = totalAssigned > 0
+      ? Math.min(100, Math.round((cleaner.totalCompleted / totalAssigned) * 100))
+      : 100;
+    await cleaner.save({ validateModifiedOnly: true });
+
+    // Update subscription completed days and nextWash
+    const { default: Subscription } = await import('../models/Subscription.js');
+    const sub = await Subscription.findById(task.subscription);
+    if (sub) {
+      sub.completedDays += 1;
+      sub.remainingDays = sub.totalDays - sub.completedDays - sub.skippedDays;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const nextTask = await Task.findOne({
+        subscription: sub._id,
+        status: 'pending',
+        date: { $gt: today },
+      }).sort('date');
+      sub.nextWash = nextTask ? nextTask.date : null;
+
+      await sub.save({ validateModifiedOnly: true });
     }
   }
 
-  const task = await Task.findOneAndUpdate(
+  // Apply the status update
+  const updatedTask = await Task.findOneAndUpdate(
     { _id: req.params.id, cleaner: req.user._id },
     update,
     { new: true }
   );
-  if (!task) throw new ApiError(404, 'Task not found');
 
-  // Auto-mark attendance
-  if (status === 'in-progress' || status === 'completed') {
-    const { default: Attendance } = await import('../models/Attendance.js');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    await Attendance.findOneAndUpdate(
-      { cleaner: req.user._id, date: today },
-      { 
-        $setOnInsert: { checkIn: new Date() },
-        status: 'present',
-        $inc: { tasksCompleted: status === 'completed' ? 1 : 0 }
-      },
-      { upsert: true }
-    );
-  }
+  // Auto-mark attendance on first action of the day
+  const { default: Attendance } = await import('../models/Attendance.js');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  await Attendance.findOneAndUpdate(
+    { cleaner: req.user._id, date: today },
+    {
+      $setOnInsert: { checkIn: new Date() },
+      status: 'present',
+      $inc: { tasksCompleted: status === 'completed' ? 1 : 0 },
+    },
+    { upsert: true }
+  );
 
-  res.json({ success: true, task });
+  res.json({ success: true, task: updatedTask });
 });
 
-// Helper to upload buffer to Cloudinary
-const uploadBufferToCloudinary = (buffer, folder) => {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: 'auto' },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result.secure_url);
-      }
-    );
-    uploadStream.end(buffer);
-  });
-};
 
 export const uploadTaskPhotos = asyncHandler(async (req, res) => {
   const { type } = req.body; // 'before' or 'after'
@@ -147,14 +152,15 @@ export const uploadTaskPhotos = asyncHandler(async (req, res) => {
 // ─── HISTORY ─────────────────────────────────────
 export const getHistory = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const skip = (page - 1) * limit;
 
   const [tasks, total] = await Promise.all([
     Task.find({ cleaner: req.user._id, status: { $in: ['completed', 'skipped'] } })
       .populate('vehicle', 'model number')
       .populate('customer', 'name')
-      .sort('-date').skip(skip).limit(limit),
+      .sort('-date').skip(skip).limit(limit)
+      .lean(),
     Task.countDocuments({ cleaner: req.user._id, status: { $in: ['completed', 'skipped'] } }),
   ]);
 
@@ -218,8 +224,11 @@ export const submitKyc = asyncHandler(async (req, res) => {
 export const getAttendance = asyncHandler(async (req, res) => {
   const { default: Attendance } = await import('../models/Attendance.js');
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const year = parseInt(req.query.year) || now.getFullYear();
+  const month = parseInt(req.query.month); // 0-indexed
+  const targetMonth = (!isNaN(month) && month >= 0 && month <= 11) ? month : now.getMonth();
+  const start = new Date(year, targetMonth, 1);
+  const end = new Date(year, targetMonth + 1, 0);
 
   const history = await Attendance.find({
     cleaner: req.user._id,

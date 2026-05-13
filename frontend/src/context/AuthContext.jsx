@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import apiClient from '../services/apiClient';
+import { useToast } from './ToastContext';
 
 const AuthContext = createContext();
 
@@ -8,6 +9,13 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    const handler = () => showToast('Session expired, please log in again', 'error');
+    window.addEventListener('auth:session-expired', handler);
+    return () => window.removeEventListener('auth:session-expired', handler);
+  }, [showToast]);
 
   // Initialize auth state
   useEffect(() => {
@@ -19,7 +27,9 @@ export const AuthProvider = ({ children }) => {
           setUser(res.user);
         } catch (error) {
           console.error('Failed to restore session:', error);
-          logout();
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('userRole');
         }
       }
       setLoading(false);
@@ -37,6 +47,7 @@ export const AuthProvider = ({ children }) => {
       });
       localStorage.setItem('token', res.token);
       localStorage.setItem('refreshToken', res.refreshToken);
+      localStorage.setItem('userRole', res.user.role);
       setUser(res.user);
       return { success: true };
     } catch (error) {
@@ -50,6 +61,7 @@ export const AuthProvider = ({ children }) => {
       const res = await apiClient.post('/auth/login-password', { phone, password, role });
       localStorage.setItem('token', res.token);
       localStorage.setItem('refreshToken', res.refreshToken);
+      localStorage.setItem('userRole', res.user.role);
       setUser(res.user);
       return { success: true };
     } catch (error) {
@@ -63,6 +75,7 @@ export const AuthProvider = ({ children }) => {
       const res = await apiClient.post('/auth/admin-login', { email, password });
       localStorage.setItem('token', res.token);
       localStorage.setItem('refreshToken', res.refreshToken);
+      localStorage.setItem('userRole', res.user.role);
       setUser(res.user);
       return { success: true };
     } catch (error) {
@@ -71,14 +84,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    const role = user?.role || localStorage.getItem('userRole');
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userRole');
     setUser(null);
-    window.location.href = '/';
+    const isAdmin = role === 'admin' || role === 'superadmin';
+    window.location.href = isAdmin ? '/admin/login' : '/login';
   };
 
+  const updateUser = (updates) => setUser(prev => ({ ...prev, ...updates }));
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithPassword, adminLogin, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithPassword, adminLogin, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

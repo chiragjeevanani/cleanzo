@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import LoadingScreen from './LoadingScreen'
 import Navbar from './Navbar'
+import { useTheme } from '../../context/ThemeContext'
 import HeroSection from './HeroSection'
-import StatsSection from './StatsSection'
+import PrecisionSection from './PrecisionSection'
 import ServicesSection from './ServicesSection'
-import HowItWorksSection from './HowItWorksSection'
 import PricingSection from './PricingSection'
+import ProcessSection from './ProcessSection'
 import TestimonialsSection from './TestimonialsSection'
 import AppDownloadSection from './AppDownloadSection'
+import FAQSection from './FAQSection'
 import Footer from './Footer'
 import './LandingPage.css'
 
 export default function LandingPage() {
+  const { theme } = useTheme()
   const [loading, setLoading] = useState(true)
   const mainRef = useRef(null)
 
@@ -21,7 +24,6 @@ export default function LandingPage() {
   useEffect(() => {
     if (loading) return
     
-    // Slight delay to ensure DOM layout is completely settled after loading screen unmounts
     const timer = setTimeout(() => {
       const reveals = document.querySelectorAll('.reveal')
       const observer = new IntersectionObserver((entries) => {
@@ -35,40 +37,28 @@ export default function LandingPage() {
       
       reveals.forEach(el => observer.observe(el))
       
-      // Cleanup observer on unmount
       return () => observer.disconnect()
     }, 100)
 
     return () => clearTimeout(timer)
   }, [loading])
 
-  /* Scroll progress bar */
-  useEffect(() => {
-    if (loading) return
-    const bar = document.getElementById('scroll-progress')
-    const onScroll = () => {
-      const h = document.documentElement.scrollHeight - window.innerHeight
-      if (bar && h > 0) bar.style.width = `${(window.scrollY / h) * 100}%`
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [loading])
-
   return (
-    <>
+    <div className={`landing-page-root theme-${theme}`}>
       {loading && <LoadingScreen onComplete={handleLoadComplete} />}
       <div className="scroll-progress-bar" id="scroll-progress" />
       <Navbar />
       <main ref={mainRef} className="landing-main">
         <HeroSection />
-        <StatsSection />
+        <PrecisionSection />
         <ServicesSection />
-        <HowItWorksSection />
         <PricingSection />
+        <ProcessSection />
         <TestimonialsSection />
         <AppDownloadSection />
+        <FAQSection />
         <Footer />
       </main>
-    </>
+    </div>
   )
 }
