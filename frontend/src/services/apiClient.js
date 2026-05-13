@@ -56,6 +56,7 @@ async function request(url, options = {}) {
           const refreshData = await refreshRes.json();
           if (refreshData.success) {
             localStorage.setItem('token', refreshData.token);
+            localStorage.setItem('refreshToken', refreshData.refreshToken);
             return request(url, { ...options, _retry: true });
           }
         } catch {
@@ -69,7 +70,10 @@ async function request(url, options = {}) {
         setTimeout(() => {
           window.location.href = (role === 'admin' || role === 'superadmin') ? '/admin/login' : '/login';
         }, 1500);
-        return;
+        const sessionErr = new Error('Session expired — please log in again');
+        sessionErr.status = 401;
+        sessionErr.sessionExpired = true;
+        throw sessionErr;
       }
     }
 

@@ -90,11 +90,14 @@ export const getDashboard = asyncHandler(async (req, res) => {
     revenue: r.revenue
   }));
 
-  // Recent Activity Mapping
+  // Recent Activity Mapping — sort by raw timestamp before formatting
   const activity = [
-    ...recentApplications.map(a => ({ text: `New application from ${a.name}`, time: timeAgo(a.createdAt) })),
-    ...recentTasks.filter(t => t.status === 'completed').map(t => ({ text: `${t.cleaner?.name || 'Cleaner'} completed task for ${t.customer ? `${t.customer.firstName} ${t.customer.lastName}` : 'User'}`, time: timeAgo(t.updatedAt) })),
-  ].sort((a, b) => 0).slice(0, 8);
+    ...recentApplications.map(a => ({ text: `New application from ${a.name}`, _ts: a.createdAt })),
+    ...recentTasks.filter(t => t.status === 'completed').map(t => ({ text: `${t.cleaner?.name || 'Cleaner'} completed task for ${t.customer ? `${t.customer.firstName} ${t.customer.lastName}` : 'User'}`, _ts: t.updatedAt })),
+  ]
+    .sort((a, b) => new Date(b._ts) - new Date(a._ts))
+    .slice(0, 8)
+    .map(({ text, _ts }) => ({ text, time: timeAgo(_ts) }));
 
   res.json({
     success: true,
@@ -415,35 +418,34 @@ export const updateCleanerApplicationStatus = asyncHandler(async (req, res) => {
     // Handle Approval
     if (status === 'approved') {
       const existing = await Cleaner.findOne({ phone: application.phone });
-      if (!existing) {
-        try {
-          await Cleaner.create({
-            name: application.name,
-            phone: application.phone,
-            email: application.email,
-            city: application.city,
-            avatar: application.kyc?.livePhoto,
-            kycStatus: 'approved',
-            kyc: {
-              livePhoto: application.kyc?.livePhoto,
-              aadhaarPhoto: application.kyc?.aadhaarPhoto,
-              panPhoto: application.kyc?.panPhoto,
-              submittedAt: application.createdAt
-            }
-          });
-        } catch (createErr) {
-          if (createErr.code === 11000) throw new ApiError(409, 'A cleaner with this phone number already exists');
-          throw createErr;
-        }
-
-        // Notify Cleaner of Approval
-        await sendSms(
-          application.phone, 
-          `Congratulations ${application.name}! Your application with Cleanzo has been approved. You can now login to the Cleaner App and start working.`,
-          process.env.SMS_APPROVAL_TEMPLATE_ID
-        );
+      if (existing) throw new ApiError(409, 'A cleaner with this phone number already exists');
+      try {
+        await Cleaner.create({
+          name: application.name,
+          phone: application.phone,
+          email: application.email,
+          city: application.city,
+          avatar: application.kyc?.livePhoto,
+          kycStatus: 'approved',
+          kyc: {
+            livePhoto: application.kyc?.livePhoto,
+            aadhaarPhoto: application.kyc?.aadhaarPhoto,
+            panPhoto: application.kyc?.panPhoto,
+            submittedAt: application.createdAt,
+          },
+        });
+      } catch (createErr) {
+        if (createErr.code === 11000) throw new ApiError(409, 'A cleaner with this phone number already exists');
+        throw createErr;
       }
-    } 
+
+      // Notify Cleaner of Approval
+      await sendSms(
+        application.phone,
+        `Congratulations ${application.name}! Your application with Cleanzo has been approved. You can now login to the Cleaner App and start working.`,
+        process.env.SMS_APPROVAL_TEMPLATE_ID
+      );
+    }
     
     // Handle Rejection
     if (status === 'rejected') {

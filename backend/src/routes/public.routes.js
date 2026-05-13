@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { upload } from '../middleware/upload.js';
+import { upload, validateImageBytes } from '../middleware/upload.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import CleanerApplication from '../models/CleanerApplication.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -15,7 +15,7 @@ router.post('/cleaner-apply', upload.fields([
   { name: 'livePhoto', maxCount: 1 },
   { name: 'aadhaarPhoto', maxCount: 1 },
   { name: 'panPhoto', maxCount: 1 }
-]), asyncHandler(async (req, res) => {
+]), validateImageBytes, asyncHandler(async (req, res) => {
   const { 
     name, phone, email, age, city, 
     fatherName, permanentAddress, currentAddress,

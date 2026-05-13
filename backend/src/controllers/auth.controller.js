@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import Customer from '../models/Customer.js';
@@ -16,7 +17,7 @@ const generateToken = (id, role) =>
   });
 
 const generateRefreshToken = (id, role) =>
-  jwt.sign({ id, role }, process.env.JWT_REFRESH_SECRET, {
+  jwt.sign({ id, role, jti: crypto.randomBytes(16).toString('hex') }, process.env.JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
   });
 

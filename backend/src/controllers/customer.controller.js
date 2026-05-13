@@ -152,8 +152,8 @@ export const createSubscription = asyncHandler(async (req, res) => {
   );
 
   if (!updatedSociety) {
-    // Slot was full — apply priority fee and increment unconditionally
-    priorityFee = prioritySlotFee;
+    // Slot was full — apply priority fee (only for non-trial) and increment unconditionally
+    if (!isTrial) priorityFee = prioritySlotFee;
     await Society.updateOne(
       { _id: societyId, 'slots.slotId': slotId },
       { $inc: { 'slots.$.currentCount': 1 } }

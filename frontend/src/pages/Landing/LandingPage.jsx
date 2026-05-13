@@ -13,6 +13,8 @@ import FAQSection from './FAQSection'
 import Footer from './Footer'
 import './LandingPage.css'
 
+const HERO_IMAGE_URL = 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?q=80&w=2070&auto=format&fit=crop'
+
 export default function LandingPage() {
   const { theme } = useTheme()
   const [loading, setLoading] = useState(true)
@@ -49,7 +51,7 @@ export default function LandingPage() {
       <div className="scroll-progress-bar" id="scroll-progress" />
       <Navbar />
       <main ref={mainRef} className="landing-main">
-        <HeroSection />
+        <HeroSection bgImageUrl={HERO_IMAGE_URL} heroReady={!loading} />
         <PrecisionSection />
         <ServicesSection />
         <PricingSection />
