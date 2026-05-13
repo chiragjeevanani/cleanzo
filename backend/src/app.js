@@ -11,18 +11,24 @@ const app = express();
 
 app.use(helmet());
 app.use(compression());
-const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [
+app.use(cors({
+  origin: (origin, callback) => {
+    const allowed = [
       'https://cleanzo.in',
       'https://www.cleanzo.in',
       'https://admin.cleanzo.in',
       'https://cleanzo-theta.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
       ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
-    ]
-  : ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173'];
-
-app.use(cors({
-  origin: allowedOrigins,
+    ];
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    }
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
