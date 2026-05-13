@@ -34,17 +34,26 @@ export default defineConfig({
             options: {
               cacheName: 'navigate-cache',
               networkTimeoutSeconds: 5,
-              plugins: [{
-                handlerDidError: async () => {
-                  return await caches.match('/offline.html');
-                },
-              }],
             },
           },
+          // Google Fonts CSS — StaleWhileRevalidate so it always tries network
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'google-fonts-stylesheets',
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Actual font files from gstatic — long-lived CacheFirst
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
             handler: 'CacheFirst',
-            options: { cacheName: 'google-fonts-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
           },
           {
             urlPattern: /\/api\/.*/,
