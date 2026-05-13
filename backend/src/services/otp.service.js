@@ -97,6 +97,10 @@ export async function verifyOtp(phone, code, role) {
   const isMatch = await bcrypt.compare(code, otpRecord.code);
   if (!isMatch) {
     otpRecord.attempts += 1;
+    if (otpRecord.attempts >= 5) {
+      await Otp.deleteOne({ _id: otpRecord._id });
+      return { success: false, message: 'Too many attempts. Please request a new OTP.' };
+    }
     await otpRecord.save();
     return { success: false, message: 'Invalid OTP' };
   }

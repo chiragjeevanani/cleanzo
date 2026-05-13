@@ -3,15 +3,16 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, ChevronDown } from 'lucide-react'
 import './HeroSection.css'
 
-export default function HeroSection() {
+export default function HeroSection({ bgImageUrl, heroReady }) {
   const sectionRef = useRef(null)
 
   useEffect(() => {
-    const chars = document.querySelectorAll('.hero-char')
+    if (!heroReady) return
+    const chars = sectionRef.current?.querySelectorAll('.hero-char') ?? []
     chars.forEach((char, i) => {
-      char.style.animationDelay = `${400 + i * 30}ms`
+      char.style.animationDelay = `${i * 30}ms`
     })
-  }, [])
+  }, [heroReady])
 
   const splitText = (text, className = '') => {
     let globalCharIndex = 0;
@@ -35,9 +36,9 @@ export default function HeroSection() {
   }
 
   return (
-    <section ref={sectionRef} className="hero-section" id="hero">
+    <section ref={sectionRef} className={`hero-section${heroReady ? ' hero-ready' : ''}`} id="hero">
       {/* Background Image with Overlay */}
-      <div className="hero-bg-image" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?q=80&w=2070&auto=format&fit=crop")' }}>
+      <div className="hero-bg-image" style={{ backgroundImage: `url("${bgImageUrl}")` }}>
         <div className="hero-overlay-gradient" />
       </div>
 

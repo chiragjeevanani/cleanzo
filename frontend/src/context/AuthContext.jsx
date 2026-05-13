@@ -83,8 +83,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     const role = user?.role || localStorage.getItem('userRole');
+    const refreshToken = localStorage.getItem('refreshToken');
+    // Revoke the refresh token on the server so it can't be reused after logout
+    if (refreshToken) {
+      try {
+        await apiClient.post('/auth/logout', { refreshToken });
+      } catch {
+        // Non-fatal: proceed with local logout even if the server call fails
+      }
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('userRole');

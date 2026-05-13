@@ -66,8 +66,17 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
 
   if (status === 'completed') {
     update.completedTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
 
-    // Update cleaner stats — only when transitioning TO completed (not already there)
+  // Apply the status update atomically first
+  const updatedTask = await Task.findOneAndUpdate(
+    { _id: req.params.id, cleaner: req.user._id },
+    update,
+    { new: true }
+  );
+
+  if (status === 'completed' && updatedTask) {
+    // Update cleaner stats only after confirming the task was actually updated
     const [cleaner, totalAssigned] = await Promise.all([
       Cleaner.findById(req.user._id),
       Task.countDocuments({ cleaner: req.user._id }),
@@ -98,13 +107,6 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
     }
   }
 
-  // Apply the status update
-  const updatedTask = await Task.findOneAndUpdate(
-    { _id: req.params.id, cleaner: req.user._id },
-    update,
-    { new: true }
-  );
-
   // Auto-mark attendance on first action of the day
   const { default: Attendance } = await import('../models/Attendance.js');
   const today = new Date();
@@ -113,7 +115,7 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
     { cleaner: req.user._id, date: today },
     {
       $setOnInsert: { checkIn: new Date() },
-      status: 'present',
+      $set: { status: 'present' },
       $inc: { tasksCompleted: status === 'completed' ? 1 : 0 },
     },
     { upsert: true }

@@ -87,6 +87,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
       paymentId: razorpay_payment_id,
       signature: razorpay_signature,
       amount,
+      status:    'verified',
     });
   }
 
