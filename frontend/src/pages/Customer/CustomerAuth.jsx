@@ -305,7 +305,7 @@ export default function CustomerAuth() {
                 <button type="button" onClick={() => { setStep('form'); setFormData(p => ({ ...p, otp: ['', '', '', '', '', ''] })) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', padding: 0, width: 'fit-content' }}>
                   ← Edit number
                 </button>
-                <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', width: '100%' }}>
                   {formData.otp.map((d, i) => (
                     <input
                       key={i}
@@ -317,7 +317,22 @@ export default function CustomerAuth() {
                       onChange={e => handleOtpInput(e.target.value, i)}
                       onKeyDown={e => handleOtpKeyDown(e, i)}
                       onPaste={handleOtpPaste}
-                      style={{ width: 64, height: 64, textAlign: 'center', fontSize: 26, fontWeight: 700, borderRadius: 16, border: '2px solid var(--border-glass)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', transition: 'border-color 0.2s' }}
+                      style={{ 
+                        flex: 1,
+                        maxWidth: 64,
+                        aspectRatio: '1/1',
+                        height: 'auto',
+                        textAlign: 'center', 
+                        fontSize: 22, 
+                        fontWeight: 700, 
+                        borderRadius: 14, 
+                        border: '2px solid var(--border-glass)', 
+                        background: 'var(--bg-secondary)', 
+                        color: 'var(--text-primary)', 
+                        outline: 'none', 
+                        transition: 'border-color 0.2s',
+                        minWidth: 0
+                      }}
                       onFocus={e => e.target.style.borderColor = 'var(--accent-lime)'}
                       onBlur={e => e.target.style.borderColor = 'var(--border-glass)'}
                     />
