@@ -826,3 +826,60 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
   res.json({ success: true, order });
 });
+
+export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
+  const { subscriptionId } = req.params;
+  const { cleanerId } = req.body;
+
+  const subscription = await Subscription.findById(subscriptionId).populate('society').populate('package');
+  if (!subscription) throw new ApiError(404, 'Subscription not found');
+
+  const cleaner = await Cleaner.findById(cleanerId);
+  if (!cleaner) throw new ApiError(404, 'Cleaner not found');
+
+  subscription.assignedCleaner = cleanerId;
+  await subscription.save();
+
+  // Automatically create or update today's task
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Find today's task using a range to be safe with timezones
+  const existingTask = await Task.findOne({
+    subscription: subscriptionId,
+    date: { $gte: today, $lt: tomorrow }
+  });
+
+  if (!existingTask) {
+    let scheduledTime = '07:00 AM';
+    if (subscription.society && subscription.slot) {
+      const slot = subscription.society.slots?.find(s => s.slotId === subscription.slot);
+      if (slot?.timeWindow) scheduledTime = slot.timeWindow.split(' - ')[0];
+    }
+
+    await Task.create({
+      subscription: subscriptionId,
+      customer: subscription.customer,
+      cleaner: cleanerId,
+      vehicle: subscription.vehicle,
+      date: today,
+      scheduledTime,
+      status: 'pending',
+      packageName: subscription.package?.name || (subscription.isTrial ? 'Trial' : 'Standard'),
+    });
+  } else {
+    // Force update the cleaner even if one was already assigned (handles re-assignment)
+    existingTask.cleaner = cleanerId;
+    await existingTask.save();
+  }
+
+  await logActivity({
+    type: 'cleaner_assigned',
+    message: `Cleaner ${cleaner.name} assigned to subscription for ${subscription.customer}`,
+    metadata: { subscriptionId, cleanerId }
+  });
+
+  res.json({ success: true, message: 'Cleaner assigned successfully and task generated', subscription });
+});

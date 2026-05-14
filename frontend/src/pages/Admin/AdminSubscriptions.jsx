@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
+import { UserPlus, CheckCircle, Clock, ShieldCheck, User } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { useToast } from '../../context/ToastContext'
 
 export default function AdminSubscriptions() {
   const [filter, setFilter] = useState('all')
@@ -7,19 +9,37 @@ export default function AdminSubscriptions() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const fetchSubs = async () => {
-      try {
-        const res = await apiClient.get('/admin/subscriptions')
-        setSubs(res.subscriptions || [])
-      } catch (err) {
-        setError('Failed to load subscriptions.')
-      } finally {
-        setLoading(false)
-      }
+  const [cleaners, setCleaners] = useState([])
+  const { showToast } = useToast()
+
+  const fetchData = async () => {
+    try {
+      const [sRes, cRes] = await Promise.all([
+        apiClient.get('/admin/subscriptions'),
+        apiClient.get('/admin/cleaners')
+      ])
+      setSubs(sRes.subscriptions || [])
+      setCleaners(cRes.cleaners || [])
+    } catch (err) {
+      setError('Failed to load data.')
+    } finally {
+      setLoading(false)
     }
-    fetchSubs()
+  }
+
+  useEffect(() => {
+    fetchData()
   }, [])
+
+  const handleAssignCleaner = async (subId, cleanerId) => {
+    try {
+      await apiClient.put(`/admin/subscriptions/${subId}/assign-cleaner`, { cleanerId })
+      showToast('Cleaner assigned successfully')
+      fetchData()
+    } catch (err) {
+      showToast(err.message, 'error')
+    }
+  }
 
   const filtered = filter === 'all'
     ? subs
@@ -54,7 +74,7 @@ export default function AdminSubscriptions() {
       </div>
       <div className="glass" style={{ overflow: 'hidden' }}>
         <table className="data-table">
-          <thead><tr><th>User</th><th>Vehicle</th><th>Plan</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
+          <thead><tr><th>User</th><th>Vehicle</th><th>Plan</th><th>Cleaner</th><th>Status</th></tr></thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr><td colSpan="6" className="text-center py-4 text-secondary">No subscriptions found.</td></tr>
@@ -67,11 +87,40 @@ export default function AdminSubscriptions() {
               const statusLower = (s.status || 'Active').toLowerCase()
               return (
                 <tr key={s._id}>
-                  <td style={{ fontWeight: 500 }}>{customerName}</td>
+                  <td style={{ fontWeight: 600 }}>
+                    <div className="flex flex-col">
+                      <span>{customerName}</span>
+                      <span className="text-[10px] text-tertiary font-bold uppercase">{s.society?.name || 'No Society'}</span>
+                    </div>
+                  </td>
                   <td className="text-secondary">{vehicleName}</td>
                   <td><span className={`chip ${packageName === 'Elite' ? 'chip-lime' : packageName === 'Premium' ? 'chip-blue' : 'chip-ghost'}`}>{packageName}</span></td>
-                  <td className="text-secondary">{new Date(s.startDate).toLocaleDateString()}</td>
-                  <td className="text-secondary">{new Date(s.endDate).toLocaleDateString()}</td>
+                  <td>
+                    <div className="flex items-center gap-8">
+                      {s.assignedCleaner ? (
+                        <div className="flex items-center gap-6 text-xs font-bold text-success">
+                          <ShieldCheck size={14} />
+                          {s.assignedCleaner.name}
+                          <select 
+                            className="bg-transparent border-none text-[10px] text-tertiary cursor-pointer hover:text-primary outline-none"
+                            onChange={(e) => handleAssignCleaner(s._id, e.target.value)}
+                            value={s.assignedCleaner._id}
+                          >
+                            {cleaners.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                          </select>
+                        </div>
+                      ) : (
+                        <select 
+                          className="chip chip-ghost text-xs cursor-pointer outline-none"
+                          onChange={(e) => handleAssignCleaner(s._id, e.target.value)}
+                          defaultValue=""
+                        >
+                          <option value="" disabled>Assign Cleaner</option>
+                          {cleaners.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  </td>
                   <td><span className={`chip ${statusLower === 'active' ? 'chip-success' : 'chip-error'}`}>{s.status}</span></td>
                 </tr>
               )

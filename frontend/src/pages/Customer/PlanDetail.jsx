@@ -9,6 +9,7 @@ export default function PlanDetail() {
   const navigate = useNavigate()
   const [pkg, setPkg] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [openFaq, setOpenFaq] = useState(null)
 
   useEffect(() => {
     const fetchPkg = async () => {
@@ -143,12 +144,25 @@ export default function PlanDetail() {
         <section style={{ marginBottom: 40 }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 16 }}>FAQs</h2>
           <div className="flex flex-col gap-8">
-            {faqs.map((faq, i) => (
-              <div key={i} className="glass" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 500 }}>{faq.q}</span>
-                <Plus size={18} className="text-secondary" />
-              </div>
-            ))}
+            {faqs.map((faq, i) => {
+              const isOpen = openFaq === i
+              return (
+                <div key={i} className="glass" style={{ overflow: 'hidden' }}>
+                  <div 
+                    onClick={() => setOpenFaq(isOpen ? null : i)}
+                    style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  >
+                    <span style={{ fontWeight: 500, fontSize: 15 }}>{faq.q}</span>
+                    {isOpen ? <Minus size={18} className="text-lime" /> : <Plus size={18} className="text-secondary" />}
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: '0 20px 16px', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }} className="animate-fade-in">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </section>
       </div>
