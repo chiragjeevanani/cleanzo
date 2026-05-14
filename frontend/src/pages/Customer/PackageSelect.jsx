@@ -49,38 +49,56 @@ export default function PackageSelect() {
           </Link>
         )}
 
-        <div style={{ marginTop: 8, marginBottom: 4 }}>
+        <div style={{ marginTop: 8, marginBottom: 16 }}>
           <h3 className="text-label text-secondary">All Available Plans</h3>
         </div>
-        {packages.map(pkg => (
-          <Link key={pkg._id} to={`/customer/plan/${pkg._id}`} className="glass" style={{ padding: 20, display: 'block' }}>
-            {pkg.popular && <div className="chip chip-lime" style={{ marginBottom: 12 }}>Most Popular</div>}
-            <div className="flex justify-between items-start" style={{ marginBottom: 12 }}>
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>{pkg.name}</div>
-                <div className="chip chip-ghost" style={{ marginTop: 4, fontSize: 10 }}>{pkg.tier}</div>
-              </div>
-              <div className="flex flex-col items-end">
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: 'var(--accent-lime)' }}>₹{pkg.price}</div>
-                <div className="text-body-sm text-secondary">/month</div>
-              </div>
-            </div>
-            
-            <div className="flex flex-col gap-6" style={{ marginBottom: 16 }}>
-              {pkg.features.slice(0, 3).map((f, i) => (
-                <div key={i} className="flex items-center gap-8 text-body-sm">
-                  <Check size={14} className="text-lime" />
-                  <span className="text-secondary">{f}</span>
+        
+        {packages.map(pkg => {
+          const isElite = pkg.name.toLowerCase() === 'elite';
+          
+          return (
+            <Link 
+              key={pkg._id} 
+              to={`/customer/plan/${pkg._id}`} 
+              className="glass animate-fade-in"
+              style={{ 
+                padding: 24, 
+                display: 'block', 
+                marginBottom: 16,
+                border: isElite ? '1px solid var(--accent-lime)' : '1px solid var(--border-glass)',
+                boxShadow: isElite ? 'var(--shadow-glow-lime)' : 'var(--shadow-sm)'
+              }}
+            >
+              <div className="flex justify-between items-start" style={{ marginBottom: 20 }}>
+                <div>
+                  <div className="flex items-center gap-8 mb-4">
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>{pkg.name}</h2>
+                    {pkg.popular && <span className="chip chip-lime" style={{ fontSize: 9 }}>Popular</span>}
+                  </div>
+                  <div className="text-label text-tertiary" style={{ fontSize: 10 }}>{pkg.tier || 'Standard'} Tier</div>
                 </div>
-              ))}
-            </div>
+                
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--accent-lime)' }}>₹{pkg.price}</div>
+                  <div className="text-body-sm text-secondary">/month</div>
+                </div>
+              </div>
 
-            <div className="flex items-center justify-between text-body-sm" style={{ borderTop: '1px solid var(--divider)', paddingTop: 12 }}>
-              <span className="text-blue" style={{ fontWeight: 600 }}>View Details</span>
-              <ChevronRight size={16} className="text-secondary" />
-            </div>
-          </Link>
-        ))}
+              <div className="flex flex-col gap-10" style={{ marginBottom: 24 }}>
+                {pkg.features.slice(0, 4).map((f, i) => (
+                  <div key={i} className="flex items-center gap-10 text-body-sm">
+                    <Check size={16} className="text-lime" strokeWidth={3} />
+                    <span className="text-secondary">{f}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="btn btn-primary w-full py-16 rounded-2xl shadow-lg shadow-primary/10">
+                Get Started with {pkg.name}
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   )

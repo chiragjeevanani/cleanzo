@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
+import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Home, CreditCard, Clock, User, ShoppingBag } from 'lucide-react'
 import PageLoader from '../../components/PageLoader'
@@ -32,9 +32,14 @@ const tabs = [
 
 export default function CustomerApp() {
   const { user, loading, logout } = useAuth()
+  const location = useLocation()
 
   if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login" replace />
+
+  // Hide nav on specific sub-pages/detail pages
+  const hideNavPaths = ['/customer/vehicles', '/customer/booking', '/customer/skip', '/customer/notifications']
+  const shouldHideNav = hideNavPaths.includes(location.pathname) || location.pathname.startsWith('/customer/plan/')
 
   return (
     <div className="app-shell">
@@ -62,14 +67,16 @@ export default function CustomerApp() {
       </Suspense>
       </ErrorBoundary>
 
-      <nav className="bottom-nav">
-        {tabs.map(t => (
-          <NavLink key={t.path} to={t.path} end={t.end} className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
-            <t.icon size={22} />
-            <span>{t.label}</span>
-          </NavLink>
-        ))}
-      </nav>
+      {!shouldHideNav && (
+        <nav className="bottom-nav">
+          {tabs.map(t => (
+            <NavLink key={t.path} to={t.path} end={t.end} className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
+              <t.icon size={22} />
+              <span>{t.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      )}
     </div>
   )
 }

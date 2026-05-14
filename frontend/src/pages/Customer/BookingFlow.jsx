@@ -245,7 +245,7 @@ export default function BookingFlow() {
                     </button>
                   )
                 })}
-                <button disabled={!selectedVehicle} className="btn btn-primary w-full mt-12" style={{ padding: 18, borderRadius: 18, fontWeight: 800, fontSize: 16, boxShadow: selectedVehicle ? 'var(--shadow-glow-lime)' : 'none' }} onClick={() => setStep(1)}>
+                <button disabled={!selectedVehicle} className="btn btn-primary w-full" style={{ marginTop: 32, padding: 18, borderRadius: 18, fontWeight: 800, fontSize: 16, boxShadow: selectedVehicle ? 'var(--shadow-glow-lime)' : 'none' }} onClick={() => setStep(1)}>
                   Continue to Location
                 </button>
               </div>
@@ -356,7 +356,7 @@ export default function BookingFlow() {
                     }}>
                     <div className="flex justify-between items-start mb-16">
                       <div>
-                        <div className="flex items-center gap-8 mb-4">
+                        <div className="flex items-center gap-8" style={{ marginBottom: 10 }}>
                           <h4 style={{ fontSize: 20, fontWeight: 800 }}>{p.name}</h4>
                           {p.popular && <span className="chip chip-lime" style={{ fontSize: 9 }}>BEST VALUE</span>}
                         </div>
@@ -372,7 +372,7 @@ export default function BookingFlow() {
                       </div>
                     </div>
                     {isSelected && (
-                      <div className="animate-slide-up" style={{ background: 'rgba(223,255,0,0.1)', padding: '12px 16px', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div className="animate-slide-up" style={{ marginTop: 20, background: 'rgba(223,255,0,0.1)', padding: '12px 16px', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Check size={16} color="var(--accent-lime)" strokeWidth={3} />
                         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-lime)' }}>Great choice! This plan covers all essentials.</span>
                       </div>
@@ -417,59 +417,57 @@ export default function BookingFlow() {
               <p className="text-secondary text-body-sm">Review your selection before payment</p>
             </div>
             
-            <div className="glass" style={{ padding: '32px 36px', borderRadius: 40, border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-lg)' }}>
-              <div className="flex flex-col gap-24">
+            <div className="glass" style={{ padding: '24px', borderRadius: 32, border: '1px solid var(--border-glass)' }}>
+              <div className="flex flex-col gap-16">
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 6, fontSize: 10 }}>VEHICLE</div>
-                    <div style={{ fontWeight: 800, fontSize: 20 }}>{selectedVehicle?.model}</div>
-                    <div className="text-body-sm text-secondary font-medium">{selectedVehicle?.number}</div>
+                    <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 4, fontSize: 10 }}>VEHICLE</div>
+                    <div style={{ fontWeight: 800, fontSize: 18 }}>{selectedVehicle?.model}</div>
+                    <div className="text-body-sm text-secondary">{selectedVehicle?.number}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 6, fontSize: 10 }}>PLAN</div>
-                    <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--accent-lime)' }}>{selectedPkg?.name}</div>
-                    <div className="text-body-sm text-secondary font-medium">{selectedPkg?.isTrial ? 'Trial Session' : 'Monthly Subscription'}</div>
+                    <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 4, fontSize: 10 }}>PLAN</div>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--accent-lime)' }}>{selectedPkg?.name}</div>
+                    <div className="text-body-sm text-secondary">{selectedPkg?.isTrial ? 'Trial Session' : 'Monthly'}</div>
                   </div>
                 </div>
                 
-                <div className="divider" style={{ opacity: 0.5 }} />
+                <div className="divider" style={{ opacity: 0.3 }} />
                 
                 <div>
-                  <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 6, fontSize: 10 }}>SERVICE LOCATION & SLOT</div>
-                  <div style={{ fontWeight: 700, fontSize: 17 }}>{selectedSociety?.name}</div>
-                  <div className="text-body-sm text-secondary flex items-center gap-8 mt-4 font-medium">
-                    <div style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Clock size={14} /> {selectedSlot?.timeWindow}
-                    </div>
+                  <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 4, fontSize: 10 }}>LOCATION & SLOT</div>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{selectedSociety?.name}</div>
+                  <div className="text-body-sm text-secondary flex items-center gap-6 mt-4">
+                    <Clock size={12} /> {selectedSlot?.timeWindow}
                   </div>
                 </div>
 
-                <div className="divider" style={{ margin: '8px 0', opacity: 0.5 }} />
+                <div className="divider" style={{ opacity: 0.3 }} />
                 
-                <div className="flex flex-col gap-14">
-                  <div className="flex justify-between text-body-md">
-                    <span className="text-secondary font-medium">Base Price</span>
+                <div className="flex flex-col gap-10">
+                  <div className="flex justify-between text-body-sm">
+                    <span className="text-secondary">Base Price</span>
                     <span style={{ fontWeight: 700 }}>₹{basePrice}</span>
                   </div>
                   {priorityFee > 0 && (
-                    <div className="flex justify-between text-body-md" style={{ color: 'var(--error)' }}>
-                      <span className="font-medium">Priority Slot Fee</span>
+                    <div className="flex justify-between text-body-sm" style={{ color: 'var(--error)' }}>
+                      <span>Priority Slot Fee</span>
                       <span style={{ fontWeight: 700 }}>+₹{priorityFee}</span>
                     </div>
                   )}
                   {hasReferralDiscount && (
-                    <div className="flex justify-between text-body-md" style={{ color: 'var(--success)' }}>
-                      <span className="font-medium">Referral Discount ({user.referralDiscount.percentage}%)</span>
+                    <div className="flex justify-between text-body-sm" style={{ color: 'var(--success)' }}>
+                      <span>Referral Discount</span>
                       <span style={{ fontWeight: 700 }}>-₹{discountAmount}</span>
                     </div>
                   )}
                 </div>
 
-                <div className="divider" style={{ margin: '8px 0', opacity: 0.5 }} />
+                <div className="divider" style={{ opacity: 0.5 }} />
                 
                 <div className="flex justify-between items-center">
-                  <span style={{ fontWeight: 800, fontSize: 24 }}>Total Amount</span>
-                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 36, color: 'var(--accent-lime)' }}>₹{finalAmount}</span>
+                  <span style={{ fontWeight: 800, fontSize: 20 }}>Total Amount</span>
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 32, color: 'var(--accent-lime)' }}>₹{finalAmount}</span>
                 </div>
               </div>
             </div>

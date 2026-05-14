@@ -28,6 +28,7 @@ router.post('/packages', ctrl.createPackage);
 router.put('/packages/:id', ctrl.updatePackage);
 
 router.get('/subscriptions', ctrl.getAllSubscriptions);
+router.put('/subscriptions/:subscriptionId/assign-cleaner', ctrl.assignCleanerToSubscription);
 
 router.get('/revenue', ctrl.getRevenue);
 
