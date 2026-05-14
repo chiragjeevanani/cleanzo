@@ -118,7 +118,7 @@ export default function ForgotPassword() {
           <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 12 }}>6-digit OTP</label>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', width: '100%' }}>
                 {otp.map((d, i) => (
                   <input
                     key={i}
@@ -128,7 +128,21 @@ export default function ForgotPassword() {
                     value={d}
                     onChange={e => handleOtpChange(i, e.target.value)}
                     onKeyDown={e => handleOtpKeyDown(i, e)}
-                    style={{ width: 44, height: 52, textAlign: 'center', fontSize: 20, fontWeight: 700, borderRadius: 12, border: `1.5px solid ${d ? 'var(--primary-blue)' : 'var(--border-glass)'}`, background: 'var(--bg-glass)', color: 'var(--text-primary)', outline: 'none' }}
+                    style={{ 
+                      flex: 1,
+                      maxWidth: 48,
+                      aspectRatio: '0.85 / 1',
+                      height: 'auto',
+                      textAlign: 'center', 
+                      fontSize: 20, 
+                      fontWeight: 700, 
+                      borderRadius: 12, 
+                      border: `1.5px solid ${d ? 'var(--primary-blue)' : 'var(--border-glass)'}`, 
+                      background: 'var(--bg-glass)', 
+                      color: 'var(--text-primary)', 
+                      outline: 'none',
+                      minWidth: 0
+                    }}
                   />
                 ))}
               </div>
