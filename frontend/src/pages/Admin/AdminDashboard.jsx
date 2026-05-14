@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Users, CreditCard, TrendingUp, UserCog, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Users, CreditCard, TrendingUp, UserCog, ArrowUpRight, ArrowDownRight, FileText, CheckCircle, XCircle, PlusCircle, Trash2, Calendar } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import apiClient from '../../services/apiClient'
 
@@ -7,7 +8,21 @@ const pieColors = ['var(--text-tertiary)', 'var(--primary-blue)', '#DFFF00', 'va
 
 const ICON_MAP = { Users, CreditCard, TrendingUp, UserCog }
 
+const ACTIVITY_ICONS = {
+  user_created: { icon: PlusCircle, color: 'var(--primary-blue)' },
+  user_deleted: { icon: Trash2, color: 'var(--error)' },
+  cleaner_created: { icon: UserCog, color: 'var(--accent-lime)' },
+  cleaner_deleted: { icon: Trash2, color: 'var(--error)' },
+  application_submitted: { icon: FileText, color: 'var(--warning)' },
+  kyc_approved: { icon: CheckCircle, color: 'var(--success)' },
+  kyc_rejected: { icon: XCircle, color: 'var(--error)' },
+  subscription_created: { icon: CreditCard, color: 'var(--accent-lime)' },
+  task_completed: { icon: CheckCircle, color: 'var(--success)' },
+  system: { icon: Calendar, color: 'var(--text-tertiary)' }
+}
+
 export default function AdminDashboard() {
+  const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -96,6 +111,39 @@ export default function AdminDashboard() {
   return (
     <div>
       <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, marginBottom: 28 }}>Dashboard</h1>
+      
+      {stats?.pendingApplicationsCount > 0 && (
+        <div 
+          onClick={() => navigate('/admin/applications')}
+          className="glass animate-fade-in" 
+          style={{ 
+            padding: '16px 24px', 
+            borderRadius: 20, 
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.03) 100%)', 
+            border: '1px solid rgba(245, 158, 11, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 24,
+            cursor: 'pointer'
+          }}
+        >
+          <div className="flex items-center gap-14">
+            <div style={{ 
+              width: 42, height: 42, borderRadius: 12, background: 'rgba(245, 158, 11, 0.15)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' 
+            }}>
+              <Users size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>Recruitment Pipeline</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>You have <strong>{stats.pendingApplicationsCount}</strong> pending cleaner applications and KYC requests.</div>
+            </div>
+          </div>
+          <div style={{ padding: '8px 16px', borderRadius: 12, background: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', fontSize: 12, fontWeight: 700 }}>Review Now</div>
+        </div>
+      )}
+
       {error && (
         <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 20, fontSize: 14 }}>
           {error}
@@ -184,15 +232,25 @@ export default function AdminDashboard() {
       {/* Recent Activity */}
       <div className="glass" style={{ padding: 24 }}>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, display: 'block', marginBottom: 16 }}>Recent Activity</span>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col">
           {recentActivity.length === 0 ? (
             <div className="text-secondary text-center py-4">No recent activity</div>
-          ) : recentActivity.map((a, i) => (
-            <div key={i} style={{ padding: '12px 0', borderBottom: i < recentActivity.length - 1 ? '1px solid var(--divider)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="text-body-sm">{a.text}</span>
-              <span className="text-body-sm text-tertiary" style={{ whiteSpace: 'nowrap', marginLeft: 16 }}>{a.time}</span>
-            </div>
-          ))}
+          ) : recentActivity.map((a, i) => {
+            const ActivityIcon = ACTIVITY_ICONS[a.type]?.icon || Calendar
+            const iconColor = ACTIVITY_ICONS[a.type]?.color || 'var(--text-tertiary)'
+            
+            return (
+              <div key={i} style={{ padding: '14px 0', borderBottom: i < recentActivity.length - 1 ? '1px solid var(--divider)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="flex items-center gap-12">
+                  <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIcon size={14} style={{ color: iconColor }} />
+                  </div>
+                  <span className="text-body-sm" style={{ fontWeight: 500 }}>{a.text}</span>
+                </div>
+                <span className="text-body-sm text-tertiary" style={{ whiteSpace: 'nowrap', marginLeft: 16, fontSize: 12 }}>{a.time}</span>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

@@ -11,6 +11,7 @@ router.get('/profile', ctrl.getProfile);
 router.put('/profile', ctrl.updateProfile);
 router.put('/availability', ctrl.toggleAvailability);
 
+router.get('/tasks', ctrl.getTodayTasks);
 router.get('/tasks/today', ctrl.getTodayTasks);
 router.get('/tasks/:id', ctrl.getTaskById);
 router.put('/tasks/:id/status', ctrl.updateTaskStatus);

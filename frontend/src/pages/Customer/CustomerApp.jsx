@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { Home, CreditCard, Clock, User } from 'lucide-react'
+import { Home, CreditCard, Clock, User, ShoppingBag } from 'lucide-react'
 import PageLoader from '../../components/PageLoader'
 import ErrorBoundary from '../../components/ErrorBoundary'
 
@@ -16,14 +16,16 @@ const ServiceHistory     = lazy(() => import('./ServiceHistory'))
 const Notifications      = lazy(() => import('./Notifications'))
 const CustomerProfile    = lazy(() => import('./CustomerProfile'))
 const SavedAddresses     = lazy(() => import('./Profile/SavedAddresses'))
-const TermsOfService     = lazy(() => import('./Profile/TermsOfService'))
-const PrivacyPolicy      = lazy(() => import('./Profile/PrivacyPolicy'))
+const TermsOfService     = lazy(() => import('./Profile/LegalTerms'))
+const PrivacyPolicy      = lazy(() => import('./Profile/LegalPrivacy'))
 const HelpSupport        = lazy(() => import('./Profile/HelpSupport'))
 const PlanDetail         = lazy(() => import('./PlanDetail'))
+const Marketplace        = lazy(() => import('./Marketplace'))
 
 const tabs = [
   { path: '/customer', icon: Home, label: 'Home', end: true },
   { path: '/customer/packages', icon: CreditCard, label: 'Plans' },
+  { path: '/customer/marketplace', icon: ShoppingBag, label: 'Shop' },
   { path: '/customer/history', icon: Clock, label: 'History' },
   { path: '/customer/profile', icon: User, label: 'Profile' },
 ]
@@ -45,6 +47,7 @@ export default function CustomerApp() {
           <Route path="profile" element={<CustomerProfile />} />
           <Route path="vehicles" element={<VehicleManager />} />
           <Route path="packages" element={<PackageSelect />} />
+          <Route path="marketplace" element={<Marketplace />} />
           <Route path="plan/:id" element={<PlanDetail />} />
           <Route path="booking" element={<BookingFlow />} />
           <Route path="skip" element={<SkipService />} />

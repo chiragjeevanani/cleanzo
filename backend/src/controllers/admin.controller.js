@@ -5,8 +5,28 @@ import Subscription from '../models/Subscription.js';
 import Package from '../models/Package.js';
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
+import Activity from '../models/Activity.js';
+import Banner from '../models/Banner.js';
+import Product from '../models/Product.js';
+import Order from '../models/Order.js';
+import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
+
+// Helper to log activities
+export const logActivity = async ({ type, message, performer, metadata }) => {
+  try {
+    await Activity.create({ type, message, performer, metadata });
+  } catch (err) {
+    console.error('Failed to log activity:', err);
+  }
+};
+
+export const uploadImage = asyncHandler(async (req, res) => {
+  if (!req.file) throw new ApiError(400, 'Please upload an image');
+  const url = await uploadBufferToCloudinary(req.file.buffer);
+  res.json({ success: true, url });
+});
 
 // ─── DASHBOARD ───────────────────────────────────
 export const getDashboard = asyncHandler(async (req, res) => {
@@ -35,6 +55,8 @@ export const getDashboard = asyncHandler(async (req, res) => {
     revenueLastMonth,
     cleanersThisMonth,
     cleanersLastMonth,
+    pendingOrdersCount,
+    marketplaceRevenue,
   ] = await Promise.all([
     Customer.countDocuments({ isActive: true }),
     Subscription.countDocuments({ status: 'Active' }),
@@ -52,6 +74,8 @@ export const getDashboard = asyncHandler(async (req, res) => {
     Subscription.aggregate([{ $match: { createdAt: { $gte: lastMonthStart, $lt: lastMonthEnd } } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
     Cleaner.countDocuments({ isActive: true, createdAt: { $gte: thisMonthStart } }),
     Cleaner.countDocuments({ isActive: true, createdAt: { $gte: lastMonthStart, $lt: lastMonthEnd } }),
+    Order.countDocuments({ status: { $in: ['Placed', 'Confirmed'] } }),
+    Order.aggregate([{ $match: { status: { $ne: 'Cancelled' } } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }]),
   ]);
 
   const calcGrowth = (current, previous) => {
@@ -90,30 +114,58 @@ export const getDashboard = asyncHandler(async (req, res) => {
     revenue: r.revenue
   }));
 
-  // Recent Activity Mapping — sort by raw timestamp before formatting
-  const activity = [
-    ...recentApplications.map(a => ({ text: `New application from ${a.name}`, _ts: a.createdAt })),
-    ...recentTasks.filter(t => t.status === 'completed').map(t => ({ text: `${t.cleaner?.name || 'Cleaner'} completed task for ${t.customer ? `${t.customer.firstName} ${t.customer.lastName}` : 'User'}`, _ts: t.updatedAt })),
-  ]
-    .sort((a, b) => new Date(b._ts) - new Date(a._ts))
-    .slice(0, 8)
-    .map(({ text, _ts }) => ({ text, time: timeAgo(_ts) }));
+  // Fetch Recent Activities from Activity model
+  const recentActivitiesRaw = await Activity.find()
+    .sort('-createdAt')
+    .limit(10)
+    .lean();
+
+  const activity = recentActivitiesRaw.map(a => ({
+    type: a.type,
+    text: a.message,
+    time: timeAgo(a.createdAt)
+  }));
+
+  const { default: CleanerApplication } = await import('../models/CleanerApplication.js');
+  const [pendingApps, pendingKyc] = await Promise.all([
+    CleanerApplication.countDocuments({ status: 'pending' }),
+    Cleaner.countDocuments({ kycStatus: 'pending' })
+  ]);
+
+  const totalRevVal = (totalRevenue[0]?.total || 0) + (marketplaceRevenue[0]?.total || 0);
 
   res.json({
     success: true,
     usersCount: totalUsers,
     subscriptionsCount: activeSubscriptions,
     cleanersCount: activeCleaners,
-    revenue: totalRevenue[0]?.total || 0,
+    pendingApplicationsCount: pendingApps + pendingKyc,
+    pendingOrdersCount,
+    revenue: totalRevVal,
     kpiData: [
       { label: 'Total Users', value: totalUsers, growth: calcGrowth(usersThisMonth, usersLastMonth), icon: 'Users', color: 'var(--primary-blue)' },
       { label: 'Subscriptions', value: activeSubscriptions, growth: calcGrowth(subsThisMonth, subsLastMonth), icon: 'CreditCard', color: 'var(--accent-lime)' },
-      { label: "Total Revenue", value: `₹${(totalRevenue[0]?.total || 0).toLocaleString()}`, growth: calcGrowth(revThis, revLast), icon: 'TrendingUp', color: 'var(--success)' },
-      { label: 'Live Crew', value: activeCleaners, growth: calcGrowth(cleanersThisMonth, cleanersLastMonth), icon: 'UserCog', color: 'var(--warning)' },
+      { label: "Total Revenue", value: `₹${totalRevVal.toLocaleString()}`, growth: calcGrowth(revThis, revLast), icon: 'TrendingUp', color: 'var(--success)' },
+      { label: 'Pending Orders', value: pendingOrdersCount, growth: 0, icon: 'ShoppingCart', color: 'var(--warning)' },
     ],
     pieData: pieData.length > 0 ? pieData : [{ name: 'No Data', value: 1, color: 'var(--divider)' }],
     revenueData: revenueData.length > 0 ? revenueData : [{ month: 'N/A', revenue: 0 }],
     recentActivity: activity
+  });
+});
+
+export const getAdminBadges = asyncHandler(async (req, res) => {
+  const { default: CleanerApplication } = await import('../models/CleanerApplication.js');
+  const [pendingApps, pendingKyc, pendingOrdersCount] = await Promise.all([
+    CleanerApplication.countDocuments({ status: 'pending' }),
+    Cleaner.countDocuments({ kycStatus: 'pending' }),
+    Order.countDocuments({ status: { $in: ['Placed', 'Confirmed'] } })
+  ]);
+
+  res.json({ 
+    success: true, 
+    pendingApplicationsCount: pendingApps + pendingKyc, 
+    pendingOrdersCount 
   });
 });
 
@@ -158,6 +210,14 @@ export const createUser = asyncHandler(async (req, res) => {
   const tempPassword = password || randomBytes(6).toString('hex'); // 12-char hex
 
   const user = await Customer.create({ firstName, lastName, phone: normalized, email, city, password: tempPassword });
+  
+  await logActivity({
+    type: 'user_created',
+    message: `Admin created new user: ${firstName} ${lastName}`,
+    performer: req.user._id,
+    metadata: { userId: user._id }
+  });
+
   res.status(201).json({ success: true, user, tempPassword: password ? undefined : tempPassword });
 });
 
@@ -169,9 +229,17 @@ export const updateUser = asyncHandler(async (req, res) => {
 });
 
 export const deleteUser = asyncHandler(async (req, res) => {
-  const user = await Customer.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+  const user = await Customer.findByIdAndDelete(req.params.id);
   if (!user) throw new ApiError(404, 'User not found');
-  res.json({ success: true, message: 'User deactivated successfully' });
+
+  await logActivity({
+    type: 'user_deleted',
+    message: `Admin deleted user: ${user.firstName} ${user.lastName}`,
+    performer: req.user._id,
+    metadata: { userId: user._id }
+  });
+
+  res.json({ success: true, message: 'User deleted successfully from database' });
 });
 
 // ─── CLEANERS ────────────────────────────────────
@@ -188,23 +256,69 @@ export const getCleaners = asyncHandler(async (req, res) => {
 });
 
 export const addCleaner = asyncHandler(async (req, res) => {
-  const { name, phone, city, assignedArea } = req.body;
+  const { 
+    name, phone, email, age, city, assignedArea,
+    fatherName, currentAddress, permanentAddress,
+    referenceName, referencePhone 
+  } = req.body;
+
   if (!name || !phone || !city) throw new ApiError(400, 'Name, phone, and city are required');
-  const cleaner = await Cleaner.create({ name, phone, city, assignedArea });
+  
+  const cleaner = await Cleaner.create({ 
+    name, phone, email, age, city, assignedArea,
+    fatherName, currentAddress, permanentAddress,
+    localReference: { name: referenceName, phone: referencePhone }
+  });
+
+  await logActivity({
+    type: 'cleaner_created',
+    message: `Admin added new cleaner: ${name}`,
+    performer: req.user._id,
+    metadata: { cleanerId: cleaner._id }
+  });
+
   res.status(201).json({ success: true, cleaner });
 });
 
 export const updateCleaner = asyncHandler(async (req, res) => {
-  const { name, phone, email, city, assignedArea, dailyRate, isActive, isAvailable, kycStatus, kycRejectionNote } = req.body;
-  const cleaner = await Cleaner.findByIdAndUpdate(req.params.id, { name, phone, email, city, assignedArea, dailyRate, isActive, isAvailable, kycStatus, kycRejectionNote }, { new: true, runValidators: true });
+  const { 
+    name, phone, email, age, city, assignedArea, dailyRate, 
+    isActive, isAvailable, kycStatus, kycRejectionNote,
+    fatherName, currentAddress, permanentAddress,
+    referenceName, referencePhone
+  } = req.body;
+
+  const updateData = { 
+    name, phone, email, age, city, assignedArea, dailyRate, 
+    isActive, isAvailable, kycStatus, kycRejectionNote,
+    fatherName, currentAddress, permanentAddress
+  };
+
+  if (referenceName || referencePhone) {
+    updateData.localReference = { name: referenceName, phone: referencePhone };
+  }
+
+  const cleaner = await Cleaner.findByIdAndUpdate(
+    req.params.id, 
+    updateData, 
+    { new: true, runValidators: true }
+  );
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
   res.json({ success: true, cleaner });
 });
 
 export const deleteCleaner = asyncHandler(async (req, res) => {
-  const cleaner = await Cleaner.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+  const cleaner = await Cleaner.findByIdAndDelete(req.params.id);
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
-  res.json({ success: true, message: 'Cleaner deactivated successfully' });
+
+  await logActivity({
+    type: 'cleaner_deleted',
+    message: `Admin deleted cleaner: ${cleaner.name}`,
+    performer: req.user._id,
+    metadata: { cleanerId: cleaner._id }
+  });
+
+  res.json({ success: true, message: 'Cleaner deleted successfully from database' });
 });
 
 // ─── PACKAGES (Admin CRUD) ──────────────────────
@@ -354,6 +468,13 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
     await processCursor(Cleaner.find({ isActive: true }).select('_id').cursor(), 'Cleaner');
   }
 
+  await logActivity({
+    type: 'system',
+    message: `Admin broadcasted "${title}" to ${target}`,
+    performer: req.user._id,
+    metadata: { title, target, recipients: totalSent }
+  });
+
   res.json({ success: true, message: `Sent to ${totalSent} recipients` });
 });
 
@@ -366,31 +487,96 @@ export const getSocieties = asyncHandler(async (req, res) => {
 
 export const createSociety = asyncHandler(async (req, res) => {
   const { default: Society } = await import('../models/Society.js');
-  const { name, city, address, slots, cleaners, isActive } = req.body;
-  const society = await Society.create({ name, city, address, slots, cleaners, isActive });
+  const { name, city, area, pincode, address, slots, cleaners, isActive } = req.body;
+  const society = await Society.create({ name, city, area, pincode, address, slots, cleaners, isActive });
+  
+  await logActivity({
+    type: 'system',
+    message: `Admin created society: ${name}`,
+    performer: req.user._id,
+    metadata: { societyId: society._id }
+  });
+
   res.status(201).json({ success: true, society });
 });
 
 export const updateSociety = asyncHandler(async (req, res) => {
   const { default: Society } = await import('../models/Society.js');
-  const { name, city, address, slots, cleaners, isActive } = req.body;
-  const society = await Society.findByIdAndUpdate(req.params.id, { name, city, address, slots, cleaners, isActive }, { new: true });
+  const { name, city, area, pincode, address, slots, cleaners, isActive } = req.body;
+  const society = await Society.findByIdAndUpdate(req.params.id, { name, city, area, pincode, address, slots, cleaners, isActive }, { new: true });
   if (!society) throw new ApiError(404, 'Society not found');
+
+  await logActivity({
+    type: 'system',
+    message: `Admin updated society: ${society.name}`,
+    performer: req.user._id,
+    metadata: { societyId: society._id }
+  });
+
   res.json({ success: true, society });
 });
 
 export const deleteSociety = asyncHandler(async (req, res) => {
   const { default: Society } = await import('../models/Society.js');
-  const society = await Society.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+  const society = await Society.findByIdAndDelete(req.params.id);
   if (!society) throw new ApiError(404, 'Society not found');
-  res.json({ success: true, message: 'Society deactivated' });
+
+  await logActivity({
+    type: 'system',
+    message: `Admin deleted society: ${society.name}`,
+    performer: req.user._id,
+    metadata: { societyId: society._id }
+  });
+
+  res.json({ success: true, message: 'Society deleted' });
+});
+
+// ─── LEADS ───────────────────────────────────────
+export const getLeads = asyncHandler(async (req, res) => {
+  const { default: Lead } = await import('../models/Lead.js');
+  const leads = await Lead.find().sort('-createdAt');
+  res.json({ success: true, leads });
+});
+
+export const updateLeadStatus = asyncHandler(async (req, res) => {
+  const { status, notes } = req.body;
+  const { default: Lead } = await import('../models/Lead.js');
+  const lead = await Lead.findByIdAndUpdate(req.params.id, { status, notes }, { new: true });
+  if (!lead) throw new ApiError(404, 'Lead not found');
+  res.json({ success: true, lead });
+});
+
+export const deleteLead = asyncHandler(async (req, res) => {
+  const { default: Lead } = await import('../models/Lead.js');
+  const lead = await Lead.findByIdAndDelete(req.params.id);
+  if (!lead) throw new ApiError(404, 'Lead not found');
+  res.json({ success: true, message: 'Lead deleted' });
 });
 
 // Cleaner Applications
 export const getCleanerApplications = asyncHandler(async (req, res) => {
   const { default: CleanerApplication } = await import('../models/CleanerApplication.js');
-  const applications = await CleanerApplication.find().sort('-createdAt');
-  res.json({ success: true, applications });
+  
+  const [apps, kycRequestCleaners] = await Promise.all([
+    CleanerApplication.find().sort('-createdAt'),
+    Cleaner.find({ kycStatus: { $in: ['pending', 'rejected'] } }).sort('-updatedAt').select('name phone email city kyc kycStatus kycRejectionNote createdAt')
+  ]);
+
+  // Convert KYC cleaners to a similar format for the frontend
+  const kycRequests = kycRequestCleaners.map(c => ({
+    _id: c._id,
+    name: c.name,
+    phone: c.phone,
+    email: c.email,
+    city: c.city,
+    kyc: c.kyc,
+    status: c.kycStatus === 'rejected' ? 'rejected' : 'pending',
+    rejectionNote: c.kycRejectionNote,
+    createdAt: c.createdAt,
+    isExistingCleaner: true
+  }));
+
+  res.json({ success: true, applications: [...apps, ...kycRequests] });
 });
 
 export const updateCleanerApplicationStatus = asyncHandler(async (req, res) => {
@@ -455,6 +641,13 @@ export const updateCleanerApplicationStatus = asyncHandler(async (req, res) => {
         process.env.SMS_REJECTION_TEMPLATE_ID
       );
     }
+    
+    await logActivity({
+      type: status === 'approved' ? 'kyc_approved' : 'kyc_rejected',
+      message: `${status === 'approved' ? 'Approved' : 'Rejected'} application from ${application.name}`,
+      performer: req.user._id,
+      metadata: { applicationId: application._id }
+    });
   
     res.json({ success: true, application });
   });
@@ -499,6 +692,13 @@ export const reviewCleanerKyc = asyncHandler(async (req, res) => {
     await sendSms(cleaner.phone, `Dear ${cleaner.name}, your KYC was rejected. Reason: ${rejectionNote}. Please resubmit via the app.`, process.env.SMS_REJECTION_TEMPLATE_ID);
   }
 
+  await logActivity({
+    type: status === 'approved' ? 'kyc_approved' : 'kyc_rejected',
+    message: `KYC ${status} for ${cleaner.name}`,
+    performer: req.user._id,
+    metadata: { cleanerId: cleaner._id }
+  });
+
   res.json({ success: true, cleaner });
 });
 
@@ -521,4 +721,108 @@ export const updateSetting = asyncHandler(async (req, res) => {
   );
   if (!setting) throw new ApiError(404, `Setting '${req.params.key}' not found`);
   res.json({ success: true, setting });
+});
+
+// ─── BANNERS ─────────────────────────────────────
+export const getBanners = asyncHandler(async (req, res) => {
+  const banners = await Banner.find().sort('-createdAt');
+  res.json({ success: true, banners });
+});
+
+export const createBanner = asyncHandler(async (req, res) => {
+  const { title, description, imageUrl, link } = req.body;
+  if (!title || !imageUrl) throw new ApiError(400, 'Title and Image URL are required');
+  const banner = await Banner.create({ title, description, imageUrl, link });
+  res.status(201).json({ success: true, banner });
+});
+
+export const deleteBanner = asyncHandler(async (req, res) => {
+  const banner = await Banner.findByIdAndDelete(req.params.id);
+  if (!banner) throw new ApiError(404, 'Banner not found');
+  res.json({ success: true, message: 'Banner deleted successfully' });
+});
+
+// ─── MARKETPLACE: PRODUCTS ────────────────────────
+export const getProducts = asyncHandler(async (req, res) => {
+  const products = await Product.find().sort('-createdAt');
+  res.json({ success: true, products });
+});
+
+export const createProduct = asyncHandler(async (req, res) => {
+  const { name, description, price, discountPrice, images, category, stock, specifications } = req.body;
+  
+  if (!name || !description || !price || !images || !images.length) {
+    throw new ApiError(400, 'Name, description, price, and at least one image are required');
+  }
+
+  const product = await Product.create({
+    name, description, price, discountPrice, images, category, stock, specifications
+  });
+
+  await logActivity({
+    type: 'product_created',
+    message: `New product added: ${name}`,
+    metadata: { productId: product._id }
+  });
+
+  res.status(201).json({ success: true, product });
+});
+
+export const updateProduct = asyncHandler(async (req, res) => {
+  const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  if (!product) throw new ApiError(404, 'Product not found');
+
+  await logActivity({
+    type: 'product_updated',
+    message: `Product updated: ${product.name}`,
+    metadata: { productId: product._id }
+  });
+
+  res.json({ success: true, product });
+});
+
+export const deleteProduct = asyncHandler(async (req, res) => {
+  const product = await Product.findByIdAndDelete(req.params.id);
+  if (!product) throw new ApiError(404, 'Product not found');
+
+  await logActivity({
+    type: 'product_deleted',
+    message: `Product deleted: ${product.name}`,
+    metadata: { productId: product._id }
+  });
+
+  res.json({ success: true, message: 'Product deleted successfully' });
+});
+
+// ─── MARKETPLACE: ORDERS ──────────────────────────
+export const getMarketplaceOrders = asyncHandler(async (req, res) => {
+  const orders = await Order.find()
+    .populate('customer', 'firstName lastName phone email')
+    .populate('items.product', 'name images')
+    .sort('-createdAt');
+  res.json({ success: true, orders });
+});
+
+export const updateOrderStatus = asyncHandler(async (req, res) => {
+  const { status, trackingId, courierPartner, paymentStatus } = req.body;
+  const order = await Order.findById(req.params.id);
+  if (!order) throw new ApiError(404, 'Order not found');
+
+  if (status) order.status = status;
+  if (trackingId) order.trackingId = trackingId;
+  if (courierPartner) order.courierPartner = courierPartner;
+  if (paymentStatus) order.paymentStatus = paymentStatus;
+
+  if (status === 'Delivered') order.deliveredAt = new Date();
+  if (status === 'Cancelled') order.cancelledAt = new Date();
+
+  await order.save();
+
+  await logActivity({
+    type: 'order_status_updated',
+    message: `Order ${order.orderId} status updated to ${status || order.status}`,
+    metadata: { orderId: order._id, status }
+  });
+
+  res.json({ success: true, order });
 });

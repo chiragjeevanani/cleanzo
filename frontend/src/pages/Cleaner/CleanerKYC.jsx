@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Camera, Upload, CheckCircle2, AlertCircle, X, RotateCcw, Shield, CreditCard, FileText } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { useAuth } from '../../context/AuthContext'
 import { optimizeImage } from '../../utils/imageOptimizer'
 
 // ─── Step definitions ────────────────────────────
@@ -201,6 +202,7 @@ function DocUpload({ step, preview, onFile, onCamera }) {
 // ─── Main KYC Page ────────────────────────────────
 export default function CleanerKYC() {
   const navigate = useNavigate()
+  const { user, updateUser } = useAuth()
   const [currentStep, setCurrentStep] = useState(0)
   const [files, setFiles] = useState({ live_photo: null, aadhaar: null, pan: null })
   const [previews, setPreviews] = useState({ live_photo: null, aadhaar: null, pan: null })
@@ -256,7 +258,8 @@ export default function CleanerKYC() {
       fd.append('aadhaar', files.aadhaar)
       fd.append('pan', files.pan)
 
-      await apiClient.uploadForm('/cleaner/kyc', fd)
+      const res = await apiClient.uploadForm('/cleaner/kyc', fd)
+      updateUser({ kycStatus: res.kycStatus, avatar: res.avatar })
       setSubmitted(true)
     } catch (err) {
       setError(err.message || 'Upload failed. Please try again.')
@@ -315,6 +318,17 @@ export default function CleanerKYC() {
             ))}
           </div>
           <p className="text-secondary" style={{ fontSize: 12, marginTop: 8 }}>Step {currentStep + 1} of {STEPS.length}</p>
+
+          {user?.kycStatus === 'rejected' && user?.kycRejectionNote && (
+            <div style={{ marginTop: 24, padding: '16px 20px', borderRadius: 20, background: 'rgba(255, 69, 58, 0.08)', border: '1px solid rgba(255, 69, 58, 0.2)', display: 'flex', gap: 14 }}>
+              <AlertCircle size={20} color="var(--error)" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--error)', letterSpacing: '0.05em', marginBottom: 4 }}>KYC REJECTED</h4>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>{user?.kycRejectionNote}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>Please review the documents and resubmit correctly.</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ padding: '0 20px' }}>

@@ -32,4 +32,9 @@ router.delete('/addresses/:id', ctrl.deleteAddress);
 
 router.get('/societies', ctrl.getSocieties);
 
+// MARKETPLACE
+router.get('/marketplace/orders', ctrl.getMyMarketplaceOrders);
+router.post('/marketplace/orders', ctrl.placeMarketplaceOrder);
+router.post('/marketplace/orders/:id/cancel', ctrl.cancelMarketplaceOrder);
+
 export default router;

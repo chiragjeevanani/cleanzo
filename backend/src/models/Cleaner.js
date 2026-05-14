@@ -20,7 +20,15 @@ const cleanerSchema = new Schema({
   joiningDate:     { type: Date, default: Date.now },
   fcmToken:        { type: String, default: null },
   lastLogin:       { type: Date },
-  // KYC
+  // KYC & Personal Info
+  age:              { type: Number },
+  fatherName:       { type: String },
+  currentAddress:   { type: String },
+  permanentAddress: { type: String },
+  localReference: {
+    name:           { type: String },
+    phone:          { type: String },
+  },
   kycStatus:       { type: String, enum: ['not_submitted', 'pending', 'approved', 'rejected'], default: 'not_submitted' },
   kycRejectionNote:{ type: String, default: null },
   kyc: {

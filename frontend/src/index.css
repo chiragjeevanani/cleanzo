@@ -380,7 +380,10 @@ body {
   transition: color var(--transition-fast);
   border-radius: var(--radius);
 }
-.bottom-nav-item.active { color: var(--accent-lime); }
+.bottom-nav-item.active { 
+  color: var(--text-primary); 
+  font-weight: 800; 
+}
 .bottom-nav-item svg { width: 22px; height: 22px; }
 
 /* === Sidebar (Admin) === */
@@ -413,12 +416,12 @@ body {
   font-weight: 700;
   color: var(--text-primary);
 }
-.sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .sidebar-nav-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 10px 16px;
   border-radius: var(--radius);
   color: var(--text-secondary);
   font-size: 14px;
@@ -430,12 +433,12 @@ body {
   background: rgba(var(--primary-blue-rgb), 0.12);
   color: var(--primary-blue);
 }
-.sidebar-nav-item svg { width: 20px; height: 20px; }
+.sidebar-nav-item svg { width: 18px; height: 18px; }
 
 .admin-main {
   margin-left: 240px;
   min-height: 100vh;
-  padding: 24px 32px;
+  padding: 32px 40px;
 }
 
 /* === Data Table === */

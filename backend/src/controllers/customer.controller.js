@@ -11,6 +11,9 @@ import Rating from '../models/Rating.js';
 import Cleaner from '../models/Cleaner.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import Product from '../models/Product.js';
+import Order from '../models/Order.js';
+import { logActivity } from './admin.controller.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -210,6 +213,12 @@ export const createSubscription = asyncHandler(async (req, res) => {
     });
   }
 
+  await logActivity({
+    type: 'subscription_created',
+    message: `${req.user.firstName} ${req.user.lastName} started ${isTrial ? 'Trial' : 'Standard'} subscription`,
+    metadata: { subscriptionId: sub._id, customerId: req.user._id }
+  });
+
   res.status(201).json({ success: true, subscription: sub });
 });
 
@@ -407,4 +416,90 @@ export const deleteAddress = asyncHandler(async (req, res) => {
   customer.addresses.splice(index, 1);
   await customer.save({ validateModifiedOnly: true });
   res.json({ success: true, addresses: customer.addresses });
+});
+
+// ─── MARKETPLACE: ORDERS ──────────────────────────
+export const placeMarketplaceOrder = asyncHandler(async (req, res) => {
+  const { items, shippingAddress, paymentMethod } = req.body; // items: [{ productId, quantity }]
+  
+  if (!items || !items.length || !shippingAddress) {
+    throw new ApiError(400, 'Products and shipping address are required');
+  }
+
+  let totalAmount = 0;
+  const orderItems = [];
+
+  // Validate stock and calculate total
+  for (const item of items) {
+    const product = await Product.findById(item.productId);
+    if (!product || !product.isActive) {
+      throw new ApiError(404, `Product ${item.productId} not found or inactive`);
+    }
+    if (product.stock < item.quantity) {
+      throw new ApiError(400, `Insufficient stock for product ${product.name}`);
+    }
+
+    const price = product.discountPrice || product.price;
+    totalAmount += price * item.quantity;
+    orderItems.push({
+      product: product._id,
+      quantity: item.quantity,
+      priceAtPurchase: price
+    });
+
+    // Update stock
+    product.stock -= item.quantity;
+    await product.save();
+  }
+
+  const order = await Order.create({
+    customer: req.user._id,
+    items: orderItems,
+    totalAmount,
+    shippingAddress,
+    paymentMethod: paymentMethod || 'COD',
+    paymentStatus: 'Pending',
+    status: 'Placed'
+  });
+
+  await logActivity({
+    type: 'order_placed',
+    message: `New marketplace order ${order.orderId} placed by ${req.user.firstName}`,
+    metadata: { orderId: order._id, customerId: req.user._id }
+  });
+
+  res.status(201).json({ success: true, order });
+});
+
+export const getMyMarketplaceOrders = asyncHandler(async (req, res) => {
+  const orders = await Order.find({ customer: req.user._id })
+    .populate('items.product', 'name images')
+    .sort('-createdAt');
+  res.json({ success: true, orders });
+});
+
+export const cancelMarketplaceOrder = asyncHandler(async (req, res) => {
+  const order = await Order.findOne({ _id: req.params.id, customer: req.user._id });
+  if (!order) throw new ApiError(404, 'Order not found');
+
+  if (!['Placed', 'Confirmed'].includes(order.status)) {
+    throw new ApiError(400, `Order cannot be cancelled in status: ${order.status}`);
+  }
+
+  order.status = 'Cancelled';
+  order.cancelledAt = new Date();
+  await order.save();
+
+  // Restore stock
+  for (const item of order.items) {
+    await Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
+  }
+
+  await logActivity({
+    type: 'order_cancelled',
+    message: `Order ${order.orderId} cancelled by customer`,
+    metadata: { orderId: order._id, customerId: req.user._id }
+  });
+
+  res.json({ success: true, message: 'Order cancelled successfully' });
 });

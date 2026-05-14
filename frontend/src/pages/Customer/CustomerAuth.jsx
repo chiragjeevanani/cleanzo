@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
-  Phone, User, ShieldCheck, CheckCircle2, MapPin, 
+  Phone, User, ShieldCheck, CheckCircle2, MapPin, Building2,
   Lock, Mail, Tag, Eye, EyeOff, ChevronDown
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -65,9 +65,14 @@ export default function CustomerAuth() {
 
   const [role, setRole] = useState('customer')   // customer | crew
   const [mode, setMode] = useState('login')       // login | signup
-  const [step, setStep] = useState('form')        // form | otp | success
+  const [step, setStep] = useState('form')        // form | otp | success | lead
   const [showPwd, setShowPwd] = useState(false)
   const [useOtp, setUseOtp] = useState(true)      // OTP vs password login
+
+  const [societies, setSocieties] = useState([])
+  const [filteredSocieties, setFilteredSocieties] = useState([])
+  const [societySearch, setSocietySearch] = useState('')
+  const [showSocietyDropdown, setShowSocietyDropdown] = useState(false)
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -76,9 +81,34 @@ export default function CustomerAuth() {
     phone: '',
     password: '',
     city: '',
+    society: '', // Society ID
+    societyName: '', // For lead capture
+    area: '', // For lead capture
+    pincode: '', // For lead capture
     referralCode: '',
     otp: ['', '', '', '', '', ''],
   })
+
+  // Fetch societies
+  useEffect(() => {
+    const fetchSocieties = async () => {
+      try {
+        const res = await apiClient.get('/public/societies/active')
+        setSocieties(res.societies || [])
+      } catch (err) {
+        console.error('Failed to fetch societies', err)
+      }
+    }
+    fetchSocieties()
+  }, [])
+
+  useEffect(() => {
+    if (formData.city) {
+      setFilteredSocieties(societies.filter(s => s.city === formData.city))
+    } else {
+      setFilteredSocieties([])
+    }
+  }, [formData.city, societies])
 
   const [timer, setTimer] = useState(30)
   const [loading, setLoading] = useState(false)
@@ -90,23 +120,28 @@ export default function CustomerAuth() {
     setFormData(prev => ({ ...prev, [field]: e.target.value }))
   }
 
-  // OTP resend timer
-  useEffect(() => {
-    if (step !== 'otp') return
-    if (timer <= 0) return
-    const t = setInterval(() => setTimer(n => n - 1), 1000)
-    return () => clearInterval(t)
-  }, [step, timer])
-
-  // Reveal animations
-  useEffect(() => {
-    const els = document.querySelectorAll('.reveal')
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); obs.unobserve(e.target) } })
-    }, { threshold: 0.05 })
-    els.forEach(el => obs.observe(el))
-    return () => obs.disconnect()
-  }, [step, mode, role])
+  // ── Lead Capture ──
+  const handleCaptureLead = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      await apiClient.post('/public/leads', {
+        name: `${formData.firstName} ${formData.lastName}`,
+        phone: formData.phone,
+        email: formData.email,
+        city: formData.city,
+        requestedArea: formData.area,
+        requestedSociety: formData.societyName,
+        pincode: formData.pincode
+      })
+      setStep('success')
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to submit interest.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // ── Send OTP ──
   const handleSendOtp = async (e) => {
@@ -117,6 +152,12 @@ export default function CustomerAuth() {
       setErrorMsg('Enter a valid 10-digit Indian mobile number')
       return
     }
+
+    if (mode === 'signup' && !formData.society) {
+      setErrorMsg('Please select your society to continue')
+      return
+    }
+
     setLoading(true)
     try {
       await apiClient.post('/auth/send-otp', { phone: formData.phone, role, mode })
@@ -147,6 +188,7 @@ export default function CustomerAuth() {
         email: formData.email,
         password: formData.password,
         city: formData.city,
+        society: formData.society,
         referralCode: formData.referralCode || undefined,
       } : {}
 
@@ -213,6 +255,42 @@ export default function CustomerAuth() {
     document.getElementById(`otp-${Math.min(digits.length, 5)}`)?.focus()
   }
 
+  // ── Lead Capture Screen ──
+  if (step === 'lead') return (
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', zIndex: 1, padding: '20px', maxWidth: 460, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div className="reveal revealed" style={{ marginBottom: 28, textAlign: 'center' }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, marginBottom: 10 }}>Request Service</h1>
+          <p className="text-secondary" style={{ fontSize: 15 }}>Tell us where you stay and we'll notify you as soon as we launch there!</p>
+        </div>
+        <div className="glass" style={{ padding: 28, borderRadius: 28, border: '1px solid var(--border-glass)' }}>
+           <form onSubmit={handleCaptureLead} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <Field label="First Name" icon={User}><input required className="input-field" style={inputStyle} value={formData.firstName} onChange={set('firstName')} /></Field>
+                <Field label="Last Name"><input required className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={formData.lastName} onChange={set('lastName')} /></Field>
+              </div>
+              <Field label="Phone Number" icon={Phone}><input required className="input-field" style={inputStyle} value={formData.phone} onChange={set('phone')} /></Field>
+              <Field label="City" icon={MapPin}>
+                <select required className="input-field" style={selectStyle} value={formData.city} onChange={set('city')}>
+                  <option value="" disabled>Select City</option>
+                  {INDIA_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </Field>
+              <Field label="Society Name" icon={Building2}><input required className="input-field" style={inputStyle} value={formData.societyName} onChange={set('societyName')} /></Field>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <Field label="Area" icon={MapPin}><input required className="input-field" style={inputStyle} value={formData.area} onChange={set('area')} /></Field>
+                <Field label="Pincode"><input required className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={formData.pincode} onChange={set('pincode')} maxLength={6} /></Field>
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
+                <button type="button" className="btn-glass" style={{ flex: 1, padding: 14, borderRadius: 12 }} onClick={() => setStep('form')}>Cancel</button>
+                <button type="submit" disabled={loading} className="btn-primary" style={{ flex: 2, padding: 14, borderRadius: 12 }}>{loading ? 'Submitting...' : 'Submit Request'}</button>
+              </div>
+           </form>
+        </div>
+      </div>
+    </div>
+  )
+
   // ── Success Screen ──
   if (step === 'success') return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', padding: 20 }}>
@@ -220,8 +298,17 @@ export default function CustomerAuth() {
         <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(101,199,55,0.15)', color: 'var(--accent-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <CheckCircle2 size={40} />
         </div>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Welcome to Cleanzo!</h2>
-        <p className="text-secondary">Redirecting to your {role === 'crew' ? 'crew' : 'customer'} dashboard…</p>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
+          {mode === 'signup' && formData.societyName ? 'Interest Received!' : 'Welcome to Cleanzo!'}
+        </h2>
+        <p className="text-secondary">
+          {mode === 'signup' && formData.societyName 
+            ? `We've captured your details. We'll notify you as soon as we start serving ${formData.societyName}!` 
+            : `Redirecting to your ${role === 'crew' ? 'crew' : 'customer'} dashboard…`}
+        </p>
+        {mode === 'signup' && formData.societyName && (
+          <button className="btn-primary" style={{ marginTop: 24, padding: '12px 24px', borderRadius: 12 }} onClick={() => navigate('/')}>Back to Home</button>
+        )}
       </div>
     </div>
   )
@@ -254,7 +341,7 @@ export default function CustomerAuth() {
             <div className="glass" style={{ padding: 6, borderRadius: 16, display: 'flex', marginBottom: 28, position: 'relative', border: '1px solid var(--border-glass)' }}>
               <div style={{ position: 'absolute', top: 6, bottom: 6, left: role === 'customer' ? 6 : 'calc(50% + 3px)', width: 'calc(50% - 9px)', background: 'var(--accent-lime)', borderRadius: 12, transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)', zIndex: 0, boxShadow: '0 4px 12px rgba(var(--accent-lime-rgb), 0.3)' }} />
               {[['customer', 'Customer'], ['crew', 'Crew / Executive']].map(([val, label]) => (
-                <button key={val} onClick={() => { setRole(val); setErrorMsg('') }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'none', color: role === val ? '#000' : 'var(--text-secondary)', fontWeight: 700, fontSize: 14, position: 'relative', zIndex: 1, transition: 'color 0.3s', cursor: 'pointer' }}>
+                <button key={val} onClick={() => { setRole(val); setErrorMsg(''); if (val === 'crew') setMode('login'); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'none', color: role === val ? '#000' : 'var(--text-secondary)', fontWeight: 700, fontSize: 14, position: 'relative', zIndex: 1, transition: 'color 0.3s', cursor: 'pointer' }}>
                   {label}
                 </button>
               ))}
@@ -407,6 +494,54 @@ export default function CustomerAuth() {
                         {INDIA_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                       <ChevronDown size={16} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', opacity: 0.4, pointerEvents: 'none' }} />
+                    </Field>
+
+                    <Field label="Society" icon={Building2} action={
+                      <button type="button" onClick={() => setStep('lead')} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontSize: 12, cursor: 'pointer' }}>
+                        Society not listed?
+                      </button>
+                    }>
+                      <div style={{ position: 'relative' }}>
+                        <input 
+                          required 
+                          className="input-field" 
+                          style={inputStyle} 
+                          placeholder="Search your society..." 
+                          value={societySearch}
+                          onFocus={() => setShowSocietyDropdown(true)}
+                          onChange={(e) => {
+                            setSocietySearch(e.target.value)
+                            setShowSocietyDropdown(true)
+                          }}
+                        />
+                        {showSocietyDropdown && (
+                          <div className="glass" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, marginTop: 4, maxHeight: 200, overflowY: 'auto', borderRadius: 12, border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-lg)' }}>
+                            {filteredSocieties.filter(s => s.name.toLowerCase().includes(societySearch.toLowerCase())).length === 0 ? (
+                              <div style={{ padding: 12, textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
+                                No societies found in this city. <br/>
+                                <button type="button" onClick={() => setStep('lead')} style={{ color: 'var(--primary-blue)', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600, marginTop: 4 }}>Request your area</button>
+                              </div>
+                            ) : (
+                              filteredSocieties.filter(s => s.name.toLowerCase().includes(societySearch.toLowerCase())).map(s => (
+                                <div 
+                                  key={s._id} 
+                                  onClick={() => {
+                                    setFormData(p => ({ ...p, society: s._id }));
+                                    setSocietySearch(s.name);
+                                    setShowSocietyDropdown(false);
+                                  }}
+                                  style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 14, transition: 'background 0.2s', borderBottom: '1px solid var(--border-glass)' }}
+                                  onMouseEnter={(e) => e.target.style.background = 'rgba(var(--accent-lime-rgb), 0.1)'}
+                                  onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                >
+                                  <div style={{ fontWeight: 600 }}>{s.name}</div>
+                                  <div style={{ fontSize: 11, opacity: 0.6 }}>{s.area}, {s.pincode}</div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </Field>
 
                     <Field label="Referral Code (optional)" icon={Tag}>

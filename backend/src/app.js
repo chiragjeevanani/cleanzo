@@ -34,6 +34,19 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Simple cookie parser middleware (since npm install is unavailable)
+app.use((req, res, next) => {
+  const cookieHeader = req.headers.cookie;
+  req.cookies = {};
+  if (cookieHeader) {
+    cookieHeader.split(';').forEach(cookie => {
+      const [name, ...value] = cookie.split('=');
+      req.cookies[name.trim()] = value.join('=');
+    });
+  }
+  next();
+});
+
 if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }

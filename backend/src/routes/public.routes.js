@@ -4,8 +4,17 @@ import asyncHandler from '../utils/asyncHandler.js';
 import CleanerApplication from '../models/CleanerApplication.js';
 import { ApiError } from '../utils/ApiError.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
+import * as publicCtrl from '../controllers/public.controller.js';
+import { logActivity } from '../controllers/admin.controller.js';
 
 const router = Router();
+
+// ─── SOCIETIES & AVAILABILITY ────────────────────
+router.get('/societies/search', publicCtrl.searchSocieties);
+router.get('/societies/active', publicCtrl.listActiveSocieties);
+
+// ─── LEAD CAPTURE ────────────────────────────────
+router.post('/leads', publicCtrl.captureLead);
 
 /**
  * POST /api/public/cleaner-apply
@@ -69,6 +78,12 @@ router.post('/cleaner-apply', upload.fields([
     kyc
   });
 
+  await logActivity({
+    type: 'application_submitted',
+    message: `New cleaner application from ${name} (${city})`,
+    metadata: { applicationId: application._id }
+  });
+
   res.status(201).json({
     success: true,
     message: 'Application submitted successfully. We will contact you soon.',
@@ -92,5 +107,16 @@ router.get('/settings', asyncHandler(async (req, res) => {
     prioritySlotFee: prioritySetting?.value ?? 99,
   });
 }));
+
+router.get('/packages', publicCtrl.listActivePackages);
+
+router.get('/banners', asyncHandler(async (req, res) => {
+  const { default: Banner } = await import('../models/Banner.js');
+  const banners = await Banner.find({ isActive: true }).sort('order -createdAt');
+  res.json({ success: true, banners });
+}));
+
+router.get('/products', publicCtrl.listProducts);
+router.get('/products/:id', publicCtrl.getProductById);
 
 export default router;

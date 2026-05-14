@@ -9,21 +9,24 @@ export default function CustomerHome() {
   const [subscription, setSubscription] = useState(null)
   const [history, setHistory] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [banners, setBanners] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [subsRes, histRes, notifRes] = await Promise.all([
+        const [subsRes, histRes, notifRes, bannerRes] = await Promise.all([
           apiClient.get('/customer/subscriptions'),
           apiClient.get('/customer/history?limit=3'),
           apiClient.get('/customer/notifications'),
+          apiClient.get('/public/banners')
         ])
         const activeSub = (subsRes.subscriptions || []).find(s => s.status === 'Active') || null
         setSubscription(activeSub)
         setHistory(histRes.tasks || [])
         setUnreadCount((notifRes.notifications || []).filter(n => !n.read).length)
+        setBanners(bannerRes.banners || [])
       } catch (err) {
         setError('Failed to load data. Please refresh.')
       } finally {
@@ -85,7 +88,9 @@ export default function CustomerHome() {
       <div className="app-header" style={{ padding: '24px var(--margin-side)', background: 'transparent' }}>
         <div>
           <div className="text-body-sm text-secondary font-medium">{greeting},</div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', marginTop: 2 }}>{user?.name?.split(' ')[0] || 'User'} 👋</h1>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', marginTop: 2 }}>
+            {user?.firstName || user?.name?.split(' ')[0] || 'User'} 👋
+          </h1>
         </div>
         <Link to="/customer/notifications" className="relative">
           <div className="glass flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: 16 }}>
@@ -98,6 +103,13 @@ export default function CustomerHome() {
       </div>
 
       <div className="container">
+        {/* Banner Carousel */}
+        {banners.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <BannerCarousel banners={banners} />
+          </div>
+        )}
+
         {/* Active Subscription Card */}
         {subscription ? (
           <Link to="/customer/subscriptions" className="premium-gradient animate-fade-in-up" 
@@ -142,7 +154,7 @@ export default function CustomerHome() {
               </div>
             </div>
           </Link>
-        ) : (
+        ) : !banners.length && (
           <div className="glass animate-fade-in-up" style={{ padding: 40, marginBottom: 32, textAlign: 'center', borderRadius: 32 }}>
             <div style={{ width: 64, height: 64, background: 'rgba(223, 255, 0, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
               <Calendar size={32} color="var(--accent-lime)" />
@@ -204,6 +216,70 @@ export default function CustomerHome() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function BannerCarousel({ banners }) {
+  const [current, setCurrent] = useState(0)
+
+  useEffect(() => {
+    if (banners.length <= 1) return
+    const timer = setInterval(() => {
+      setCurrent(prev => (prev + 1) % banners.length)
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [banners.length])
+
+  return (
+    <div style={{ position: 'relative', width: '100%', borderRadius: 32, overflow: 'hidden', aspectRatio: '16/9' }}>
+      <div style={{ 
+        display: 'flex', 
+        width: `${banners.length * 100}%`, 
+        height: '100%',
+        transform: `translateX(-${(current * 100) / banners.length}%)`,
+        transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+      }}>
+        {banners.map((b, i) => (
+          <div key={b._id} style={{ 
+            width: `${100 / banners.length}%`, 
+            height: '100%',
+            position: 'relative',
+            background: `url(${b.imageUrl}) center/cover no-repeat`
+          }}>
+            <div style={{ 
+              position: 'absolute', inset: 0, 
+              background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)',
+              padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end'
+            }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'white', maxWidth: '80%', lineHeight: 1.1, marginBottom: 8 }}>{b.title}</h3>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', maxWidth: '90%', marginBottom: 16 }}>{b.description}</p>
+              <Link to={b.link || '/customer/packages'} className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start', padding: '10px 24px', borderRadius: 12 }}>
+                Claim Now
+              </Link>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {banners.length > 1 && (
+        <div style={{ position: 'absolute', bottom: 16, right: 28, display: 'flex', gap: 6 }}>
+          {banners.map((_, i) => (
+            <div 
+              key={i} 
+              onClick={() => setCurrent(i)}
+              style={{ 
+                width: current === i ? 24 : 6, 
+                height: 6, 
+                borderRadius: 3, 
+                background: current === i ? 'var(--accent-lime)' : 'rgba(255,255,255,0.3)',
+                transition: 'all 0.3s ease',
+                cursor: 'pointer'
+              }} 
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
