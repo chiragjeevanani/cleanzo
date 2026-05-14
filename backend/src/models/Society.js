@@ -11,13 +11,18 @@ const slotSchema = new Schema({
 const societySchema = new Schema({
   name: { type: String, required: true, trim: true },
   city: { type: String, required: true, trim: true },
+  area: { type: String, required: true, trim: true },
+  pincode: { type: String, required: true, trim: true },
   address: { type: String, required: true },
   slots: [slotSchema],
   cleaners: [{ type: Schema.Types.ObjectId, ref: 'Cleaner' }],
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
-// Optional: index for faster city lookups
+// Indexes for faster lookups
 societySchema.index({ city: 1 });
+societySchema.index({ area: 1 });
+societySchema.index({ pincode: 1 });
+societySchema.index({ name: 'text', area: 'text' }); // Text index for search
 
 export default mongoose.model('Society', societySchema);

@@ -21,18 +21,20 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const res = await apiClient.get('/auth/me');
-          setUser(res.user);
-        } catch (error) {
-          console.error('Failed to restore session:', error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('userRole');
-        }
+      if (!token) {
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+      
+      try {
+        const res = await apiClient.get('/auth/me');
+        setUser(res.user);
+      } catch (error) {
+        // Silently fail on init — if they're on a public page, it doesn't matter.
+        // Protected routes will handle their own redirects via ProtectedRoute.
+      } finally {
+        setLoading(false);
+      }
     };
     initAuth();
   }, []);

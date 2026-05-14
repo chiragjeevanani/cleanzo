@@ -10,6 +10,7 @@ import { sendOtp, verifyOtp } from '../services/otp.service.js';
 import { normalizePhone } from '../utils/helpers.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { logActivity } from './admin.controller.js';
 
 const generateToken = (id, role) =>
   jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -52,6 +53,35 @@ const userResponse = (user, role) => ({
   kycStatus: user.kycStatus,
   ...(role === 'cleaner' && { kycRejectionNote: user.kycRejectionNote }),
 });
+
+const sendTokenResponse = async (user, role, res) => {
+  const token = generateToken(user._id, role);
+  const refreshToken = generateRefreshToken(user._id, role);
+  await storeRefreshToken(refreshToken, user._id, role);
+
+  const cookieOptions = {
+    httpOnly: true,
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  };
+
+  const refreshOptions = {
+    ...cookieOptions,
+    expires: new Date(Date.now() + REFRESH_EXPIRES_MS()),
+  };
+
+  res.cookie('token', token, cookieOptions);
+  res.cookie('refreshToken', refreshToken, refreshOptions);
+
+  return res.json({
+    success: true,
+    user: userResponse(user, role),
+    // Fallback for non-cookie clients if any
+    token,
+    refreshToken,
+  });
+};
 
 // ─── SEND OTP ─────────────────────────────────────
 /**
@@ -164,6 +194,12 @@ export const handleVerifyOtp = asyncHandler(async (req, res) => {
           expiresAt: new Date(Date.now() + referralExpiryDays * 24 * 60 * 60 * 1000),
         } : { isActive: false, percentage: 0 },
       });
+
+      await logActivity({
+        type: 'user_created',
+        message: `New customer signed up: ${firstName} ${lastName}`,
+        metadata: { userId: user._id }
+      });
     }
     user.lastLogin = new Date();
     await user.save({ validateModifiedOnly: true });
@@ -180,21 +216,18 @@ export const handleVerifyOtp = asyncHandler(async (req, res) => {
         city,
         email,
       });
+
+      await logActivity({
+        type: 'application_submitted',
+        message: `New cleaner joined: ${user.name}`,
+        metadata: { cleanerId: user._id }
+      });
     }
     user.lastLogin = new Date();
     await user.save({ validateModifiedOnly: true });
   }
 
-  const token = generateToken(user._id, targetRole);
-  const refreshToken = generateRefreshToken(user._id, targetRole);
-  await storeRefreshToken(refreshToken, user._id, targetRole);
-
-  res.json({
-    success: true,
-    token,
-    refreshToken,
-    user: userResponse(user, targetRole),
-  });
+  await sendTokenResponse(user, targetRole, res);
 });
 
 // ─── PHONE + PASSWORD LOGIN ────────────────────────
@@ -225,16 +258,7 @@ export const handlePasswordLogin = asyncHandler(async (req, res) => {
   user.lastLogin = new Date();
   await user.save({ validateModifiedOnly: true });
 
-  const token = generateToken(user._id, targetRole);
-  const refreshToken = generateRefreshToken(user._id, targetRole);
-  await storeRefreshToken(refreshToken, user._id, targetRole);
-
-  res.json({
-    success: true,
-    token,
-    refreshToken,
-    user: userResponse(user, targetRole),
-  });
+  await sendTokenResponse(user, targetRole, res);
 });
 
 // ─── ADMIN LOGIN ───────────────────────────────────
@@ -256,21 +280,7 @@ export const handleAdminLogin = asyncHandler(async (req, res) => {
   admin.lastLogin = new Date();
   await admin.save({ validateModifiedOnly: true });
 
-  const token = generateToken(admin._id, admin.role);
-  const refreshToken = generateRefreshToken(admin._id, admin.role);
-  await storeRefreshToken(refreshToken, admin._id, admin.role);
-
-  res.json({
-    success: true,
-    token,
-    refreshToken,
-    user: {
-      _id: admin._id,
-      name: admin.name,
-      email: admin.email,
-      role: admin.role,
-    },
-  });
+  await sendTokenResponse(admin, admin.role, res);
 });
 
 // ─── REFRESH TOKEN ─────────────────────────────────
@@ -279,7 +289,7 @@ export const handleAdminLogin = asyncHandler(async (req, res) => {
  * Body: { refreshToken }
  */
 export const handleRefreshToken = asyncHandler(async (req, res) => {
-  const { refreshToken } = req.body;
+  const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
   if (!refreshToken) throw new ApiError(400, 'Refresh token required');
 
   let decoded;
@@ -294,11 +304,7 @@ export const handleRefreshToken = asyncHandler(async (req, res) => {
 
   await RefreshToken.deleteOne({ _id: stored._id });
 
-  const newToken = generateToken(decoded.id, decoded.role);
-  const newRefreshToken = generateRefreshToken(decoded.id, decoded.role);
-  await storeRefreshToken(newRefreshToken, decoded.id, decoded.role);
-
-  res.json({ success: true, token: newToken, refreshToken: newRefreshToken });
+  await sendTokenResponse({ _id: decoded.id }, decoded.role, res);
 });
 
 // ─── LOGOUT ────────────────────────────────────────
@@ -307,10 +313,14 @@ export const handleRefreshToken = asyncHandler(async (req, res) => {
  * Body: { refreshToken }
  */
 export const handleLogout = asyncHandler(async (req, res) => {
-  const { refreshToken } = req.body;
+  const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
   if (refreshToken) {
     await RefreshToken.deleteOne({ token: refreshToken });
   }
+
+  res.clearCookie('token');
+  res.clearCookie('refreshToken');
+
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
@@ -369,4 +379,34 @@ export const handleResetPassword = asyncHandler(async (req, res) => {
  */
 export const getMe = asyncHandler(async (req, res) => {
   res.json({ success: true, user: req.user, role: req.userRole });
+});
+
+/**
+ * PUT /api/auth/me
+ * Update own profile
+ */
+export const updateMe = asyncHandler(async (req, res) => {
+  const { name, firstName, lastName, email, phone, city } = req.body;
+  const role = req.userRole;
+  const userId = req.user._id;
+
+  let user;
+  if (role === 'admin' || role === 'superadmin') {
+    user = await Admin.findByIdAndUpdate(userId, { name, email, phone }, { new: true, runValidators: true });
+  } else if (role === 'customer') {
+    const update = { firstName, lastName, email, city };
+    if (phone) update.phone = normalizePhone(phone);
+    user = await Customer.findByIdAndUpdate(userId, update, { new: true, runValidators: true });
+  } else if (role === 'cleaner') {
+    const update = { name, email, city };
+    if (phone) update.phone = normalizePhone(phone);
+    user = await Cleaner.findByIdAndUpdate(userId, update, { new: true, runValidators: true });
+  }
+
+  if (!user) throw new ApiError(404, 'User not found');
+
+  res.json({
+    success: true,
+    user: userResponse(user, role)
+  });
 });

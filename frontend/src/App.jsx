@@ -6,8 +6,8 @@ import CustomerApp from './pages/Customer/CustomerApp'
 import CleanerApp from './pages/Cleaner/CleanerApp'
 import AdminPanel from './pages/Admin/AdminPanel'
 import AdminLogin from './pages/Admin/AdminLogin'
-import TermsOfService from './pages/Customer/Profile/TermsOfService'
-import PrivacyPolicy from './pages/Customer/Profile/PrivacyPolicy'
+import LegalTerms from './pages/Customer/Profile/LegalTerms'
+import LegalPrivacy from './pages/Customer/Profile/LegalPrivacy'
 import HelpSupport from './pages/Customer/Profile/HelpSupport'
 import CustomerAuth from './pages/Customer/CustomerAuth'
 import ForgotPassword from './pages/Customer/ForgotPassword'
@@ -20,8 +20,8 @@ export default function App() {
         {/* Public routes */}
         <Route path="/login" element={<CustomerAuth />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/terms" element={<TermsOfService />} />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<LegalTerms />} />
+        <Route path="/privacy" element={<LegalPrivacy />} />
         <Route path="/help" element={<HelpSupport />} />
         <Route path="/join-crew" element={<JoinAsCleaner />} />
         <Route path="/" element={<LandingPage />} />

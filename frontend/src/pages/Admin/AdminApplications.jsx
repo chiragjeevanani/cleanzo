@@ -33,17 +33,22 @@ export default function AdminApplications() {
     }
   };
 
-  const handleStatusUpdate = async (id, status, reason = '') => {
+  const handleStatusUpdate = async (app, status, reason = '') => {
+    const id = app._id;
+    const endpoint = app.isExistingCleaner 
+      ? `/admin/cleaner-kyc/${id}` 
+      : `/admin/cleaner-applications/${id}`;
+
     try {
       setProcessing(true);
-      const res = await apiClient.put(`/admin/cleaner-applications/${id}`, { 
+      const res = await apiClient.put(endpoint, { 
         status, 
         rejectionNote: reason || rejectionReason 
       });
       
       if (res.success) {
-        setApplications(prev => prev.map(app => 
-          app._id === id ? { ...app, status, rejectionNote: reason || rejectionReason } : app
+        setApplications(prev => prev.map(item => 
+          item._id === id ? { ...item, status, rejectionNote: reason || rejectionReason } : item
         ));
         setIsRejecting(false);
         setRejectionReason('');
@@ -159,9 +164,14 @@ export default function AdminApplications() {
                       <Eye size={16} />
                     </button>
                     {app.status === 'pending' && (
-                      <button className="btn-icon btn-glass" style={{ color: 'var(--accent-lime)' }} onClick={() => handleStatusUpdate(app._id, 'approved')}>
-                        <Check size={16} />
-                      </button>
+                      <>
+                        <button className="btn-icon btn-glass" style={{ color: 'var(--accent-lime)' }} onClick={() => handleStatusUpdate(app, 'approved')}>
+                          <Check size={16} />
+                        </button>
+                        <button className="btn-icon btn-glass text-error" onClick={() => { setSelectedApp(app); setIsRejecting(true); setShowModal(true); }}>
+                          <X size={16} />
+                        </button>
+                      </>
                     )}
                     <button className="btn-icon btn-glass text-error" onClick={() => setConfirmDeleteId(app._id)}>
                       <Trash2 size={16} />
@@ -176,7 +186,7 @@ export default function AdminApplications() {
 
       {showModal && selectedApp && (
         <div className="modal-overlay" style={{ display: 'flex' }} onClick={() => setShowModal(false)}>
-          <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, padding: 40, position: 'relative' }}>
+          <div className="modal-content glass-solid" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, padding: 40, position: 'relative' }}>
             <button 
               className="btn-icon btn-glass" 
               onClick={() => setShowModal(false)}
@@ -206,25 +216,44 @@ export default function AdminApplications() {
                   <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginBottom: 16 }}>CONTACT & PERSONAL</h4>
                   <div className="space-y-12">
                     <div className="flex justify-between items-center"><span className="text-secondary text-sm">Phone Number</span> <span className="font-bold">{selectedApp.phone}</span></div>
-                    <div className="flex justify-between items-center"><span className="text-secondary text-sm">Age</span> <span className="font-bold">{selectedApp.age} years</span></div>
-                    <div className="flex justify-between items-center"><span className="text-secondary text-sm">Father's Name</span> <span className="font-bold">{selectedApp.fatherName}</span></div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-secondary text-sm">Age</span> 
+                      <span className="font-bold">{selectedApp.age ? `${selectedApp.age} years` : 'Not provided'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-secondary text-sm">Father's Name</span> 
+                      <span className="font-bold">{selectedApp.fatherName || 'Not provided'}</span>
+                    </div>
                     <div className="flex justify-between items-center"><span className="text-secondary text-sm">City</span> <span className="font-bold">{selectedApp.city}</span></div>
                   </div>
                 </section>
 
                 <section>
                   <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginBottom: 16 }}>ADDRESS DETAILS</h4>
-                  <div className="glass p-16 rounded-2xl border-divider">
-                    <p className="text-sm font-semibold">{selectedApp.currentAddress}</p>
-                    <p className="text-xs text-secondary mt-8">Permanent: {selectedApp.permanentAddress}</p>
+                  <div className="glass p-16 rounded-2xl border-divider" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    <p className="text-sm font-semibold">{selectedApp.currentAddress || 'Current address not specified'}</p>
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>PERMANENT ADDRESS</span>
+                      <p className="text-xs text-secondary">{selectedApp.permanentAddress || 'Same as current or not provided'}</p>
+                    </div>
                   </div>
                 </section>
 
                 <section>
                   <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginBottom: 16 }}>LOCAL REFERENCE</h4>
                   <div className="flex gap-16">
-                    <div className="flex-1 glass p-12 rounded-xl text-sm"><span className="text-tertiary block text-xs mb-4">NAME</span><strong>{selectedApp.localReference?.name}</strong></div>
-                    <div className="flex-1 glass p-12 rounded-xl text-sm"><span className="text-tertiary block text-xs mb-4">PHONE</span><strong>{selectedApp.localReference?.phone}</strong></div>
+                    <div className="flex-1 glass p-12 rounded-xl text-sm" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                      <span className="text-tertiary block text-xs mb-4">NAME</span>
+                      <strong style={{ color: selectedApp.localReference?.name ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+                        {selectedApp.localReference?.name || 'N/A'}
+                      </strong>
+                    </div>
+                    <div className="flex-1 glass p-12 rounded-xl text-sm" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                      <span className="text-tertiary block text-xs mb-4">PHONE</span>
+                      <strong style={{ color: selectedApp.localReference?.phone ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+                        {selectedApp.localReference?.phone || 'N/A'}
+                      </strong>
+                    </div>
                   </div>
                 </section>
               </div>
@@ -233,15 +262,35 @@ export default function AdminApplications() {
                 <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginBottom: 16 }}>KYC VERIFICATION</h4>
                 <div className="space-y-16">
                   <div className="doc-preview-card">
-                    <span className="text-xs font-bold text-tertiary">AADHAAR CARD</span>
+                    <div className="flex justify-between items-center mb-8">
+                      <span className="text-xs font-bold text-tertiary">AADHAAR CARD</span>
+                      {selectedApp.kyc?.aadhaarPhoto && <span className="chip chip-success" style={{ fontSize: 9, padding: '2px 6px' }}>UPLOADED</span>}
+                    </div>
                     <div className="preview-box">
-                      {selectedApp.kyc?.aadhaarPhoto ? <img src={selectedApp.kyc.aadhaarPhoto} onClick={() => window.open(selectedApp.kyc.aadhaarPhoto)} /> : <div className="placeholder"><FileText size={24} /></div>}
+                      {selectedApp.kyc?.aadhaarPhoto ? (
+                        <img src={selectedApp.kyc.aadhaarPhoto} alt="Aadhaar" onClick={() => window.open(selectedApp.kyc.aadhaarPhoto)} />
+                      ) : (
+                        <div className="placeholder flex flex-col items-center gap-8">
+                          <FileText size={24} />
+                          <span style={{ fontSize: 10 }}>No document</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="doc-preview-card">
-                    <span className="text-xs font-bold text-tertiary">PAN CARD</span>
+                    <div className="flex justify-between items-center mb-8">
+                      <span className="text-xs font-bold text-tertiary">PAN CARD</span>
+                      {selectedApp.kyc?.panPhoto && <span className="chip chip-success" style={{ fontSize: 9, padding: '2px 6px' }}>UPLOADED</span>}
+                    </div>
                     <div className="preview-box">
-                      {selectedApp.kyc?.panPhoto ? <img src={selectedApp.kyc.panPhoto} onClick={() => window.open(selectedApp.kyc.panPhoto)} /> : <div className="placeholder"><FileText size={24} /></div>}
+                      {selectedApp.kyc?.panPhoto ? (
+                        <img src={selectedApp.kyc.panPhoto} alt="PAN" onClick={() => window.open(selectedApp.kyc.panPhoto)} />
+                      ) : (
+                        <div className="placeholder flex flex-col items-center gap-8">
+                          <FileText size={24} />
+                          <span style={{ fontSize: 10 }}>No document</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -270,7 +319,7 @@ export default function AdminApplications() {
                 />
                 <div className="flex justify-end gap-12">
                   <button className="btn btn-ghost" onClick={() => setIsRejecting(false)}>Cancel</button>
-                  <button className="btn btn-primary bg-error" disabled={!rejectionReason || processing} onClick={() => handleStatusUpdate(selectedApp._id, 'rejected')}>
+                  <button className="btn btn-primary bg-error" disabled={!rejectionReason || processing} onClick={() => handleStatusUpdate(selectedApp, 'rejected')}>
                     {processing ? 'Processing...' : 'Confirm Rejection'}
                   </button>
                 </div>
@@ -278,8 +327,8 @@ export default function AdminApplications() {
             ) : selectedApp.status === 'pending' ? (
               <div className="flex justify-end gap-16 pt-32 border-t border-divider">
                 <button className="btn btn-outline text-error" onClick={() => setIsRejecting(true)}>Reject Candidate</button>
-                <button className="btn btn-primary" disabled={processing} onClick={() => handleStatusUpdate(selectedApp._id, 'approved')}>
-                  {processing ? 'Processing...' : 'Approve & Create Account'}
+                <button className="btn btn-primary" disabled={processing} onClick={() => handleStatusUpdate(selectedApp, 'approved')}>
+                  {processing ? 'Processing...' : selectedApp.isExistingCleaner ? 'Approve KYC' : 'Approve & Create Account'}
                 </button>
               </div>
             ) : (
@@ -297,7 +346,7 @@ export default function AdminApplications() {
       )}
 
       <style>{`
-        .doc-preview-card { background: var(--glass-bg); padding: 12px; border-radius: 20px; border: 1px solid var(--divider); }
+        .doc-preview-card { background: var(--bg-glass); padding: 12px; border-radius: 20px; border: 1px solid var(--divider); }
         .preview-box { aspect-ratio: 16/10; border-radius: 12px; overflow: hidden; margin-top: 8px; background: #000; display: flex; align-items: center; justify-content: center; }
         .preview-box img { width: 100%; height: 100%; object-fit: contain; cursor: pointer; transition: 0.2s; }
         .preview-box img:hover { transform: scale(1.05); }
@@ -307,6 +356,9 @@ export default function AdminApplications() {
         .bg-error { background: #EF4444 !important; border-color: #EF4444 !important; }
         .border-error { border-color: rgba(239, 68, 68, 0.2) !important; }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        /* Override glass hover for modal elements */
+        .modal-content .glass:hover { background: rgba(255,255,255,0.02) !important; }
       `}</style>
     </div>
   );
