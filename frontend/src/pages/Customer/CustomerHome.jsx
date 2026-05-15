@@ -148,36 +148,35 @@ export default function CustomerHome() {
           </div>
         </div>
 
-        {/* Recent Washes */}
         <div className="animate-fade-in-up delay-2" style={{ marginBottom: 40 }}>
           <div className="flex justify-between items-center" style={{ marginBottom: 16, padding: '0 8px' }}>
             <span className="text-label" style={{ color: 'var(--text-tertiary)' }}>Recent Service</span>
             <Link to="/customer/history" className="text-body-sm font-bold" style={{ color: 'var(--primary-blue)' }}>View All</Link>
           </div>
           <div className="flex flex-col gap-10">
-          {recentHistory.length === 0 ? (
-            <div className="text-center text-secondary py-20 opacity-50">No service history yet.</div>
-          ) : recentHistory.map(s => (
-            <div key={s._id} className="glass" style={{ padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 24 }}>
-                <div className="flex items-center gap-14">
-                  <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.03)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Check size={20} color={s.status === 'completed' ? 'var(--success)' : 'var(--text-tertiary)'} />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{s.packageName || 'Cleaning Service'}</div>
-                    <div className="text-body-sm text-secondary font-medium">
-                      {new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} <span style={{ opacity: 0.3 }}>•</span> {s.scheduledTime || s.completedTime || ''}
-                    </div>
-                  </div>
-                </div>
-                <span className={`chip ${s.status === 'completed' ? 'chip-success' : s.status === 'skipped' ? 'chip-ghost' : 'chip-error'}`} style={{ borderRadius: 8, fontSize: 9 }}>
-                  {s.status.toUpperCase()}
-                </span>
-              </div>
-            )) : (
-              <div className="glass text-center text-secondary text-body-sm py-32" style={{ borderRadius: 20 }}>
+            {recentHistory.length === 0 ? (
+              <div className="glass text-center text-secondary text-body-sm py-32" style={{ borderRadius: 24 }}>
                 No recent service history yet.
               </div>
+            ) : (
+              recentHistory.map(s => (
+                <div key={s._id} className="glass" style={{ padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 24 }}>
+                  <div className="flex items-center gap-14">
+                    <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.03)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Check size={20} color={s.status === 'completed' ? 'var(--success)' : 'var(--text-tertiary)'} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{s.packageName || 'Cleaning Service'}</div>
+                      <div className="text-body-sm text-secondary font-medium">
+                        {new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} <span style={{ opacity: 0.3 }}>•</span> {s.scheduledTime || s.completedTime || ''}
+                      </div>
+                    </div>
+                  </div>
+                  <span className={`chip ${s.status === 'completed' ? 'chip-success' : s.status === 'skipped' ? 'chip-ghost' : 'chip-error'}`} style={{ borderRadius: 8, fontSize: 9 }}>
+                    {s.status.toUpperCase()}
+                  </span>
+                </div>
+              ))
             )}
           </div>
         </div>
