@@ -72,10 +72,8 @@ export default function VehicleManager() {
         formData.append('photos', file)
       })
 
-      // Ensure API client uses multipart/form-data
-      await apiClient.post('/customer/vehicles', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      // Use uploadForm helper for multipart/form-data
+      await apiClient.uploadForm('/customer/vehicles', formData)
       
       setForm(EMPTY_FORM)
       setImagePreviews([])

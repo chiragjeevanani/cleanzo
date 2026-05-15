@@ -1,5 +1,6 @@
 import Cleaner from '../models/Cleaner.js';
 import Task from '../models/Task.js';
+import Subscription from '../models/Subscription.js';
 import Notification from '../models/Notification.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
@@ -88,7 +89,6 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
     await cleaner.save({ validateModifiedOnly: true });
 
     // Update subscription completed days and nextWash
-    const { default: Subscription } = await import('../models/Subscription.js');
     const sub = await Subscription.findById(task.subscription);
     if (sub) {
       sub.completedDays += 1;
@@ -97,7 +97,6 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const { default: Task } = await import('../models/Task.js');
       const skippedTasks = await Task.find({
         subscription: sub._id,
         status: 'skipped',
