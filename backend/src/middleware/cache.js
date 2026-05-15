@@ -16,6 +16,11 @@ export const cacheMiddleware = (ttlSeconds = 300, isPrivate = false) => {
     const key = `cache:${isPrivate ? userId : 'global'}:${req.originalUrl}`;
 
     try {
+      // Safety check: only attempt Redis operations if connected
+      if (redis.status !== 'ready') {
+        return next();
+      }
+
       const cachedData = await redis.get(key);
       if (cachedData) {
         return res.json(JSON.parse(cachedData));
@@ -24,8 +29,8 @@ export const cacheMiddleware = (ttlSeconds = 300, isPrivate = false) => {
       // Intercept the response to store it in cache
       const originalJson = res.json;
       res.json = function(data) {
-        // Only cache successful responses
-        if (res.statusCode >= 200 && res.statusCode < 300) {
+        // Only cache successful responses and only if Redis is still ready
+        if (res.statusCode >= 200 && res.statusCode < 300 && redis.status === 'ready') {
           redis.setex(key, ttlSeconds, JSON.stringify(data)).catch(err => {
             console.error('Redis cache set error:', err);
           });
@@ -46,6 +51,7 @@ export const cacheMiddleware = (ttlSeconds = 300, isPrivate = false) => {
  * @param {string} pattern - Pattern to match keys (e.g., "cache:user123:*")
  */
 export const clearCache = async (pattern) => {
+  if (redis.status !== 'ready') return;
   try {
     const stream = redis.scanStream({
       match: pattern,
