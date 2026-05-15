@@ -4,12 +4,17 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Check, Car, CreditCard, ShieldCheck, MapPin, Clock, Info } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
+import { useLocation } from 'react-router-dom'
 
 const steps = ['Vehicle', 'Location', 'Plan', 'Confirm']
 
 export default function BookingFlow() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
+  
+  const queryParams = new URLSearchParams(location.search)
+  const initialPackageId = queryParams.get('packageId')
   
   const [step, setStep] = useState(0)
   
@@ -51,7 +56,26 @@ export default function BookingFlow() {
         if (settingsRes.prioritySlotFee) setPrioritySlotFee(settingsRes.prioritySlotFee)
         
         if (sRes.societies?.length > 0) setSelectedSociety(sRes.societies[0])
-        if (vRes.vehicles?.length > 0) setSelectedVehicle(vRes.vehicles[0])
+        
+        if (initialPackageId && pRes.packages) {
+          const pkg = pRes.packages.find(p => p._id === initialPackageId)
+          if (pkg) {
+            setSelectedPkg(pkg)
+            // If package is pre-selected, we still start at step 0 to pick a vehicle,
+            // but we'll filter the vehicles there.
+          }
+        }
+        
+        if (vRes.vehicles?.length > 0) {
+          // If we have a pre-selected package, try to pick the first eligible vehicle
+          if (initialPackageId) {
+            const pkg = pRes.packages.find(p => p._id === initialPackageId)
+            const eligible = vRes.vehicles.find(v => v.category === pkg?.category)
+            if (eligible) setSelectedVehicle(eligible)
+          } else {
+            setSelectedVehicle(vRes.vehicles[0])
+          }
+        }
       } catch (err) {
         setPaymentError('Failed to load booking data. Please go back and try again.')
       } finally {
@@ -213,9 +237,19 @@ export default function BookingFlow() {
                 <p className="text-secondary mb-24 font-medium">No vehicles found in your profile.</p>
                 <button className="btn btn-primary w-full" style={{ borderRadius: 16, padding: 18 }} onClick={() => navigate('/customer/profile')}>Add Your First Vehicle</button>
               </div>
+            ) : selectedPkg && vehicles.filter(v => v.category === selectedPkg.category).length === 0 ? (
+              <div className="glass" style={{ padding: 40, textAlign: 'center', borderRadius: 32 }}>
+                <div style={{ width: 64, height: 64, background: 'rgba(255,50,50,0.05)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'var(--error)' }}>
+                  <Car size={32} />
+                </div>
+                <h4 style={{ marginBottom: 8, fontWeight: 700 }}>Ineligible Vehicle</h4>
+                <p className="text-secondary text-body-sm mb-24">This plan is only for <strong>{selectedPkg.category}</strong>. None of your vehicles match this category.</p>
+                <button className="btn btn-ghost w-full mb-12" onClick={() => setSelectedPkg(null)}>Choose Different Plan</button>
+                <button className="btn btn-primary w-full" onClick={() => navigate('/customer/vehicles')}>Add {selectedPkg.category}</button>
+              </div>
             ) : (
               <div className="flex flex-col gap-14">
-                {vehicles.map((v, i) => {
+                {(selectedPkg ? vehicles.filter(v => v.category === selectedPkg.category) : vehicles).map((v, i) => {
                   const hasSub = activeSubscriptions.some(s => s.vehicle?._id === v._id && s.status === 'Active');
                   const isSelected = selectedVehicle?._id === v._id;
                   return (

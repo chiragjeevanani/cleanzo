@@ -169,7 +169,7 @@ export default function PlanDetail() {
 
       {/* Floating Bottom Button */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '16px 20px', background: 'var(--bg-primary)', borderTop: '1px solid var(--border-glass)', zIndex: 100, maxWidth: 480, margin: '0 auto' }}>
-        <Link to="/customer/booking" className="btn btn-primary w-full btn-lg">
+        <Link to={`/customer/booking?packageId=${pkg._id}`} className="btn btn-primary w-full btn-lg">
           Subscribe to {pkg.name}
         </Link>
       </div>

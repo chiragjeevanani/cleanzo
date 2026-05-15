@@ -23,6 +23,7 @@ const AdminLeads        = lazy(() => import('./AdminLeads'))
 const AdminProfile      = lazy(() => import('./AdminProfile'))
 const AdminNotifications= lazy(() => import('./AdminNotifications'))
 const AdminMarketplace  = lazy(() => import('./AdminMarketplace'))
+const AdminVehicleCategories = lazy(() => import('./AdminVehicleCategories'))
 
 const navItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -31,6 +32,7 @@ const navItems = [
   { path: '/admin/applications', icon: FileText, label: 'Applications' },
   { path: '/admin/societies', icon: MapPin, label: 'Societies' },
   { path: '/admin/leads', icon: Users, label: 'Leads' },
+  { path: '/admin/vehicle-categories', icon: MapPin, label: 'Vehicle Types' },
   { path: '/admin/packages', icon: Package, label: 'Packages' },
   { path: '/admin/marketplace', icon: ShoppingCart, label: 'Marketplace' },
   { path: '/admin/subscriptions', icon: CreditCard, label: 'Subscriptions' },
@@ -206,6 +208,7 @@ export default function AdminPanel() {
             <Route path="content" element={<AdminContent />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="marketplace" element={<AdminMarketplace />} />
+            <Route path="vehicle-categories" element={<AdminVehicleCategories />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="profile" element={<AdminProfile />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />

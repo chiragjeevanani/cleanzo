@@ -32,6 +32,8 @@ router.post('/addresses', ctrl.addAddress);
 router.delete('/addresses/:id', ctrl.deleteAddress);
 
 router.get('/societies', ctrl.getSocieties);
+router.get('/vehicle-categories', ctrl.getVehicleCategories);
+
 
 // MARKETPLACE
 router.get('/marketplace/orders', ctrl.getMyMarketplaceOrders);

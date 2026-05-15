@@ -13,6 +13,7 @@ import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import Product from '../models/Product.js';
 import Order from '../models/Order.js';
+import VehicleCategory from '../models/VehicleCategory.js';
 import { logActivity } from './admin.controller.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 
@@ -549,6 +550,12 @@ export const getMyMarketplaceOrders = asyncHandler(async (req, res) => {
     .sort('-createdAt');
   res.json({ success: true, orders });
 });
+
+export const getVehicleCategories = asyncHandler(async (req, res) => {
+  const categories = await VehicleCategory.find({ isActive: true }).sort('sortOrder name').lean();
+  res.json({ success: true, categories });
+});
+
 
 export const cancelMarketplaceOrder = asyncHandler(async (req, res) => {
   const order = await Order.findOne({ _id: req.params.id, customer: req.user._id });

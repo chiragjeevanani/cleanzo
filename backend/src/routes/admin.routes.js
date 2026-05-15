@@ -75,4 +75,11 @@ router.delete('/products/:id', ctrl.deleteProduct);
 router.get('/marketplace/orders', ctrl.getMarketplaceOrders);
 router.put('/marketplace/orders/:id', ctrl.updateOrderStatus);
 
+// Vehicle Categories
+router.get('/vehicle-categories', ctrl.getVehicleCategories);
+router.post('/vehicle-categories', ctrl.addVehicleCategory);
+router.put('/vehicle-categories/:id', ctrl.updateVehicleCategory);
+router.delete('/vehicle-categories/:id', ctrl.deleteVehicleCategory);
+
+
 export default router;
