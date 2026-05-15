@@ -225,8 +225,8 @@ export default function BookingFlow() {
         {/* Step 0: Vehicle */}
         {step === 0 && (
           <div className="flex flex-col gap-20 animate-fade-in-up">
-            <div>
-              <h3 className="text-headline-sm" style={{ marginBottom: 4 }}>Select Vehicle</h3>
+            <div style={{ marginBottom: 12 }}>
+              <h3 className="text-headline-sm" style={{ marginBottom: 6 }}>Select Vehicle</h3>
               <p className="text-secondary text-body-sm">Which one shall we clean today?</p>
             </div>
             {vehicles.length === 0 ? (
@@ -238,14 +238,18 @@ export default function BookingFlow() {
                 <button className="btn btn-primary w-full" style={{ borderRadius: 16, padding: 18 }} onClick={() => navigate('/customer/profile')}>Add Your First Vehicle</button>
               </div>
             ) : selectedPkg && vehicles.filter(v => v.category === selectedPkg.category).length === 0 ? (
-              <div className="glass" style={{ padding: 40, textAlign: 'center', borderRadius: 32 }}>
-                <div style={{ width: 64, height: 64, background: 'rgba(255,50,50,0.05)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'var(--error)' }}>
-                  <Car size={32} />
+              <div className="glass" style={{ padding: '48px 40px', textAlign: 'center', borderRadius: 32 }}>
+                <div style={{ width: 80, height: 80, background: 'rgba(255,50,50,0.05)', borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', color: 'var(--error)' }}>
+                  <Car size={36} />
                 </div>
-                <h4 style={{ marginBottom: 8, fontWeight: 700 }}>Ineligible Vehicle</h4>
-                <p className="text-secondary text-body-sm mb-24">This plan is only for <strong>{selectedPkg.category}</strong>. None of your vehicles match this category.</p>
-                <button className="btn btn-ghost w-full mb-12" onClick={() => setSelectedPkg(null)}>Choose Different Plan</button>
-                <button className="btn btn-primary w-full" onClick={() => navigate('/customer/vehicles')}>Add {selectedPkg.category}</button>
+                <h4 style={{ marginBottom: 12, fontWeight: 700, fontSize: 24 }}>Ineligible Vehicle</h4>
+                <p className="text-secondary text-body-sm" style={{ marginBottom: 32, lineHeight: 1.6 }}>
+                  This plan is only for <strong>{selectedPkg.category}</strong>. <br/> None of your vehicles match this category.
+                </p>
+                <div className="flex flex-col gap-12">
+                  <button className="btn btn-ghost w-full" style={{ padding: 16, borderRadius: 16 }} onClick={() => setSelectedPkg(null)}>Choose Different Plan</button>
+                  <button className="btn btn-primary w-full" style={{ padding: 18, borderRadius: 18, fontWeight: 700 }} onClick={() => navigate('/customer/vehicles')}>Add {selectedPkg.category}</button>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col gap-14">
