@@ -149,7 +149,16 @@ export default function Marketplace() {
         {/* Product Grid */}
         {loading ? (
           <div className="grid-2 gap-16">
-            {[1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: 240, borderRadius: 24 }} />)}
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="glass" style={{ padding: 12, borderRadius: 24, display: 'flex', flexDirection: 'column' }}>
+                <div className="skeleton" style={{ aspectRatio: '1/1', borderRadius: 16, marginBottom: 12 }} />
+                <div className="skeleton" style={{ width: '80%', height: 14, borderRadius: 6, marginBottom: 8 }} />
+                <div className="flex justify-between items-center">
+                  <div className="skeleton" style={{ width: 50, height: 16, borderRadius: 6 }} />
+                  <div className="skeleton" style={{ width: 40, height: 10, borderRadius: 4 }} />
+                </div>
+              </div>
+            ))}
           </div>
         ) : products.length === 0 ? (
           <div className="animate-fade-in" style={{ padding: '40px 0 100px' }}>

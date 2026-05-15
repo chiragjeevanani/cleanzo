@@ -1,4 +1,4 @@
-import PageLoader from '../../components/PageLoader'
+import Skeleton from '../../components/Skeleton'
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Car, ChevronDown, X, Upload } from 'lucide-react'
@@ -96,7 +96,30 @@ export default function VehicleManager() {
     }
   }
 
-  if (loading) return <PageLoader />
+  if (loading) return (
+    <div className="app-shell">
+      <div className="app-header" style={{ padding: '24px var(--margin-side)', background: 'transparent' }}>
+        <div>
+          <div className="skeleton" style={{ width: 120, height: 28, borderRadius: 8 }} />
+        </div>
+        <div className="skeleton" style={{ width: 80, height: 40, borderRadius: 16, flexShrink: 0 }} />
+      </div>
+      <div className="container" style={{ padding: '0 20px' }}>
+        <div className="flex flex-col gap-16 mt-12">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="glass" style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16, borderRadius: 24 }}>
+              <div className="skeleton" style={{ width: 56, height: 56, borderRadius: 16, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div className="skeleton" style={{ width: 140, height: 18, borderRadius: 6, marginBottom: 8 }} />
+                <div className="skeleton" style={{ width: 100, height: 14, borderRadius: 6 }} />
+              </div>
+              <div className="skeleton" style={{ width: 24, height: 24, borderRadius: 8, flexShrink: 0 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 
   const selectStyle = { width: '100%', boxSizing: 'border-box', appearance: 'none', cursor: 'pointer', paddingRight: 36 }
 

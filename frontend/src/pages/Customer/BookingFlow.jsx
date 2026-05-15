@@ -1,4 +1,4 @@
-import PageLoader from '../../components/PageLoader'
+import Skeleton from '../../components/Skeleton'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Check, Car, CreditCard, ShieldCheck, MapPin, Clock, Info } from 'lucide-react'
@@ -190,7 +190,47 @@ export default function BookingFlow() {
     }
   }
 
-  if (loading) return <PageLoader />
+  if (loading) return (
+    <div className="app-shell">
+      <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
+        <div className="skeleton" style={{ width: 40, height: 40, borderRadius: 14 }} />
+        <div className="skeleton" style={{ width: 140, height: 24, borderRadius: 8 }} />
+        <div style={{ width: 40 }} />
+      </div>
+      <div className="container" style={{ padding: '0 20px' }}>
+        {/* Step indicator skeleton */}
+        <div className="flex items-center gap-12" style={{ margin: '12px 0 32px' }}>
+          {[1, 2, 3, 4].map(i => (
+             <div key={i} className="flex items-center gap-12" style={{ flex: i < 4 ? 1 : 'none' }}>
+                <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 12 }} />
+                {i < 4 && <div className="skeleton" style={{ flex: 1, height: 3, borderRadius: 4 }} />}
+             </div>
+          ))}
+        </div>
+        
+        <div className="flex flex-col gap-24">
+           <div>
+              <div className="skeleton" style={{ width: 150, height: 24, borderRadius: 8, marginBottom: 8 }} />
+              <div className="skeleton" style={{ width: 220, height: 16, borderRadius: 6 }} />
+           </div>
+           
+           <div className="flex flex-col gap-14">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="glass" style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16, borderRadius: 24 }}>
+                   <div className="skeleton" style={{ width: 48, height: 48, borderRadius: 14, flexShrink: 0 }} />
+                   <div style={{ flex: 1 }}>
+                      <div className="skeleton" style={{ width: 120, height: 18, borderRadius: 6, marginBottom: 8 }} />
+                      <div className="skeleton" style={{ width: 180, height: 14, borderRadius: 6 }} />
+                   </div>
+                </div>
+              ))}
+           </div>
+           
+           <div className="skeleton" style={{ height: 56, borderRadius: 18, marginTop: 12 }} />
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="app-shell animate-fade-in" style={{ paddingBottom: 120 }}>

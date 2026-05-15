@@ -64,7 +64,18 @@ export default function SkipService() {
     }
   }
 
-  if (fetching) return <PageLoader />
+  if (fetching) return (
+    <div className="app-shell">
+      <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
+        <div className="skeleton" style={{ width: 130, height: 24, borderRadius: 8 }} />
+      </div>
+      <div className="container" style={{ padding: '0 20px' }}>
+        <div className="skeleton" style={{ height: 60, borderRadius: 16, marginBottom: 20, marginTop: 12 }} />
+        <div className="skeleton" style={{ height: 320, borderRadius: 24, marginBottom: 20 }} />
+        <div className="skeleton" style={{ height: 56, borderRadius: 18 }} />
+      </div>
+    </div>
+  )
 
   return (
     <div style={{ padding: '0 20px' }}>

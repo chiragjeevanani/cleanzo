@@ -29,7 +29,37 @@ export default function PackageSelect() {
     fetchData()
   }, [])
 
-  if (loading) return <PageLoader />
+  if (loading) return (
+    <div className="app-shell">
+      <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
+        <div className="skeleton" style={{ width: 150, height: 24, borderRadius: 8 }} />
+      </div>
+      <div className="container" style={{ padding: '0 20px' }}>
+        <div className="flex flex-col gap-12 mt-12">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="glass" style={{ padding: 24, borderRadius: 28, marginBottom: 16 }}>
+              <div className="flex justify-between items-start mb-20">
+                <div>
+                  <div className="skeleton" style={{ width: 120, height: 22, borderRadius: 6, marginBottom: 8 }} />
+                  <div className="skeleton" style={{ width: 80, height: 12, borderRadius: 4 }} />
+                </div>
+                <div className="skeleton" style={{ width: 60, height: 24, borderRadius: 8 }} />
+              </div>
+              <div className="flex flex-col gap-10 mb-24">
+                {[1, 2, 3].map(j => (
+                  <div key={j} className="flex items-center gap-10">
+                    <div className="skeleton" style={{ width: 16, height: 16, borderRadius: 4 }} />
+                    <div className="skeleton" style={{ width: 180, height: 12, borderRadius: 4 }} />
+                  </div>
+                ))}
+              </div>
+              <div className="skeleton" style={{ height: 52, borderRadius: 18 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
   if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
   return (
     <div style={{ padding: '0 20px' }}>
