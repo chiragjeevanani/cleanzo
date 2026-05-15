@@ -1,7 +1,7 @@
 import PageLoader from '../../components/PageLoader'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Car, ChevronDown, X } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Car, ChevronDown, X, Upload } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 
@@ -16,13 +16,15 @@ const VEHICLE_CATEGORIES = [
   { value: 'premium',   label: 'Premium' },
 ]
 
-const EMPTY_FORM = { brand: '', model: '', number: '', parking: '', category: 'sedan', color: '' }
+const EMPTY_FORM = { brand: '', model: '', number: '', parking: '', category: 'sedan', color: '', photos: [] }
 
 export default function VehicleManager() {
   const { showToast } = useToast()
   const [vehicles, setVehicles] = useState([])
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [imagePreviews, setImagePreviews] = useState([])
+  const fileInputRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -51,18 +53,32 @@ export default function VehicleManager() {
       setError('Enter a valid vehicle registration number (e.g. MH01AB1234)')
       return
     }
+    if (form.photos.length === 0) {
+      setError('Please upload at least 1 image of the vehicle')
+      return
+    }
     setSubmitting(true)
     setError('')
     try {
-      await apiClient.post('/customer/vehicles', {
-        brand: form.brand,
-        model: form.model,
-        number: form.number.toUpperCase(),
-        parking: form.parking,
-        category: form.category,
-        color: form.color || undefined,
+      const formData = new FormData()
+      formData.append('brand', form.brand)
+      formData.append('model', form.model)
+      formData.append('number', form.number.toUpperCase())
+      formData.append('parking', form.parking || '')
+      formData.append('category', form.category)
+      if (form.color) formData.append('color', form.color)
+      
+      form.photos.forEach(file => {
+        formData.append('photos', file)
       })
+
+      // Ensure API client uses multipart/form-data
+      await apiClient.post('/customer/vehicles', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      
       setForm(EMPTY_FORM)
+      setImagePreviews([])
       setAdding(false)
       fetchVehicles()
       showToast('Vehicle added successfully')
@@ -88,6 +104,30 @@ export default function VehicleManager() {
   if (loading) return <PageLoader />
 
   const selectStyle = { width: '100%', boxSizing: 'border-box', appearance: 'none', cursor: 'pointer', paddingRight: 36 }
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files)
+    if (form.photos.length + files.length > 5) {
+      setError('You can only upload up to 5 images per vehicle.')
+      return
+    }
+    const newPhotos = [...form.photos, ...files]
+    setForm({ ...form, photos: newPhotos })
+    
+    const newPreviews = files.map(file => URL.createObjectURL(file))
+    setImagePreviews([...imagePreviews, ...newPreviews])
+  }
+
+  const removeImage = (index) => {
+    const newPhotos = [...form.photos]
+    newPhotos.splice(index, 1)
+    setForm({ ...form, photos: newPhotos })
+    
+    const newPreviews = [...imagePreviews]
+    URL.revokeObjectURL(newPreviews[index])
+    newPreviews.splice(index, 1)
+    setImagePreviews(newPreviews)
+  }
 
   return (
     <div style={{ padding: '0 20px' }}>
@@ -138,7 +178,29 @@ export default function VehicleManager() {
               <input className="input-field" placeholder="e.g. White, Black, Silver" value={form.color}
                 onChange={e => setForm({ ...form, color: e.target.value })} />
             </div>
-            <button className="btn btn-blue w-full" onClick={addVehicle} disabled={submitting || !form.brand || !form.model || !form.number}>
+            <div>
+              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Vehicle Photos (Min 1, Max 5) <span style={{ color: 'var(--error)' }}>*</span></label>
+              
+              <div className="flex gap-12 flex-wrap" style={{ marginBottom: 16 }}>
+                {imagePreviews.map((preview, i) => (
+                  <div key={i} style={{ position: 'relative', width: 80, height: 80, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-glass)' }}>
+                    <img src={preview} alt={`Vehicle ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button type="button" onClick={() => removeImage(i)} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '50%', padding: 4, cursor: 'pointer' }}>
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+                
+                {form.photos.length < 5 && (
+                  <button type="button" onClick={() => fileInputRef.current?.click()} style={{ width: 80, height: 80, borderRadius: 12, border: '1px dashed var(--primary-blue)', background: 'rgba(var(--primary-blue-rgb), 0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer', color: 'var(--primary-blue)' }}>
+                    <Upload size={20} />
+                    <span style={{ fontSize: 10, fontWeight: 600 }}>Add</span>
+                  </button>
+                )}
+                <input type="file" multiple accept="image/*" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
+              </div>
+            </div>
+            <button className="btn btn-blue w-full" onClick={addVehicle} disabled={submitting || !form.brand || !form.model || !form.number || form.photos.length === 0}>
               {submitting ? 'Saving…' : 'Save Vehicle'}
             </button>
           </div>
@@ -157,6 +219,13 @@ export default function VehicleManager() {
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, fontSize: 15 }}>{v.brand} {v.model}</div>
               <div className="text-body-sm text-secondary">{v.number} · {v.parking || 'No parking info'}</div>
+              {v.photos && v.photos.length > 0 && (
+                <div className="flex gap-8 mt-12 overflow-x-auto" style={{ paddingBottom: 4 }}>
+                  {v.photos.map((photo, i) => (
+                    <img key={i} src={photo} alt={`Vehicle ${v.model} - ${i}`} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-glass)' }} />
+                  ))}
+                </div>
+              )}
             </div>
             <button onClick={() => setConfirmDeleteId(v._id)} style={{ color: 'var(--error)', padding: 8 }}>
               <Trash2 size={18} />

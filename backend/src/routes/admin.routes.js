@@ -20,6 +20,7 @@ router.delete('/users/:id', ctrl.deleteUser);
 
 router.get('/cleaners', ctrl.getCleaners);
 router.post('/cleaners', ctrl.addCleaner);
+router.get('/cleaners/:id', ctrl.getCleanerById);
 router.put('/cleaners/:id', ctrl.updateCleaner);
 router.delete('/cleaners/:id', ctrl.deleteCleaner);
 router.put('/cleaners/:id/set-password', ctrl.setCleanerPassword);

@@ -14,6 +14,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import Product from '../models/Product.js';
 import Order from '../models/Order.js';
 import { logActivity } from './admin.controller.js';
+import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -42,7 +43,26 @@ export const getVehicles = asyncHandler(async (req, res) => {
 export const addVehicle = asyncHandler(async (req, res) => {
   const { brand, model, number, parking, color, category } = req.body;
   if (!brand || !model || !number) throw new ApiError(400, 'Brand, model, and number are required');
-  const vehicle = await Vehicle.create({ customer: req.user._id, brand, model, number, parking, color, category });
+  
+  let photos = [];
+  if (req.files && req.files.length > 0) {
+    const uploadPromises = req.files.map(file => 
+      uploadBufferToCloudinary(file.buffer, 'cleanzo/vehicles')
+    );
+    photos = await Promise.all(uploadPromises);
+  }
+
+  const vehicle = await Vehicle.create({ 
+    customer: req.user._id, 
+    brand, 
+    model, 
+    number, 
+    parking, 
+    color, 
+    category,
+    photos 
+  });
+  
   res.status(201).json({ success: true, vehicle });
 });
 
@@ -75,15 +95,61 @@ export const getSubscriptions = asyncHandler(async (req, res) => {
     .populate('assignedCleaner', 'name phone rating')
     .sort('-createdAt')
     .lean();
+    
+  for (const sub of subscriptions) {
+    if (sub.status === 'Active') {
+      sub.nextWash = await calculateDynamicNextWash(sub._id);
+    }
+  }
+  
   res.json({ success: true, subscriptions });
 });
+
+// Helper to calculate dynamic next wash
+const calculateDynamicNextWash = async (subId) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const todaysTask = await Task.findOne({
+    subscription: subId,
+    date: today,
+  }).lean();
+
+  let startDate = new Date(today);
+  if (todaysTask && (todaysTask.status === 'completed' || todaysTask.status === 'missed')) {
+    startDate.setDate(startDate.getDate() + 1);
+  }
+
+  const skippedTasks = await Task.find({
+    subscription: subId,
+    status: 'skipped',
+    date: { $gte: startDate }
+  }).lean();
+  
+  const skippedDates = new Set(skippedTasks.map(t => new Date(t.date).toDateString()));
+  
+  let checkDate = new Date(startDate);
+  for (let i = 0; i < 30; i++) {
+    if (!skippedDates.has(checkDate.toDateString())) {
+      return checkDate;
+    }
+    checkDate.setDate(checkDate.getDate() + 1);
+  }
+  return checkDate;
+};
 
 export const getSubscriptionById = asyncHandler(async (req, res) => {
   const sub = await Subscription.findOne({ _id: req.params.id, customer: req.user._id })
     .populate('vehicle', 'model number parking color')
     .populate('package', 'name tier price features perDay')
-    .populate('assignedCleaner', 'name phone rating');
+    .populate('assignedCleaner', 'name phone rating')
+    .lean();
   if (!sub) throw new ApiError(404, 'Subscription not found');
+  
+  if (sub.status === 'Active') {
+    sub.nextWash = await calculateDynamicNextWash(sub._id);
+  }
+  
   res.json({ success: true, subscription: sub });
 });
 
@@ -235,6 +301,7 @@ export const skipService = asyncHandler(async (req, res) => {
   const sub = await Subscription.findOne({ _id: req.params.id, customer: req.user._id });
   if (!sub) throw new ApiError(404, 'Subscription not found');
   if (sub.status !== 'Active') throw new ApiError(400, 'Only active subscriptions can be skipped');
+  if (sub.isTrial) throw new ApiError(400, 'Trial subscriptions cannot be skipped');
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(0, 0, 0, 0);
@@ -307,6 +374,10 @@ export const skipService = asyncHandler(async (req, res) => {
   // BRD §10.2 — Auto-extend subscription endDate by 1 day per skip
   sub.skippedDays += 1;
   sub.endDate = new Date(sub.endDate.getTime() + 24 * 60 * 60 * 1000);
+  
+  // Calculate the newly adjusted nextWash date
+  sub.nextWash = await calculateDynamicNextWash(sub._id);
+  
   await sub.save({ validateModifiedOnly: true });
 
   res.json({
@@ -314,6 +385,7 @@ export const skipService = asyncHandler(async (req, res) => {
     message: 'Service skipped. Subscription extended by 1 day.',
     skippedDays: sub.skippedDays,
     newEndDate: sub.endDate,
+    nextWash: sub.nextWash,
   });
 });
 

@@ -9,6 +9,9 @@ import Activity from '../models/Activity.js';
 import Banner from '../models/Banner.js';
 import Product from '../models/Product.js';
 import Order from '../models/Order.js';
+import Vehicle from '../models/Vehicle.js';
+import Rating from '../models/Rating.js';
+import Society from '../models/Society.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
@@ -193,7 +196,9 @@ export const getUserById = asyncHandler(async (req, res) => {
   const user = await Customer.findById(req.params.id);
   if (!user) throw new ApiError(404, 'User not found');
   const subs = await Subscription.find({ customer: user._id }).populate('package', 'name').populate('vehicle', 'model number');
-  res.json({ success: true, user, subscriptions: subs });
+  const vehicles = await Vehicle.find({ customer: user._id, isActive: true });
+  const orders = await Order.find({ customer: user._id }).populate('items.product', 'name');
+  res.json({ success: true, user, subscriptions: subs, vehicles, orders });
 });
 
 export const createUser = asyncHandler(async (req, res) => {
@@ -240,6 +245,21 @@ export const deleteUser = asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, message: 'User deleted successfully from database' });
+});
+
+export const getCleanerById = asyncHandler(async (req, res) => {
+  const cleaner = await Cleaner.findById(req.params.id);
+  if (!cleaner) throw new ApiError(404, 'Cleaner not found');
+  
+  const assignedSocieties = await Society.find({ cleaners: cleaner._id }).select('name city');
+  const tasks = await Task.find({ cleaner: cleaner._id }).sort('-date').limit(20).populate('customer', 'firstName lastName').populate('vehicle', 'brand model number parking');
+  const ratings = await Rating.find({ cleaner: cleaner._id }).sort('-createdAt').limit(10).populate('customer', 'firstName lastName');
+  
+  // Create a plain object and append assignedSocieties manually since it's not in the schema
+  const cleanerData = cleaner.toObject();
+  cleanerData.assignedSocieties = assignedSocieties;
+
+  res.json({ success: true, cleaner: cleanerData, recentTasks: tasks, recentRatings: ratings });
 });
 
 // ─── CLEANERS ────────────────────────────────────

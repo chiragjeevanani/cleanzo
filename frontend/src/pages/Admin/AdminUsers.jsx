@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Search, Filter, MoreVertical, Plus, X, Trash2, UserX, UserCheck, ChevronDown } from 'lucide-react'
+import { useSearchParams, Link } from 'react-router-dom'
+import { Search, Filter, MoreVertical, Plus, X, Trash2, UserX, UserCheck, ChevronDown, Eye } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 
 const STATUSES = ['all', 'active', 'inactive']
@@ -183,7 +183,7 @@ export default function AdminUsers() {
         </div>
       )}
 
-      <div className="glass" style={{ overflow: 'hidden' }}>
+      <div className="glass" style={{ overflow: 'visible', borderRadius: 16 }}>
         <table className="data-table">
           <thead>
             <tr><th>Name</th><th>Phone</th><th>Vehicles</th><th>Plan</th><th>Status</th><th>Joined</th><th></th></tr>
@@ -216,6 +216,14 @@ export default function AdminUsers() {
                       minWidth: 180, borderRadius: 14, overflow: 'hidden',
                       border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-lg)'
                     }}>
+                      <Link
+                        to={`/admin/users/${u._id}`}
+                        className="flex items-center gap-10"
+                        style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: 14, color: 'var(--text-primary)', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'none' }}
+                      >
+                        <Eye size={15} /> View Details
+                      </Link>
+                      <div style={{ height: 1, background: 'var(--divider)' }} />
                       <button
                         onClick={() => handleToggleActive(u)}
                         className="flex items-center gap-10"

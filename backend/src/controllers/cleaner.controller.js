@@ -96,12 +96,26 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const nextTask = await Task.findOne({
+      
+      const { default: Task } = await import('../models/Task.js');
+      const skippedTasks = await Task.find({
         subscription: sub._id,
-        status: 'pending',
-        date: { $gt: today },
-      }).sort('date');
-      sub.nextWash = nextTask ? nextTask.date : null;
+        status: 'skipped',
+        date: { $gt: today }
+      }).lean();
+      
+      const skippedDates = new Set(skippedTasks.map(t => new Date(t.date).toDateString()));
+      
+      let checkDate = new Date(today);
+      checkDate.setDate(checkDate.getDate() + 1); // Start checking from tomorrow
+      
+      for (let i = 0; i < 30; i++) {
+        if (!skippedDates.has(checkDate.toDateString())) {
+          sub.nextWash = checkDate;
+          break;
+        }
+        checkDate.setDate(checkDate.getDate() + 1);
+      }
 
       await sub.save({ validateModifiedOnly: true });
     }
