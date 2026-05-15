@@ -34,7 +34,30 @@ export default function Notifications() {
     }
   }
 
-  if (loading) return <PageLoader />
+  if (loading) return (
+    <div className="app-shell">
+      <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
+        <div className="skeleton" style={{ width: 140, height: 24, borderRadius: 8 }} />
+      </div>
+      <div className="container" style={{ padding: '0 20px' }}>
+        <div className="flex flex-col gap-8 mt-12">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="glass" style={{ padding: '16px 20px', display: 'flex', gap: 14, borderRadius: 16 }}>
+              <div className="skeleton" style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div className="flex justify-between items-center mb-8">
+                   <div className="skeleton" style={{ width: 100, height: 14, borderRadius: 6 }} />
+                   <div className="skeleton" style={{ width: 6, height: 6, borderRadius: '50%' }} />
+                </div>
+                <div className="skeleton" style={{ width: '100%', height: 12, borderRadius: 6, marginBottom: 8 }} />
+                <div className="skeleton" style={{ width: 80, height: 10, borderRadius: 4 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>

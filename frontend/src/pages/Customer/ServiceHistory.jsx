@@ -91,7 +91,29 @@ export default function ServiceHistory() {
     setRatingTask(null)
   }
 
-  if (loading) return <PageLoader />
+  if (loading) return (
+    <div className="app-shell">
+      <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
+        <div className="skeleton" style={{ width: 150, height: 24, borderRadius: 8 }} />
+      </div>
+      <div className="container" style={{ padding: '0 20px' }}>
+        <div className="flex flex-col gap-8 mt-12">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="glass" style={{ padding: '16px 20px', borderRadius: 16 }}>
+              <div className="flex justify-between items-center mb-12">
+                <div className="skeleton" style={{ width: 120, height: 16, borderRadius: 6 }} />
+                <div className="skeleton" style={{ width: 60, height: 20, borderRadius: 8 }} />
+              </div>
+              <div className="flex justify-between">
+                <div className="skeleton" style={{ width: 180, height: 12, borderRadius: 6 }} />
+                <div className="skeleton" style={{ width: 40, height: 12, borderRadius: 6 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
   if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
   return (
     <div style={{ padding: '0 20px' }}>
