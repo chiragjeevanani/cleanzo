@@ -3,42 +3,25 @@ import { Link } from 'react-router-dom'
 import { Bell, ChevronRight, Calendar, SkipForward, Clock, Car, Check } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
+import { useCustomerData } from '../../context/CustomerDataContext'
 
 export default function CustomerHome() {
   const { user } = useAuth()
-  const [subscription, setSubscription] = useState(null)
-  const [history, setHistory] = useState([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [banners, setBanners] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { 
+    subscriptions, history, notifications, banners, 
+    loading: dataLoading 
+  } = useCustomerData()
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [subsRes, histRes, notifRes, bannerRes] = await Promise.all([
-          apiClient.get('/customer/subscriptions'),
-          apiClient.get('/customer/history?limit=3'),
-          apiClient.get('/customer/notifications'),
-          apiClient.get('/public/banners')
-        ])
-        const activeSub = (subsRes.subscriptions || []).find(s => s.status === 'Active') || null
-        setSubscription(activeSub)
-        setHistory(histRes.tasks || [])
-        setUnreadCount((notifRes.notifications || []).filter(n => !n.read).length)
-        setBanners(bannerRes.banners || [])
-      } catch (err) {
-        setError('Failed to load data. Please refresh.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [])
+  const activeSub = (subscriptions || []).find(s => s.status === 'Active') || null
+  const unreadCount = (notifications || []).filter(n => !n.read).length
+  const recentHistory = (history || []).slice(0, 3)
+
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
 
+  const loading = dataLoading.subscriptions || dataLoading.history || dataLoading.notifications || dataLoading.banners
+  
   if (loading) return (
     <div className="app-shell">
       <div className="app-header" style={{ padding: '24px var(--margin-side)', background: 'transparent' }}>
@@ -80,7 +63,7 @@ export default function CustomerHome() {
     </div>
   )
 
-  if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
+  if (!loading && !subscriptions.length && !history.length && !banners.length) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>Failed to load dashboard data. Please refresh.</div>
 
   return (
     <div className="app-shell animate-fade-in">
@@ -111,50 +94,31 @@ export default function CustomerHome() {
         )}
 
         {/* Active Subscription Card */}
-        {subscription ? (
-          <Link to="/customer/subscriptions" className="premium-gradient animate-fade-in-up" 
-            style={{ 
-              display: 'block', padding: 32, marginBottom: 32, borderRadius: 32,
-              border: '1px solid var(--border-accent)',
-              boxShadow: 'var(--shadow-glow-lime)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-            
-            <div style={{ position: 'absolute', top: 0, right: 0, padding: 12 }}>
-               <span className="chip chip-lime" style={{ fontSize: 10, fontWeight: 800, borderRadius: 8 }}>{subscription.status.toUpperCase()}</span>
-            </div>
-
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <div className="text-label" style={{ color: 'var(--accent-lime)', marginBottom: 8, fontSize: 10, letterSpacing: '0.15em' }}>CURRENT SUBSCRIPTION</div>
-              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, marginBottom: 4 }}>
-                {subscription.package?.name || 'Cleaning Plan'}
-              </h2>
-              <p className="text-secondary font-medium" style={{ fontSize: 15 }}>
-                {subscription.vehicle?.model} <span style={{ opacity: 0.5 }}>•</span> {subscription.vehicle?.number}
-              </p>
-
-              <div className="flex justify-between items-end" style={{ marginTop: 28, marginBottom: 12 }}>
-                <div>
-                  <span className="text-secondary text-body-sm font-semibold">Service Progress</span>
-                  <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--font-display)', marginTop: 2 }}>
-                    {subscription.completedDays} <span style={{ color: 'var(--text-tertiary)', fontSize: 14 }}>/ {subscription.totalDays} washes</span>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                   <div className="text-label" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>NEXT WASH</div>
-                   <div style={{ fontWeight: 700, fontSize: 14 }}>
-                     {subscription.nextWash ? new Date(subscription.nextWash).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
-                   </div>
-                </div>
+        {activeSub ? (
+          <Link to="/customer/subscriptions" className="glass animate-fade-in" style={{ padding: '24px 28px', borderRadius: 32, marginBottom: 32, display: 'block', background: 'var(--bg-glass-hover)', border: '1px solid var(--border-glass)' }}>
+            <div className="flex justify-between items-start" style={{ marginBottom: 20 }}>
+              <div>
+                <div className="text-label text-lime mb-4">Active Plan</div>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800 }}>{activeSub.package?.name}</h2>
               </div>
-
-              <div className="progress-track" style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
-                <div className="progress-fill" style={{ width: `${subscription.totalDays > 0 ? (subscription.completedDays / subscription.totalDays) * 100 : 0}%`, borderRadius: 3, boxShadow: '0 0 12px var(--accent-lime)' }} />
+              <div className="glass flex items-center justify-center" style={{ width: 44, height: 44, borderRadius: 14 }}>
+                <Car size={22} className="text-secondary" />
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-20">
+              <div>
+                <div className="text-label text-tertiary mb-2">Vehicle</div>
+                <div className="text-body-sm font-bold">{activeSub.vehicle?.brand} {activeSub.vehicle?.model}</div>
+              </div>
+              <div style={{ width: 1, height: 24, background: 'var(--divider)' }} />
+              <div>
+                <div className="text-label text-tertiary mb-2">Next Clean</div>
+                <div className="text-body-sm font-bold">{activeSub.nextServiceDate ? new Date(activeSub.nextServiceDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '—'}</div>
               </div>
             </div>
           </Link>
-        ) : !banners.length && (
+        ) : (
           <div className="glass animate-fade-in-up" style={{ padding: 40, marginBottom: 32, textAlign: 'center', borderRadius: 32 }}>
             <div style={{ width: 64, height: 64, background: 'rgba(223, 255, 0, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
               <Calendar size={32} color="var(--accent-lime)" />
@@ -191,8 +155,10 @@ export default function CustomerHome() {
             <Link to="/customer/history" className="text-body-sm font-bold" style={{ color: 'var(--primary-blue)' }}>View All</Link>
           </div>
           <div className="flex flex-col gap-10">
-            {history.length > 0 ? history.map(s => (
-              <div key={s._id} className="glass" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 20 }}>
+          {recentHistory.length === 0 ? (
+            <div className="text-center text-secondary py-20 opacity-50">No service history yet.</div>
+          ) : recentHistory.map(s => (
+            <div key={s._id} className="glass" style={{ padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 24 }}>
                 <div className="flex items-center gap-14">
                   <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.03)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Check size={20} color={s.status === 'completed' ? 'var(--success)' : 'var(--text-tertiary)'} />

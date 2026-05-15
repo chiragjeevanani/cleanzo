@@ -30,6 +30,8 @@ const tabs = [
   { path: '/customer/profile', icon: User, label: 'Profile' },
 ]
 
+import { CustomerDataProvider } from '../../context/CustomerDataContext'
+
 export default function CustomerApp() {
   const { user, loading, logout } = useAuth()
   const location = useLocation()
@@ -42,7 +44,9 @@ export default function CustomerApp() {
   const shouldHideNav = hideNavPaths.includes(location.pathname) || location.pathname.startsWith('/customer/plan/')
 
   return (
-    <div className="app-shell">
+    <CustomerDataProvider>
+      <div className="app-shell">
+
       <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
         <Routes>
@@ -78,5 +82,6 @@ export default function CustomerApp() {
         </nav>
       )}
     </div>
+    </CustomerDataProvider>
   )
 }

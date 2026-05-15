@@ -4,41 +4,28 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Car, ChevronDown, X, Upload } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
+import { useCustomerData } from '../../context/CustomerDataContext'
 
 const EMPTY_FORM = { brand: '', model: '', number: '', parking: '', category: '', color: '', photos: [] }
 
 export default function VehicleManager() {
   const { showToast } = useToast()
-  const [vehicles, setVehicles] = useState([])
-  const [categories, setCategories] = useState([])
+  const { vehicles, categories, loading: dataLoading, refreshVehicles, refreshCategories } = useCustomerData()
+  
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [imagePreviews, setImagePreviews] = useState([])
   const fileInputRef = useRef(null)
-  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
-  useEffect(() => { fetchVehicles() }, [])
-
-  const fetchVehicles = async () => {
-    try {
-      const [vRes, cRes] = await Promise.all([
-        apiClient.get('/customer/vehicles'),
-        apiClient.get('/customer/vehicle-categories')
-      ])
-      setVehicles(vRes.vehicles || [])
-      setCategories(cRes.categories || [])
-      if (cRes.categories?.length > 0) {
-        setForm(prev => ({ ...prev, category: cRes.categories[0].slug }))
-      }
-    } catch (err) {
-      setError('Failed to load data. Please refresh.')
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    if (categories.length > 0 && !form.category) {
+      setForm(prev => ({ ...prev, category: categories[0].slug }))
     }
-  }
+  }, [categories, form.category])
+
 
   const addVehicle = async () => {
     if (!form.brand || !form.model || !form.number) {
@@ -75,7 +62,7 @@ export default function VehicleManager() {
       setForm(EMPTY_FORM)
       setImagePreviews([])
       setAdding(false)
-      fetchVehicles()
+      refreshVehicles()
       showToast('Vehicle added successfully')
     } catch (err) {
       setError(err.message || 'Failed to add vehicle.')
@@ -88,7 +75,7 @@ export default function VehicleManager() {
     try {
       await apiClient.delete(`/customer/vehicles/${id}`)
       setConfirmDeleteId(null)
-      fetchVehicles()
+      refreshVehicles()
       showToast('Vehicle removed')
     } catch (err) {
       setConfirmDeleteId(null)
@@ -96,7 +83,9 @@ export default function VehicleManager() {
     }
   }
 
-  if (loading) return (
+  const loading = dataLoading.vehicles || dataLoading.categories
+
+  if (loading && !vehicles.length) return (
     <div className="app-shell">
       <div className="app-header" style={{ padding: '24px var(--margin-side)', background: 'transparent' }}>
         <div>

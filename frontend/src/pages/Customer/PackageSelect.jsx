@@ -3,33 +3,15 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Check, ArrowRight, ChevronRight } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { useCustomerData } from '../../context/CustomerDataContext'
 
 export default function PackageSelect() {
-  const [packages, setPackages] = useState([])
-  const [activeSub, setActiveSub] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { packages, subscriptions, loading: dataLoading } = useCustomerData()
+  const activeSub = (subscriptions || []).find(s => s.status === 'Active') || null
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [pkgRes, subRes] = await Promise.all([
-          apiClient.get('/packages'),
-          apiClient.get('/customer/subscriptions')
-        ])
-        setPackages(pkgRes.packages || [])
-        const activeSub = (subRes.subscriptions || []).find(s => s.status === 'Active')
-        if (activeSub) setActiveSub(activeSub)
-      } catch (err) {
-        setError('Failed to load packages. Please refresh.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [])
+  const loading = dataLoading.packages || dataLoading.subscriptions
+  const error = '' // Handled by global context if needed
 
-  if (loading) return (
     <div className="app-shell">
       <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
         <div className="skeleton" style={{ width: 150, height: 24, borderRadius: 8 }} />

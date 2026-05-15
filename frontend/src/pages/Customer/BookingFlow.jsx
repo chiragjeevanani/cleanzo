@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Check, Car, CreditCard, ShieldCheck, MapPin, Clock, Info } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
+import { useCustomerData } from '../../context/CustomerDataContext'
 import { useLocation } from 'react-router-dom'
 
 const steps = ['Vehicle', 'Location', 'Plan', 'Confirm']
@@ -16,15 +17,15 @@ export default function BookingFlow() {
   const queryParams = new URLSearchParams(location.search)
   const initialPackageId = queryParams.get('packageId')
   
-  const [step, setStep] = useState(0)
+  const { 
+    vehicles, packages, societies, subscriptions: activeSubscriptions, settings,
+    loading: dataLoading, refreshAll 
+  } = useCustomerData()
   
-  // Data lists
-  const [societies, setSocieties] = useState([])
-  const [vehicles, setVehicles] = useState([])
-  const [packages, setPackages] = useState([])
-  const [activeSubscriptions, setActiveSubscriptions] = useState([])
-  const [trialPrice, setTrialPrice] = useState(30)
-  const [prioritySlotFee, setPrioritySlotFee] = useState(99)
+  const trialPrice = settings.trialPrice || 30
+  const prioritySlotFee = settings.prioritySlotFee || 99
+  
+  const [step, setStep] = useState(0)
   
   // Selections
   const [selectedSociety, setSelectedSociety] = useState(null)
@@ -33,56 +34,33 @@ export default function BookingFlow() {
   const [selectedPkg, setSelectedPkg] = useState(null) 
   const [specialInstructions, setSpecialInstructions] = useState('')
   
-  const [loading, setLoading] = useState(true)
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState('')
 
+  // Initial selection logic based on global data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [sRes, vRes, pRes, subRes, settingsRes] = await Promise.all([
-          apiClient.get('/customer/societies'),
-          apiClient.get('/customer/vehicles'),
-          apiClient.get('/packages'),
-          apiClient.get('/customer/subscriptions'),
-          apiClient.get('/public/settings'),
-        ])
-        setSocieties(sRes.societies || [])
-        setVehicles(vRes.vehicles || [])
-        setPackages(pRes.packages || [])
-        setActiveSubscriptions(subRes.subscriptions || [])
-        if (settingsRes.trialPrice) setTrialPrice(settingsRes.trialPrice)
-        if (settingsRes.prioritySlotFee) setPrioritySlotFee(settingsRes.prioritySlotFee)
-        
-        if (sRes.societies?.length > 0) setSelectedSociety(sRes.societies[0])
-        
-        if (initialPackageId && pRes.packages) {
-          const pkg = pRes.packages.find(p => p._id === initialPackageId)
-          if (pkg) {
-            setSelectedPkg(pkg)
-            // If package is pre-selected, we still start at step 0 to pick a vehicle,
-            // but we'll filter the vehicles there.
-          }
-        }
-        
-        if (vRes.vehicles?.length > 0) {
-          // If we have a pre-selected package, try to pick the first eligible vehicle
-          if (initialPackageId) {
-            const pkg = pRes.packages.find(p => p._id === initialPackageId)
-            const eligible = vRes.vehicles.find(v => v.category === pkg?.category)
-            if (eligible) setSelectedVehicle(eligible)
-          } else {
-            setSelectedVehicle(vRes.vehicles[0])
-          }
-        }
-      } catch (err) {
-        setPaymentError('Failed to load booking data. Please go back and try again.')
-      } finally {
-        setLoading(false)
+    if (dataLoading.vehicles || dataLoading.packages || dataLoading.societies) return
+
+    if (societies.length > 0 && !selectedSociety) setSelectedSociety(societies[0])
+    
+    if (initialPackageId && packages.length > 0 && !selectedPkg) {
+      const pkg = packages.find(p => p._id === initialPackageId)
+      if (pkg) setSelectedPkg(pkg)
+    }
+    
+    if (vehicles.length > 0 && !selectedVehicle) {
+      if (initialPackageId) {
+        const pkg = packages.find(p => p._id === initialPackageId)
+        const eligible = vehicles.find(v => v.category === pkg?.category)
+        if (eligible) setSelectedVehicle(eligible)
+        else setSelectedVehicle(vehicles[0])
+      } else {
+        setSelectedVehicle(vehicles[0])
       }
     }
-    fetchData()
+  }, [dataLoading, societies, packages, vehicles, initialPackageId, selectedSociety, selectedPkg, selectedVehicle])
+
 
     // Load Razorpay script — only enable Pay button after onload fires
     if (window.Razorpay) {
@@ -96,7 +74,7 @@ export default function BookingFlow() {
       document.body.appendChild(script)
       return () => { document.body.removeChild(script) }
     }
-  }, [])
+  }, [refreshAll])
 
   // Calculate pricing
   const basePrice = selectedPkg?.price || 0
@@ -156,6 +134,7 @@ export default function BookingFlow() {
               paymentId: response.razorpay_payment_id
             })
 
+            refreshAll() // Refresh global data to reflect new subscription
             navigate('/customer/subscriptions')
           } catch (verifyErr) {
             setProcessing(false)
@@ -190,8 +169,10 @@ export default function BookingFlow() {
     }
   }
 
-  if (loading) return (
-    <div className="app-shell">
+  const isLoading = dataLoading.vehicles || dataLoading.packages || dataLoading.societies || dataLoading.subscriptions || dataLoading.settings
+  
+  if (isLoading) return (
+
       <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
         <div className="skeleton" style={{ width: 40, height: 40, borderRadius: 14 }} />
         <div className="skeleton" style={{ width: 140, height: 24, borderRadius: 8 }} />
