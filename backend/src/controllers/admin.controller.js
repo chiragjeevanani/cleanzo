@@ -321,6 +321,26 @@ export const deleteCleaner = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Cleaner deleted successfully from database' });
 });
 
+export const setCleanerPassword = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+  if (!password || password.length < 6) throw new ApiError(400, 'Password must be at least 6 characters');
+
+  const cleaner = await Cleaner.findById(req.params.id);
+  if (!cleaner) throw new ApiError(404, 'Cleaner not found');
+
+  cleaner.password = password; // pre-save hook will bcrypt it
+  await cleaner.save({ validateModifiedOnly: true });
+
+  await logActivity({
+    type: 'cleaner_password_set',
+    message: `Admin set password for cleaner: ${cleaner.name}`,
+    performer: req.user._id,
+    metadata: { cleanerId: cleaner._id }
+  });
+
+  res.json({ success: true, message: `Password set successfully for ${cleaner.name}. They can now log in with phone + password.` });
+});
+
 // ─── PACKAGES (Admin CRUD) ──────────────────────
 export const getAllPackages = asyncHandler(async (req, res) => {
   const packages = await Package.find().sort('sortOrder');

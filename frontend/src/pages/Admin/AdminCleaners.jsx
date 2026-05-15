@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Star, MapPin, MoreVertical, Plus, X, Trash2, UserX, UserCheck, Filter, Search } from 'lucide-react'
+import { Star, MapPin, MoreVertical, Plus, X, Trash2, UserX, UserCheck, Filter, Search, KeyRound, Eye, EyeOff } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 
 const STATUSES = ['all', 'active', 'inactive']
@@ -16,6 +16,11 @@ export default function AdminCleaners() {
   const [openMenu, setOpenMenu] = useState(null)   // cleaner._id
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 })
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [showPasswordModal, setShowPasswordModal] = useState(null) // cleaner object
+  const [newPassword, setNewPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwSuccess, setPwSuccess] = useState('')
   const [saving, setSaving] = useState(false)
   const menuRef = useRef(null)
 
@@ -83,6 +88,24 @@ export default function AdminCleaners() {
       setError('Failed to deactivate cleaner. Please try again.')
     }
     setConfirmDelete(null)
+  }
+
+  const handleSetPassword = async (e) => {
+    e.preventDefault()
+    if (newPassword.length < 6) return
+    setPwSaving(true)
+    setPwSuccess('')
+    try {
+      await apiClient.put(`/admin/cleaners/${showPasswordModal._id}/set-password`, { password: newPassword })
+      setPwSuccess(`Password set successfully for ${showPasswordModal.name}!`)
+      setNewPassword('')
+      setTimeout(() => { setShowPasswordModal(null); setPwSuccess('') }, 2000)
+    } catch (err) {
+      setError(err?.message || 'Failed to set password.')
+      setShowPasswordModal(null)
+    } finally {
+      setPwSaving(false)
+    }
   }
 
   const handleAdd = async (e) => {
@@ -258,6 +281,14 @@ export default function AdminCleaners() {
           </button>
           <div style={{ height: 1, background: 'var(--divider)' }} />
           <button
+            onClick={() => { setShowPasswordModal(activeMenu); setOpenMenu(null) }}
+            className="flex items-center gap-10"
+            style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: 14, color: 'var(--accent-lime)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+          >
+            <KeyRound size={15} /> Set Password
+          </button>
+          <div style={{ height: 1, background: 'var(--divider)' }} />
+          <button
             onClick={() => { setConfirmDelete(activeMenu); setOpenMenu(null) }}
             className="flex items-center gap-10"
             style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: 14, color: 'var(--error)', background: 'transparent', border: 'none', cursor: 'pointer' }}
@@ -386,6 +417,71 @@ export default function AdminCleaners() {
                 Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Set Password Modal */}
+      {showPasswordModal && (
+        <div className="modal-overlay" style={{ backdropFilter: 'blur(20px)', backgroundColor: 'rgba(0,0,0,0.85)' }}>
+          <div className="glass animate-scale-in" style={{
+            width: 420, padding: '40px 48px', borderRadius: 32,
+            border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-lg)',
+            background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-surface) 100%)',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', top: '-20%', right: '-20%', width: 200, height: 200, background: 'var(--accent-lime)', opacity: 0.04, filter: 'blur(60px)', pointerEvents: 'none' }} />
+            
+            <div className="flex justify-between items-start" style={{ marginBottom: 28 }}>
+              <div>
+                <div style={{ width: 48, height: 48, borderRadius: 16, background: 'rgba(223,255,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                  <KeyRound size={22} className="text-lime" />
+                </div>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800 }}>Set Password</h2>
+                <p className="text-secondary" style={{ fontSize: 13, marginTop: 4 }}>
+                  For <strong>{showPasswordModal.name}</strong> · {showPasswordModal.phone}
+                </p>
+              </div>
+              <button className="glass flex items-center justify-center" onClick={() => { setShowPasswordModal(null); setNewPassword(''); setPwSuccess('') }}
+                style={{ width: 36, height: 36, borderRadius: 12, flexShrink: 0 }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {pwSuccess ? (
+              <div style={{ padding: '16px', borderRadius: 16, background: 'rgba(50,215,75,0.1)', border: '1px solid rgba(50,215,75,0.3)', color: 'var(--success)', textAlign: 'center', fontWeight: 600 }}>
+                ✓ {pwSuccess}
+              </div>
+            ) : (
+              <form onSubmit={handleSetPassword} className="flex flex-col gap-20">
+                <div className="flex flex-col gap-8">
+                  <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 700, letterSpacing: '0.08em' }}>NEW PASSWORD</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      required
+                      type={showPw ? 'text' : 'password'}
+                      className="input-field"
+                      placeholder="Min. 6 characters"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      minLength={6}
+                      style={{ paddingRight: 44 }}
+                    />
+                    <button type="button" onClick={() => setShowPw(v => !v)}
+                      style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p className="text-tertiary" style={{ fontSize: 12 }}>The crew member can use their phone number + this password to log in.</p>
+                </div>
+                <div className="flex gap-12">
+                  <button type="button" className="btn btn-glass w-full" onClick={() => { setShowPasswordModal(null); setNewPassword('') }}>Cancel</button>
+                  <button type="submit" disabled={pwSaving || newPassword.length < 6} className="btn btn-primary w-full" style={{ borderRadius: 14 }}>
+                    {pwSaving ? 'Saving...' : 'Set Password'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
