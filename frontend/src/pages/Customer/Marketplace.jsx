@@ -7,12 +7,12 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { useCustomerData } from '../../context/CustomerDataContext';
 
 export default function Marketplace() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { products, loading: dataLoading } = useCustomerData();
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
   const [category, setCategory] = useState('All');
@@ -21,7 +21,6 @@ export default function Marketplace() {
   const categories = ['All', 'Microfiber Cloths', 'Waterless Wash', 'Interior Care', 'Exterior Polish', 'Perfumes', 'Kits'];
 
   useEffect(() => {
-    fetchProducts();
     const savedCart = localStorage.getItem('cleanzo_cart');
     if (savedCart) setCart(JSON.parse(savedCart));
   }, []);
@@ -30,16 +29,7 @@ export default function Marketplace() {
     localStorage.setItem('cleanzo_cart', JSON.stringify(cart));
   }, [cart]);
 
-  const fetchProducts = async () => {
-    try {
-      const res = await apiClient.get('/public/products');
-      setProducts(res.products || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = dataLoading.products;
 
   const addToCart = (product) => {
     setCart(prev => {

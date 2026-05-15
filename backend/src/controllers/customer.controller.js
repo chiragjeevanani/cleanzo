@@ -16,6 +16,7 @@ import Order from '../models/Order.js';
 import VehicleCategory from '../models/VehicleCategory.js';
 import { logActivity } from './admin.controller.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
+import { clearCache } from '../middleware/cache.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -32,6 +33,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   );
   if (Object.keys(update).length === 0) throw new ApiError(400, 'No valid fields provided');
   const customer = await Customer.findByIdAndUpdate(req.user._id, update, { new: true, runValidators: true });
+  await clearCache(`cache:${req.user._id}:*`);
   res.json({ success: true, user: customer });
 });
 
@@ -64,6 +66,7 @@ export const addVehicle = asyncHandler(async (req, res) => {
     photos 
   });
   
+  await clearCache(`cache:${req.user._id}:*`);
   res.status(201).json({ success: true, vehicle });
 });
 
@@ -75,6 +78,7 @@ export const updateVehicle = asyncHandler(async (req, res) => {
     { new: true, runValidators: true }
   );
   if (!vehicle) throw new ApiError(404, 'Vehicle not found');
+  await clearCache(`cache:${req.user._id}:*`);
   res.json({ success: true, vehicle });
 });
 
@@ -85,6 +89,7 @@ export const deleteVehicle = asyncHandler(async (req, res) => {
     { new: true }
   );
   if (!vehicle) throw new ApiError(404, 'Vehicle not found');
+  await clearCache(`cache:${req.user._id}:*`);
   res.json({ success: true, message: 'Vehicle removed' });
 });
 
@@ -286,6 +291,7 @@ export const createSubscription = asyncHandler(async (req, res) => {
     metadata: { subscriptionId: sub._id, customerId: req.user._id }
   });
 
+  await clearCache(`cache:${req.user._id}:*`);
   res.status(201).json({ success: true, subscription: sub });
 });
 
@@ -381,6 +387,7 @@ export const skipService = asyncHandler(async (req, res) => {
   
   await sub.save({ validateModifiedOnly: true });
 
+  await clearCache(`cache:${req.user._id}:*`);
   res.json({
     success: true,
     message: 'Service skipped. Subscription extended by 1 day.',
@@ -441,6 +448,7 @@ export const rateTask = asyncHandler(async (req, res) => {
     });
   }
 
+  await clearCache(`cache:${req.user._id}:*`);
   res.status(201).json({ success: true, rating });
 });
 
@@ -464,6 +472,7 @@ export const markNotificationRead = asyncHandler(async (req, res) => {
     { _id: req.params.id, recipient: req.user._id },
     { read: true }
   );
+  await clearCache(`cache:${req.user._id}:*`);
   res.json({ success: true });
 });
 
@@ -541,6 +550,7 @@ export const placeMarketplaceOrder = asyncHandler(async (req, res) => {
     metadata: { orderId: order._id, customerId: req.user._id }
   });
 
+  await clearCache(`cache:${req.user._id}:*`);
   res.status(201).json({ success: true, order });
 });
 
@@ -580,5 +590,6 @@ export const cancelMarketplaceOrder = asyncHandler(async (req, res) => {
     metadata: { orderId: order._id, customerId: req.user._id }
   });
 
+  await clearCache(`cache:${req.user._id}:*`);
   res.json({ success: true, message: 'Order cancelled successfully' });
 });

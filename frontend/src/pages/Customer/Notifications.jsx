@@ -3,38 +3,25 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Bell, CreditCard, Gift } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { useCustomerData } from '../../context/CustomerDataContext'
 
 const iconMap = { service: Bell, subscription: CreditCard, offer: Gift }
 
 export default function Notifications() {
-  const [notifications, setNotifications] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const res = await apiClient.get('/customer/notifications')
-        setNotifications(res.notifications || [])
-      } catch (err) {
-        setError('Failed to load notifications.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchNotifications()
-  }, [])
-
+  const { notifications, loading: dataLoading, refreshNotifications } = useCustomerData()
+  const error = ''
+  
   const handleMarkRead = async (id) => {
     try {
       await apiClient.put(`/customer/notifications/${id}/read`)
-      setNotifications(prev => prev.map(n => n._id === id ? { ...n, read: true } : n))
+      refreshNotifications()
     } catch {
-      // non-critical — silently ignore
+      // non-critical
     }
   }
 
-  if (loading) return (
+  const loading = dataLoading.notifications
+  if (loading && !notifications.length) return (
     <div className="app-shell">
       <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
         <div className="skeleton" style={{ width: 140, height: 24, borderRadius: 8 }} />

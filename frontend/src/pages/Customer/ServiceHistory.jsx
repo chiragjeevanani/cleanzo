@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Star, X } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { useCustomerData } from '../../context/CustomerDataContext'
 
 function RatingModal({ task, onClose, onSubmit }) {
   const [score, setScore] = useState(0)
@@ -66,32 +67,18 @@ function RatingModal({ task, onClose, onSubmit }) {
 }
 
 export default function ServiceHistory() {
-  const [history, setHistory] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { history, loading: dataLoading, refreshHistory } = useCustomerData()
   const [ratingTask, setRatingTask] = useState(null)
-  const [ratedTaskIds, setRatedTaskIds] = useState(new Set()) // In a real app, backend would return if task is rated
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const res = await apiClient.get('/customer/history')
-        setHistory(res.tasks || [])
-      } catch (err) {
-        setError('Failed to load service history. Please refresh.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchHistory()
-  }, [])
+  const [ratedTaskIds, setRatedTaskIds] = useState(new Set()) 
 
   const handleRatingSubmit = (taskId) => {
     setRatedTaskIds(prev => new Set(prev).add(taskId))
     setRatingTask(null)
+    refreshHistory()
   }
 
-  if (loading) return (
+  const loading = dataLoading.history
+  if (loading && !history.length) return (
     <div className="app-shell">
       <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
         <div className="skeleton" style={{ width: 150, height: 24, borderRadius: 8 }} />

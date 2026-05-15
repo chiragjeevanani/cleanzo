@@ -6,12 +6,13 @@ import { ApiError } from '../utils/ApiError.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import * as publicCtrl from '../controllers/public.controller.js';
 import { logActivity } from '../controllers/admin.controller.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 
 const router = Router();
 
 // ─── SOCIETIES & AVAILABILITY ────────────────────
 router.get('/societies/search', publicCtrl.searchSocieties);
-router.get('/societies/active', publicCtrl.listActiveSocieties);
+router.get('/societies/active', cacheMiddleware(3600), publicCtrl.listActiveSocieties);
 
 // ─── LEAD CAPTURE ────────────────────────────────
 router.post('/leads', publicCtrl.captureLead);
@@ -95,7 +96,7 @@ router.post('/cleaner-apply', upload.fields([
  * GET /api/public/settings
  * Returns public-facing settings (trial price, etc.)
  */
-router.get('/settings', asyncHandler(async (req, res) => {
+router.get('/settings', cacheMiddleware(3600), asyncHandler(async (req, res) => {
   const { default: Settings } = await import('../models/Settings.js');
   const [trialSetting, prioritySetting] = await Promise.all([
     Settings.findOne({ key: 'trialPrice' }),
@@ -108,15 +109,15 @@ router.get('/settings', asyncHandler(async (req, res) => {
   });
 }));
 
-router.get('/packages', publicCtrl.listActivePackages);
+router.get('/packages', cacheMiddleware(3600), publicCtrl.listActivePackages);
 
-router.get('/banners', asyncHandler(async (req, res) => {
+router.get('/banners', cacheMiddleware(3600), asyncHandler(async (req, res) => {
   const { default: Banner } = await import('../models/Banner.js');
   const banners = await Banner.find({ isActive: true }).sort('order -createdAt');
   res.json({ success: true, banners });
 }));
 
-router.get('/products', publicCtrl.listProducts);
-router.get('/products/:id', publicCtrl.getProductById);
+router.get('/products', cacheMiddleware(3600), publicCtrl.listProducts);
+router.get('/products/:id', cacheMiddleware(3600), publicCtrl.getProductById);
 
 export default router;

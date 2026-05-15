@@ -16,6 +16,7 @@ import VehicleCategory from '../models/VehicleCategory.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { clearCache } from '../middleware/cache.js';
 
 // Helper to log activities
 export const logActivity = async ({ type, message, performer, metadata }) => {
@@ -372,6 +373,7 @@ export const createPackage = asyncHandler(async (req, res) => {
   const { name, tier, price, category, features, popular, sortOrder } = req.body;
   if (!name || !price) throw new ApiError(400, 'Name and price are required');
   const pkg = await Package.create({ name, tier, price, category, features, popular, sortOrder });
+  await clearCache('cache:global:*');
   res.status(201).json({ success: true, package: pkg });
 });
 
@@ -383,6 +385,7 @@ export const updatePackage = asyncHandler(async (req, res) => {
     { new: true, runValidators: true }
   );
   if (!pkg) throw new ApiError(404, 'Package not found');
+  await clearCache('cache:global:*');
   res.json({ success: true, package: pkg });
 });
 
@@ -538,6 +541,7 @@ export const createSociety = asyncHandler(async (req, res) => {
     metadata: { societyId: society._id }
   });
 
+  await clearCache('cache:global:*');
   res.status(201).json({ success: true, society });
 });
 
@@ -554,6 +558,7 @@ export const updateSociety = asyncHandler(async (req, res) => {
     metadata: { societyId: society._id }
   });
 
+  await clearCache('cache:global:*');
   res.json({ success: true, society });
 });
 
@@ -774,12 +779,14 @@ export const createBanner = asyncHandler(async (req, res) => {
   const { title, description, imageUrl, link } = req.body;
   if (!title || !imageUrl) throw new ApiError(400, 'Title and Image URL are required');
   const banner = await Banner.create({ title, description, imageUrl, link });
+  await clearCache('cache:global:*');
   res.status(201).json({ success: true, banner });
 });
 
 export const deleteBanner = asyncHandler(async (req, res) => {
   const banner = await Banner.findByIdAndDelete(req.params.id);
   if (!banner) throw new ApiError(404, 'Banner not found');
+  await clearCache('cache:global:*');
   res.json({ success: true, message: 'Banner deleted successfully' });
 });
 
@@ -806,6 +813,7 @@ export const createProduct = asyncHandler(async (req, res) => {
     metadata: { productId: product._id }
   });
 
+  await clearCache('cache:global:*');
   res.status(201).json({ success: true, product });
 });
 
@@ -819,6 +827,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
     metadata: { productId: product._id }
   });
 
+  await clearCache('cache:global:*');
   res.json({ success: true, product });
 });
 
@@ -832,6 +841,7 @@ export const deleteProduct = asyncHandler(async (req, res) => {
     metadata: { productId: product._id }
   });
 
+  await clearCache('cache:global:*');
   res.json({ success: true, message: 'Product deleted successfully' });
 });
 
