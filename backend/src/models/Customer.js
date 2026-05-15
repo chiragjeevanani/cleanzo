@@ -63,6 +63,7 @@ customerSchema.pre('save', function (next) {
 
 // Compare password method
 customerSchema.methods.comparePassword = async function (candidatePassword) {
+  if (!this.password) return false; // No password set (OTP-only account or missing field)
   return bcrypt.compare(candidatePassword, this.password);
 };
 

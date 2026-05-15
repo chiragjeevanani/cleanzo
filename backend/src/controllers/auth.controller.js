@@ -248,11 +248,18 @@ export const handlePasswordLogin = asyncHandler(async (req, res) => {
 
   if (targetRole === 'customer') {
     user = await Customer.findOne({ phone: normalized }).select('+password');
-    if (!user || !(await user.comparePassword(password))) {
-      throw new ApiError(401, 'Invalid phone number or password');
-    }
+    if (!user) throw new ApiError(404, 'No account found with this phone number');
+    if (!user.password) throw new ApiError(401, 'This account uses OTP login. Please use OTP to sign in.');
+    if (!(await user.comparePassword(password))) throw new ApiError(401, 'Invalid phone number or password');
+
+  } else if (targetRole === 'cleaner') {
+    user = await Cleaner.findOne({ phone: normalized }).select('+password');
+    if (!user) throw new ApiError(404, 'No crew account found with this phone number');
+    if (!user.password) throw new ApiError(401, 'Password not set for this account. Please use OTP login or contact your admin.');
+    if (!(await user.comparePassword(password))) throw new ApiError(401, 'Invalid phone number or password');
+
   } else {
-    throw new ApiError(400, 'Password login is only available for customers');
+    throw new ApiError(400, 'Invalid role. Must be customer or crew.');
   }
 
   user.lastLogin = new Date();

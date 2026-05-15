@@ -1,15 +1,15 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 
 export default function TermsOfService() {
-  const isAuthed = localStorage.getItem('cleanzo_authed') === 'true'
+  const navigate = useNavigate()
   
   return (
     <div style={{ padding: '0 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div className="app-header" style={{ padding: '16px 0', marginBottom: 12 }}>
-        <Link to={isAuthed ? "/customer/profile" : "/"} className="flex items-center gap-8">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-8" style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>
           <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Terms of Service</span>
-        </Link>
+        </button>
       </div>
 
       <div className="glass" style={{ padding: '24px', borderRadius: 'var(--radius)', marginBottom: 100 }}>
