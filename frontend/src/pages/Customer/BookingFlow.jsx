@@ -63,18 +63,19 @@ export default function BookingFlow() {
 
 
     // Load Razorpay script — only enable Pay button after onload fires
-    if (window.Razorpay) {
-      setRazorpayReady(true)
-    } else {
-      const script = document.createElement('script')
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-      script.async = true
-      script.onload = () => setRazorpayReady(true)
-      script.onerror = () => setPaymentError('Failed to load payment gateway. Please refresh.')
-      document.body.appendChild(script)
-      return () => { document.body.removeChild(script) }
-    }
-  }, [refreshAll])
+    useEffect(() => {
+      if (window.Razorpay) {
+        setRazorpayReady(true)
+      } else {
+        const script = document.createElement('script')
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+        script.async = true
+        script.onload = () => setRazorpayReady(true)
+        script.onerror = () => setPaymentError('Failed to load payment gateway. Please refresh.')
+        document.body.appendChild(script)
+        return () => { document.body.removeChild(script) }
+      }
+    }, [refreshAll])
 
   // Calculate pricing
   const basePrice = selectedPkg?.price || 0
@@ -172,7 +173,7 @@ export default function BookingFlow() {
   const isLoading = dataLoading.vehicles || dataLoading.packages || dataLoading.societies || dataLoading.subscriptions || dataLoading.settings
   
   if (isLoading) return (
-
+    <div className="app-shell">
       <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
         <div className="skeleton" style={{ width: 40, height: 40, borderRadius: 14 }} />
         <div className="skeleton" style={{ width: 140, height: 24, borderRadius: 8 }} />
