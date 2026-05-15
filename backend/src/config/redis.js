@@ -11,12 +11,18 @@ const redisConfig = {
     const delay = Math.min(times * 50, 2000);
     return delay;
   },
-  maxRetriesPerRequest: null,
+  maxRetriesPerRequest: 3,
+  enableOfflineQueue: false,
+  connectTimeout: 5000,
 };
 
 // If REDIS_URL is provided, use it instead (common in production envs like Render/Heroku)
 const redis = process.env.REDIS_URL 
-  ? new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null }) 
+  ? new Redis(process.env.REDIS_URL, { 
+      maxRetriesPerRequest: 3, 
+      enableOfflineQueue: false,
+      connectTimeout: 5000
+    }) 
   : new Redis(redisConfig);
 
 redis.on('connect', () => {
