@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
+import { upload } from '../middleware/upload.js';
 import * as ctrl from '../controllers/customer.controller.js';
 
 const router = Router();
@@ -11,7 +12,7 @@ router.get('/profile', ctrl.getProfile);
 router.put('/profile', ctrl.updateProfile);
 
 router.get('/vehicles', ctrl.getVehicles);
-router.post('/vehicles', ctrl.addVehicle);
+router.post('/vehicles', upload.array('photos', 5), ctrl.addVehicle);
 router.put('/vehicles/:id', ctrl.updateVehicle);
 router.delete('/vehicles/:id', ctrl.deleteVehicle);
 

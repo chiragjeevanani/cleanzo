@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Star, MapPin, MoreVertical, Plus, X, Trash2, UserX, UserCheck, Filter, Search, KeyRound, Eye, EyeOff } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
 
 const STATUSES = ['all', 'active', 'inactive']
@@ -223,7 +224,7 @@ export default function AdminCleaners() {
         </div>
       )}
 
-      <div className="glass" style={{ overflow: 'visible' }}>
+      <div className="glass" style={{ overflow: 'visible', borderRadius: 16 }}>
         <table className="data-table" style={{ overflow: 'visible' }}>
           <thead>
             <tr><th>Name</th><th>Area</th><th>Rating</th><th>Completion</th><th>Total Tasks</th><th>Status</th><th></th></tr>
@@ -267,10 +268,18 @@ export default function AdminCleaners() {
           zIndex: 1000,
           minWidth: 190,
           borderRadius: 14,
-          overflow: 'hidden',
+          overflow: 'visible',
           border: '1px solid var(--border-glass)',
           boxShadow: 'var(--shadow-lg)'
         }}>
+          <Link
+            to={`/admin/cleaners/${activeMenu._id}`}
+            className="flex items-center gap-10"
+            style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: 14, color: 'var(--text-primary)', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'none' }}
+          >
+            <Eye size={15} /> View Details
+          </Link>
+          <div style={{ height: 1, background: 'var(--divider)' }} />
           <button
             onClick={() => handleToggleActive(activeMenu)}
             className="flex items-center gap-10"

@@ -69,6 +69,7 @@ export default function SubscriptionDetail() {
             { label: 'Vehicle', value: `${subscription.vehicle?.model || 'Unknown'}` },
             { label: 'Plate', value: subscription.vehicle?.number || '' },
             { label: 'Duration', value: `${new Date(subscription.startDate).toLocaleDateString()} → ${new Date(subscription.endDate).toLocaleDateString()}` },
+            { label: 'Next Service', value: subscription.nextWash ? new Date(subscription.nextWash).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '—' },
             { label: 'Completed', value: `${completed} days cleaned` },
             { label: 'Skipped', value: `${skipped} days` },
           ].map((r, i) => (

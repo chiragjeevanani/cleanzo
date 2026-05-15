@@ -9,7 +9,9 @@ import apiClient from '../../services/apiClient'
 
 const AdminDashboard    = lazy(() => import('./AdminDashboard'))
 const AdminUsers        = lazy(() => import('./AdminUsers'))
+const AdminUserDetails  = lazy(() => import('./AdminUserDetails'))
 const AdminCleaners     = lazy(() => import('./AdminCleaners'))
+const AdminCleanerDetails= lazy(() => import('./AdminCleanerDetails'))
 const AdminPackages     = lazy(() => import('./AdminPackages'))
 const AdminSubscriptions= lazy(() => import('./AdminSubscriptions'))
 const AdminRevenue      = lazy(() => import('./AdminRevenue'))
@@ -192,7 +194,9 @@ export default function AdminPanel() {
           <Routes>
             <Route index element={<AdminDashboard />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="users/:id" element={<AdminUserDetails />} />
             <Route path="cleaners" element={<AdminCleaners />} />
+            <Route path="cleaners/:id" element={<AdminCleanerDetails />} />
             <Route path="applications" element={<AdminApplications />} />
             <Route path="societies" element={<AdminSocieties />} />
             <Route path="leads" element={<AdminLeads />} />
