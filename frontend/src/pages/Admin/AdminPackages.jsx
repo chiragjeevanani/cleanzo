@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext'
 export default function AdminPackages() {
   const { showToast } = useToast()
   const [packages, setPackages] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -17,7 +18,7 @@ export default function AdminPackages() {
     name: '',
     tier: 'STANDARD',
     price: '',
-    category: 'sedan',
+    category: '',
     features: '',
     popular: false
   })
@@ -25,7 +26,7 @@ export default function AdminPackages() {
   const closeModal = () => {
     setShowAddModal(false)
     setEditPkg(null)
-    setFormData({ name: '', tier: 'STANDARD', price: '', category: 'sedan', features: '', popular: false })
+    setFormData({ name: '', tier: 'STANDARD', price: '', category: categories[0]?.slug || '', features: '', popular: false })
   }
 
   const handleEdit = (pkg) => {
@@ -47,10 +48,14 @@ export default function AdminPackages() {
 
   const fetchPackages = async () => {
     try {
-      const res = await apiClient.get('/admin/packages')
-      setPackages(res.packages || [])
+      const [pkgRes, catRes] = await Promise.all([
+        apiClient.get('/admin/packages'),
+        apiClient.get('/admin/vehicle-categories')
+      ])
+      setPackages(pkgRes.packages || [])
+      setCategories(catRes.categories || [])
     } catch (err) {
-      setError('Failed to load packages.')
+      setError('Failed to load data.')
     } finally {
       setLoading(false)
     }
@@ -229,17 +234,13 @@ export default function AdminPackages() {
 
               <div className="flex flex-col gap-12">
                 <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.15em' }}>VEHICLE CATEGORY</label>
-                <select className="input-field" 
+                <select required className="input-field" 
                   style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 20, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 17 }}
                   value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                  <option value="scooty">Scooty</option>
-                  <option value="bike">Bike</option>
-                  <option value="small_car">Small Car</option>
-                  <option value="hatchback">Hatchback</option>
-                  <option value="sedan">Sedan</option>
-                  <option value="mpv">MPV</option>
-                  <option value="suv">SUV</option>
-                  <option value="premium">Premium/Luxury</option>
+                  <option value="" disabled>Select Category</option>
+                  {categories.map(cat => (
+                    <option key={cat._id} value={cat.slug}>{cat.name}</option>
+                  ))}
                 </select>
               </div>
 

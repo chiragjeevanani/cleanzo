@@ -11,7 +11,6 @@ const packageSchema = new Schema({
   category:  { 
     type: String, 
     required: true, 
-    enum: ['scooty', 'bike', 'small_car', 'hatchback', 'sedan', 'mpv', 'suv', 'premium'],
     default: 'sedan'
   },
   popular:   { type: Boolean, default: false },

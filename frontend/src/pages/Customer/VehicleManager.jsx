@@ -5,22 +5,12 @@ import { ArrowLeft, Plus, Trash2, Car, ChevronDown, X, Upload } from 'lucide-rea
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 
-const VEHICLE_CATEGORIES = [
-  { value: 'scooty',    label: 'Scooty' },
-  { value: 'bike',      label: 'Bike' },
-  { value: 'small_car', label: 'Small Car' },
-  { value: 'hatchback', label: 'Hatchback' },
-  { value: 'sedan',     label: 'Sedan' },
-  { value: 'mpv',       label: 'MPV' },
-  { value: 'suv',       label: 'SUV' },
-  { value: 'premium',   label: 'Premium' },
-]
-
-const EMPTY_FORM = { brand: '', model: '', number: '', parking: '', category: 'sedan', color: '', photos: [] }
+const EMPTY_FORM = { brand: '', model: '', number: '', parking: '', category: '', color: '', photos: [] }
 
 export default function VehicleManager() {
   const { showToast } = useToast()
   const [vehicles, setVehicles] = useState([])
+  const [categories, setCategories] = useState([])
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [imagePreviews, setImagePreviews] = useState([])
@@ -34,10 +24,17 @@ export default function VehicleManager() {
 
   const fetchVehicles = async () => {
     try {
-      const res = await apiClient.get('/customer/vehicles')
-      setVehicles(res.vehicles || [])
+      const [vRes, cRes] = await Promise.all([
+        apiClient.get('/customer/vehicles'),
+        apiClient.get('/customer/vehicle-categories')
+      ])
+      setVehicles(vRes.vehicles || [])
+      setCategories(cRes.categories || [])
+      if (cRes.categories?.length > 0) {
+        setForm(prev => ({ ...prev, category: cRes.categories[0].slug }))
+      }
     } catch (err) {
-      setError('Failed to load vehicles. Please refresh.')
+      setError('Failed to load data. Please refresh.')
     } finally {
       setLoading(false)
     }
@@ -162,7 +159,7 @@ export default function VehicleManager() {
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Vehicle Type <span style={{ color: 'var(--error)' }}>*</span></label>
               <select className="input-field" style={selectStyle} value={form.category}
                 onChange={e => setForm({ ...form, category: e.target.value })}>
-                {VEHICLE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                {categories.map(c => <option key={c._id} value={c.slug}>{c.name}</option>)}
               </select>
               <ChevronDown size={16} style={{ position: 'absolute', right: 14, bottom: 14, opacity: 0.4, pointerEvents: 'none' }} />
             </div>

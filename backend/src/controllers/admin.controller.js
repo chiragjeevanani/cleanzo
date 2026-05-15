@@ -12,6 +12,7 @@ import Order from '../models/Order.js';
 import Vehicle from '../models/Vehicle.js';
 import Rating from '../models/Rating.js';
 import Society from '../models/Society.js';
+import VehicleCategory from '../models/VehicleCategory.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
@@ -923,3 +924,32 @@ export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
 
   res.json({ success: true, message: 'Cleaner assigned successfully and task generated', subscription });
 });
+
+// ─── VEHICLE CATEGORIES ───────────────────────────
+export const getVehicleCategories = asyncHandler(async (req, res) => {
+  const categories = await VehicleCategory.find().sort('sortOrder name');
+  res.json({ success: true, categories });
+});
+
+export const addVehicleCategory = asyncHandler(async (req, res) => {
+  const { name, slug, description, icon, sortOrder } = req.body;
+  if (!name || !slug) throw new ApiError(400, 'Name and slug are required');
+  const category = await VehicleCategory.create({ name, slug, description, icon, sortOrder });
+  await logActivity({ type: 'vehicle_category_create', message: `Added vehicle category: ${name}`, performer: req.user._id });
+  res.status(201).json({ success: true, category });
+});
+
+export const updateVehicleCategory = asyncHandler(async (req, res) => {
+  const category = await VehicleCategory.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  if (!category) throw new ApiError(404, 'Category not found');
+  await logActivity({ type: 'vehicle_category_update', message: `Updated vehicle category: ${category.name}`, performer: req.user._id });
+  res.json({ success: true, category });
+});
+
+export const deleteVehicleCategory = asyncHandler(async (req, res) => {
+  const category = await VehicleCategory.findByIdAndDelete(req.params.id);
+  if (!category) throw new ApiError(404, 'Category not found');
+  await logActivity({ type: 'vehicle_category_delete', message: `Deleted vehicle category: ${category.name}`, performer: req.user._id });
+  res.json({ success: true, message: 'Category deleted' });
+});
+
