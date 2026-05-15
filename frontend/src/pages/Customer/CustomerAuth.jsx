@@ -73,6 +73,7 @@ export default function CustomerAuth() {
   const [filteredSocieties, setFilteredSocieties] = useState([])
   const [societySearch, setSocietySearch] = useState('')
   const [showSocietyDropdown, setShowSocietyDropdown] = useState(false)
+  const [isOtherSociety, setIsOtherSociety] = useState(false)
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -143,13 +144,38 @@ export default function CustomerAuth() {
     }
   }
 
-  // ── Send OTP ──
+  // ── Send OTP (or capture lead if 'Other' society selected) ──
   const handleSendOtp = async (e) => {
     e.preventDefault()
     setErrorMsg('')
     const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^91/, '')
     if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
       setErrorMsg('Enter a valid 10-digit Indian mobile number')
+      return
+    }
+
+    // If user selected "Other" society, submit as a lead instead
+    if (mode === 'signup' && isOtherSociety) {
+      if (!formData.societyName) {
+        setErrorMsg('Please enter your society name')
+        return
+      }
+      setLoading(true)
+      try {
+        await apiClient.post('/public/leads', {
+          name: `${formData.firstName} ${formData.lastName}`.trim() || 'Unknown',
+          phone: formData.phone,
+          email: formData.email,
+          city: formData.city,
+          requestedArea: formData.area,
+          requestedSociety: formData.societyName,
+        })
+        setStep('success')
+      } catch (err) {
+        setErrorMsg(err.message || 'Failed to submit interest.')
+      } finally {
+        setLoading(false)
+      }
       return
     }
 
@@ -255,6 +281,9 @@ export default function CustomerAuth() {
     document.getElementById(`otp-${Math.min(digits.length, 5)}`)?.focus()
   }
 
+  const inputStyle = { paddingLeft: 48, width: '100%', boxSizing: 'border-box' }
+  const selectStyle = { ...inputStyle, appearance: 'none', cursor: 'pointer' }
+
   // ── Lead Capture Screen ──
   if (step === 'lead') return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden' }}>
@@ -312,9 +341,6 @@ export default function CustomerAuth() {
       </div>
     </div>
   )
-
-  const inputStyle = { paddingLeft: 48, width: '100%', boxSizing: 'border-box' }
-  const selectStyle = { ...inputStyle, appearance: 'none', cursor: 'pointer' }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden' }}>
@@ -497,51 +523,87 @@ export default function CustomerAuth() {
                     </Field>
 
                     <Field label="Society" icon={Building2} action={
-                      <button type="button" onClick={() => setStep('lead')} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontSize: 12, cursor: 'pointer' }}>
+                      <button type="button" onClick={() => { setIsOtherSociety(true); setShowSocietyDropdown(false); setFormData(p => ({ ...p, society: '' })); setSocietySearch('') }} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontSize: 12, cursor: 'pointer' }}>
                         Society not listed?
                       </button>
                     }>
-                      <div style={{ position: 'relative' }}>
-                        <input 
-                          required 
-                          className="input-field" 
-                          style={inputStyle} 
-                          placeholder="Search your society..." 
-                          value={societySearch}
-                          onFocus={() => setShowSocietyDropdown(true)}
-                          onChange={(e) => {
-                            setSocietySearch(e.target.value)
-                            setShowSocietyDropdown(true)
-                          }}
-                        />
-                        {showSocietyDropdown && (
-                          <div className="glass" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, marginTop: 4, maxHeight: 200, overflowY: 'auto', borderRadius: 12, border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-lg)' }}>
-                            {filteredSocieties.filter(s => s.name.toLowerCase().includes(societySearch.toLowerCase())).length === 0 ? (
-                              <div style={{ padding: 12, textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
-                                No societies found in this city. <br/>
-                                <button type="button" onClick={() => setStep('lead')} style={{ color: 'var(--primary-blue)', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600, marginTop: 4 }}>Request your area</button>
-                              </div>
-                            ) : (
-                              filteredSocieties.filter(s => s.name.toLowerCase().includes(societySearch.toLowerCase())).map(s => (
-                                <div 
-                                  key={s._id} 
-                                  onClick={() => {
-                                    setFormData(p => ({ ...p, society: s._id }));
-                                    setSocietySearch(s.name);
-                                    setShowSocietyDropdown(false);
-                                  }}
-                                  style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 14, transition: 'background 0.2s', borderBottom: '1px solid var(--border-glass)' }}
-                                  onMouseEnter={(e) => e.target.style.background = 'rgba(var(--accent-lime-rgb), 0.1)'}
-                                  onMouseLeave={(e) => e.target.style.background = 'transparent'}
-                                >
-                                  <div style={{ fontWeight: 600 }}>{s.name}</div>
-                                  <div style={{ fontSize: 11, opacity: 0.6 }}>{s.area}, {s.pincode}</div>
-                                </div>
-                              ))
-                            )}
+                      {isOtherSociety ? (
+                        /* ── Inline Other Society Section ── */
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(var(--primary-blue-rgb), 0.08)', border: '1px solid rgba(var(--primary-blue-rgb), 0.2)', fontSize: 12, color: 'var(--primary-blue)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>📍 We'll notify you when we launch there!</span>
+                            <button type="button" onClick={() => { setIsOtherSociety(false); setFormData(p => ({ ...p, societyName: '', area: '' })) }} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 11, padding: '2px 6px', borderRadius: 6 }}>✕ Cancel</button>
                           </div>
-                        )}
-                      </div>
+                          <input
+                            required
+                            className="input-field"
+                            style={inputStyle}
+                            placeholder="Society / Apartment name *"
+                            value={formData.societyName}
+                            onChange={set('societyName')}
+                          />
+                          <input
+                            className="input-field"
+                            style={inputStyle}
+                            placeholder="Area / Locality (optional)"
+                            value={formData.area}
+                            onChange={set('area')}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            required={!isOtherSociety}
+                            className="input-field"
+                            style={inputStyle}
+                            placeholder="Search your society..."
+                            value={societySearch}
+                            onFocus={() => setShowSocietyDropdown(true)}
+                            onChange={(e) => {
+                              setSocietySearch(e.target.value)
+                              setShowSocietyDropdown(true)
+                              setFormData(p => ({ ...p, society: '' }))
+                            }}
+                          />
+                          {showSocietyDropdown && (
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, marginTop: 4, maxHeight: 200, overflowY: 'auto', borderRadius: 12, border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-lg)', backgroundColor: 'var(--bg-elevated)' }}>
+                              {filteredSocieties.filter(s => s.name.toLowerCase().includes(societySearch.toLowerCase())).length === 0 ? (
+                                <div style={{ padding: 12, textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
+                                  No societies found in this city.<br/>
+                                  <button type="button" onClick={() => { setIsOtherSociety(true); setShowSocietyDropdown(false) }} style={{ color: 'var(--primary-blue)', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600, marginTop: 4 }}>Enter manually →</button>
+                                </div>
+                              ) : (
+                                <>
+                                  {filteredSocieties.filter(s => s.name.toLowerCase().includes(societySearch.toLowerCase())).map(s => (
+                                    <div
+                                      key={s._id}
+                                      onClick={() => {
+                                        setFormData(p => ({ ...p, society: s._id }));
+                                        setSocietySearch(s.name);
+                                        setShowSocietyDropdown(false);
+                                      }}
+                                      style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 14, transition: 'background 0.2s', borderBottom: '1px solid var(--border-glass)' }}
+                                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(var(--accent-lime-rgb), 0.1)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                      <div style={{ fontWeight: 600 }}>{s.name}</div>
+                                      <div style={{ fontSize: 11, opacity: 0.6 }}>{s.area}, {s.pincode}</div>
+                                    </div>
+                                  ))}
+                                  <div
+                                    onClick={() => { setIsOtherSociety(true); setShowSocietyDropdown(false) }}
+                                    style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 14, transition: 'background 0.2s', color: 'var(--primary-blue)', fontWeight: 600, borderTop: '1px solid var(--border-glass)' }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(var(--primary-blue-rgb), 0.1)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                  >
+                                    Other (Enter manually)
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </Field>
 
                     <Field label="Referral Code (optional)" icon={Tag}>
