@@ -216,6 +216,7 @@ export default function AdminApplications() {
                   <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginBottom: 16 }}>CONTACT & PERSONAL</h4>
                   <div className="space-y-12">
                     <div className="flex justify-between items-center"><span className="text-secondary text-sm">Phone Number</span> <span className="font-bold">{selectedApp.phone}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-secondary text-sm">Email Address</span> <span className="font-bold">{selectedApp.email || 'Not provided'}</span></div>
                     <div className="flex justify-between items-center">
                       <span className="text-secondary text-sm">Age</span> 
                       <span className="font-bold">{selectedApp.age ? `${selectedApp.age} years` : 'Not provided'}</span>

@@ -68,11 +68,11 @@ export default function PhotoUpload() {
         ) : (
           <>
             <Camera size={40} style={{ color: 'var(--text-tertiary)', margin: '0 auto 16px' }} />
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Take a Photo</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Take {uploadType === 'before' ? 'Before' : 'After'} Photo</div>
             <p className="text-body-sm text-secondary" style={{ marginBottom: 20 }}>Capture the vehicle {uploadType} cleaning</p>
             <div className="flex gap-8 justify-center">
               <button className="btn btn-primary" onClick={() => fileInputRef.current?.click()}>
-                <Camera size={16} /> Choose Photo
+                <Camera size={16} /> Choose {uploadType === 'before' ? 'Before' : 'After'} Photo
               </button>
             </div>
           </>

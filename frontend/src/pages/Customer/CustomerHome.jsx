@@ -13,6 +13,8 @@ export default function CustomerHome() {
   } = useCustomerData()
 
   const activeSub = (subscriptions || []).find(s => s.status === 'Active') || null
+  const expiredTrial = (subscriptions || []).find(s => s.status === 'Expired' && s.isTrial)
+  const hasRemainingDays = activeSub && (activeSub.totalDays - (activeSub.completedDays || 0) - (activeSub.skippedDays || 0)) > 0
   const unreadCount = (notifications || []).filter(n => !n.read).length
   const recentHistory = (history || []).slice(0, 3)
 
@@ -119,12 +121,21 @@ export default function CustomerHome() {
             </div>
           </Link>
         ) : (
-          <div className="glass animate-fade-in-up" style={{ padding: 40, marginBottom: 32, textAlign: 'center', borderRadius: 32 }}>
+          <div className="glass animate-fade-in-up" style={{ padding: 40, marginBottom: 32, textAlign: 'center', borderRadius: 32, border: expiredTrial ? '1px solid rgba(223, 255, 0, 0.3)' : '1px solid var(--border-glass)' }}>
             <div style={{ width: 64, height: 64, background: 'rgba(223, 255, 0, 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
               <Calendar size={32} color="var(--accent-lime)" />
             </div>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Ready for a clean car?</h3>
-            <p className="text-secondary text-body-sm mb-24">Subscribe to a plan and keep your vehicle shiny every day.</p>
+            {expiredTrial ? (
+              <>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Trial period expired</h3>
+                <p className="text-secondary text-body-sm mb-24">Your trial service has ended. Purchase another subscription to continue enjoying our services.</p>
+              </>
+            ) : (
+              <>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Ready for a clean car?</h3>
+                <p className="text-secondary text-body-sm mb-24">Subscribe to a plan and keep your vehicle shiny every day.</p>
+              </>
+            )}
             <Link to="/customer/packages" className="btn btn-primary w-full" style={{ borderRadius: 16, padding: 18 }}>Explore Packages</Link>
           </div>
         )}
@@ -132,12 +143,20 @@ export default function CustomerHome() {
         {/* Quick Actions */}
         <div className="animate-fade-in-up delay-1" style={{ marginBottom: 40 }}>
           <div className="text-label" style={{ marginBottom: 16, color: 'var(--text-tertiary)', paddingLeft: 8 }}>Quick Services</div>
+          
+          {expiredTrial && (
+            <div className="glass animate-pulse" style={{ padding: '16px 20px', borderRadius: 20, marginBottom: 16, background: 'rgba(223, 255, 0, 0.05)', border: '1px solid rgba(223, 255, 0, 0.2)', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-lime)' }} />
+              <p className="text-body-sm font-bold" style={{ color: 'var(--accent-lime)', margin: 0 }}>Trial Expired! Purchase a plan to continue.</p>
+            </div>
+          )}
+
           <div className="grid-3" style={{ gap: 14 }}>
             {[
               { icon: Calendar, label: 'New Booking', to: '/customer/booking', color: 'var(--accent-lime)', bg: 'rgba(223,255,0,0.1)' },
-              { icon: SkipForward, label: 'Skip Today', to: '/customer/skip', color: 'var(--primary-blue)', bg: 'rgba(0,122,255,0.1)' },
+              hasRemainingDays && { icon: SkipForward, label: 'Skip Today', to: '/customer/skip', color: 'var(--primary-blue)', bg: 'rgba(0,122,255,0.1)' },
               { icon: Car, label: 'My Garage', to: '/customer/vehicles', color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.05)' },
-            ].map((a, i) => (
+            ].filter(Boolean).map((a, i) => (
               <Link key={i} to={a.to} className="glass" style={{ padding: '24px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, borderRadius: 24 }}>
                 <div style={{ width: 48, height: 48, borderRadius: 16, background: a.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <a.icon size={24} style={{ color: a.color }} />

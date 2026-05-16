@@ -32,6 +32,18 @@ export default function TaskDetail() {
 
   const handleUpdateStatus = async () => {
     if (status === 'completed') return
+    
+    // Linear Workflow Validation
+    if (status === 'pending' && (!task.photos?.before || task.photos.before.length === 0)) {
+      showToast('Please upload a "Before" photo first!', 'error')
+      return
+    }
+    
+    if (status === 'in-progress' && (!task.photos?.after || task.photos.after.length === 0)) {
+      showToast('Please upload an "After" photo to complete the task!', 'error')
+      return
+    }
+
     const nextStatus = status === 'pending' ? 'in-progress' : 'completed'
     setUpdating(true)
     try {
@@ -40,6 +52,11 @@ export default function TaskDetail() {
       if (nextStatus === 'completed') {
         showToast('Task completed!')
         setTimeout(() => navigate('/cleaner/tasks'), 1500)
+      } else {
+        showToast('Cleaning started!')
+        // Refresh task to ensure photos are up to date
+        const res = await apiClient.get(`/cleaner/tasks/${id}`)
+        setTask(res.task)
       }
     } catch (err) {
       setUpdateError('Failed to update status. Please try again.')
@@ -53,6 +70,10 @@ export default function TaskDetail() {
 
   const statusFlow = { pending: 'in-progress', 'in-progress': 'completed' }
   const btnLabels = { pending: 'Start Cleaning', 'in-progress': 'Mark Complete', completed: 'Completed' }
+
+  // Check photo status
+  const hasBefore = task.photos?.before && task.photos.before.length > 0
+  const hasAfter = task.photos?.after && task.photos.after.length > 0
 
   return (
     <div style={{ padding: '0 20px' }}>
@@ -86,11 +107,48 @@ export default function TaskDetail() {
         <div className="text-label text-secondary" style={{ marginBottom: 12 }}>Service Photos</div>
         <div className="grid-2" style={{ gap: 10 }}>
           {['Before', 'After'].map((label, i) => {
-            // Using a simple query param to pass the upload type (before/after) to PhotoUpload
+            const isBefore = label === 'Before'
+            const hasPhoto = isBefore ? hasBefore : hasAfter
+            const photoUrl = isBefore ? task.photos?.before?.[0] : task.photos?.after?.[0]
+            
+            // Logic to disable/enable links
+            // "Before" always clickable if not completed
+            // "After" only clickable if status is "in-progress"
+            const isDisabled = (!isBefore && status === 'pending') || status === 'completed'
+
             return (
-              <Link key={i} to={`/cleaner/upload?taskId=${task._id}&type=${label.toLowerCase()}`} className="glass" style={{ padding: 28, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, borderStyle: 'dashed' }}>
-                <Camera size={24} style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-body-sm text-secondary">{label}</span>
+              <Link 
+                key={i} 
+                to={isDisabled ? '#' : `/cleaner/upload?taskId=${task._id}&type=${label.toLowerCase()}`} 
+                className={`glass ${isDisabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+                style={{ 
+                  padding: hasPhoto ? 0 : 28, 
+                  textAlign: 'center', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  gap: 8, 
+                  borderStyle: hasPhoto ? 'none' : 'dashed',
+                  overflow: 'hidden',
+                  position: 'relative',
+                  minHeight: 120,
+                  justifyContent: 'center'
+                }}
+              >
+                {hasPhoto ? (
+                  <>
+                    <img src={photoUrl} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} />
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: 10, padding: '4px 0', fontWeight: 600 }}>{label.toUpperCase()}</div>
+                    <div style={{ position: 'absolute', top: 8, right: 8, background: 'var(--success)', borderRadius: '50%', padding: 4 }}>
+                      <CheckCircle2 size={12} color="white" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Camera size={24} style={{ color: 'var(--text-tertiary)' }} />
+                    <span className="text-body-sm text-secondary">{label}</span>
+                  </>
+                )}
               </Link>
             )
           })}
@@ -104,8 +162,13 @@ export default function TaskDetail() {
             {updateError}
           </div>
         )}
+        
         {status !== 'completed' ? (
-          <button disabled={updating} className={`btn btn-primary w-full btn-lg ${updating ? 'opacity-50' : ''}`} onClick={handleUpdateStatus}>
+          <button 
+            disabled={updating || (status === 'pending' && !hasBefore) || (status === 'in-progress' && !hasAfter)} 
+            className={`btn btn-primary w-full btn-lg ${(updating || (status === 'pending' && !hasBefore) || (status === 'in-progress' && !hasAfter)) ? 'opacity-50' : ''}`} 
+            onClick={handleUpdateStatus}
+          >
             {updating ? 'Updating...' : btnLabels[status]}
           </button>
         ) : (
@@ -113,6 +176,13 @@ export default function TaskDetail() {
             <CheckCircle2 size={24} />
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Task Completed</span>
           </div>
+        )}
+        
+        {(status === 'pending' && !hasBefore) && (
+          <p className="text-center text-secondary text-xs mt-12">Upload "Before" photo to start cleaning</p>
+        )}
+        {(status === 'in-progress' && !hasAfter) && (
+          <p className="text-center text-secondary text-xs mt-12">Upload "After" photo to mark as complete</p>
         )}
       </div>
     </div>

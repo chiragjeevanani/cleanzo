@@ -43,6 +43,15 @@ export default function SubscriptionDetail() {
         <Link to="/customer" className="flex items-center gap-8"><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Subscription</span></Link>
       </div>
 
+      {subscription.isTrial && subscription.status === 'Expired' && (
+        <div className="glass animate-fade-in" style={{ padding: 20, marginBottom: 24, border: '1px solid rgba(223, 255, 0, 0.3)', background: 'rgba(223, 255, 0, 0.05)', borderRadius: 20 }}>
+          <p className="text-body-sm font-bold" style={{ color: 'var(--accent-lime)', lineHeight: 1.5 }}>
+            Your trial period is expired. Please purchase another subscription to continue service.
+          </p>
+          <Link to="/customer/packages" className="btn btn-primary btn-sm mt-12" style={{ borderRadius: 10 }}>Renew Now</Link>
+        </div>
+      )}
+
       {/* Circular progress */}
       <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 32px' }}>
         <div style={{ position: 'relative', width: 140, height: 140 }}>
@@ -98,7 +107,7 @@ export default function SubscriptionDetail() {
 
       <div className="flex flex-col gap-8" style={{ paddingBottom: 100 }}>
         <div className="flex gap-8">
-          <Link to="/customer/skip" className="btn btn-ghost" style={{ flex: 1 }}>Skip Day</Link>
+          {remaining > 0 && <Link to="/customer/skip" className="btn btn-ghost" style={{ flex: 1 }}>Skip Day</Link>}
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => showToast('Subscription extension coming soon', 'info')}><TrendingUp size={16} /> Extend</button>
         </div>
         <Link to="/customer/packages" className="btn glass w-full" style={{ border: '1px dashed var(--border-glass)' }}>

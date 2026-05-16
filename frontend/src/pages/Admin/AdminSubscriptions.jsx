@@ -85,6 +85,10 @@ export default function AdminSubscriptions() {
               const vehicleName = s.vehicle?.model || 'Vehicle'
               const packageName = s.package?.name || (s.isTrial ? 'Trial' : 'Basic')
               const statusLower = (s.status || 'Active').toLowerCase()
+              const isExpired = statusLower === 'expired' || statusLower === 'cancelled'
+              const usage = `${s.completedDays || 0}/${s.totalDays || 30}`
+              const remaining = s.remainingDays ?? (s.totalDays - s.completedDays)
+
               return (
                 <tr key={s._id}>
                   <td style={{ fontWeight: 600 }}>
@@ -94,29 +98,37 @@ export default function AdminSubscriptions() {
                     </div>
                   </td>
                   <td className="text-secondary">{vehicleName}</td>
-                  <td><span className={`chip ${packageName === 'Elite' ? 'chip-lime' : packageName === 'Premium' ? 'chip-blue' : 'chip-ghost'}`}>{packageName}</span></td>
+                  <td>
+                    <div className="flex flex-col gap-4">
+                      <span className={`chip ${packageName === 'Elite' ? 'chip-lime' : packageName === 'Premium' ? 'chip-blue' : 'chip-ghost'}`} style={{ width: 'fit-content' }}>{packageName}</span>
+                      <span className="text-[10px] text-tertiary font-bold px-4">Usage: {usage} ({remaining} left)</span>
+                    </div>
+                  </td>
                   <td>
                     <div className="flex items-center gap-8">
                       {s.assignedCleaner ? (
-                        <div className="flex items-center gap-6 text-xs font-bold text-success">
+                        <div className={`flex items-center gap-6 text-xs font-bold ${isExpired ? 'text-tertiary' : 'text-success'}`}>
                           <ShieldCheck size={14} />
                           {s.assignedCleaner.name}
-                          <select 
-                            className="bg-transparent border-none text-[10px] text-tertiary cursor-pointer hover:text-primary outline-none"
-                            onChange={(e) => handleAssignCleaner(s._id, e.target.value)}
-                            value={s.assignedCleaner._id}
-                          >
-                            {cleaners.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                          </select>
+                          {!isExpired && (
+                            <select 
+                              className="bg-transparent border-none text-[10px] text-tertiary cursor-pointer hover:text-primary outline-none"
+                              onChange={(e) => handleAssignCleaner(s._id, e.target.value)}
+                              value={s.assignedCleaner._id}
+                            >
+                              {cleaners.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                            </select>
+                          )}
                         </div>
                       ) : (
                         <select 
-                          className="chip chip-ghost text-xs cursor-pointer outline-none"
+                          className={`chip ${isExpired ? 'opacity-50 cursor-not-allowed' : 'chip-ghost cursor-pointer'} text-xs outline-none`}
                           onChange={(e) => handleAssignCleaner(s._id, e.target.value)}
                           defaultValue=""
+                          disabled={isExpired}
                         >
-                          <option value="" disabled>Assign Cleaner</option>
-                          {cleaners.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                          <option value="" disabled>{isExpired ? 'Subscription Ended' : 'Assign Cleaner'}</option>
+                          {!isExpired && cleaners.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                         </select>
                       )}
                     </div>

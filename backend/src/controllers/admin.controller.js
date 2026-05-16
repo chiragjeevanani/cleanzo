@@ -402,6 +402,7 @@ export const getAllSubscriptions = asyncHandler(async (req, res) => {
       .populate('customer', 'firstName lastName phone')
       .populate('vehicle', 'model number')
       .populate('package', 'name price')
+      .populate('society', 'name')
       .sort('-createdAt').skip(skip).limit(limit),
     Subscription.countDocuments(filter),
   ]);
@@ -605,7 +606,7 @@ export const getCleanerApplications = asyncHandler(async (req, res) => {
   
   const [apps, kycRequestCleaners] = await Promise.all([
     CleanerApplication.find().sort('-createdAt'),
-    Cleaner.find({ kycStatus: { $in: ['pending', 'rejected'] } }).sort('-updatedAt').select('name phone email city kyc kycStatus kycRejectionNote createdAt')
+    Cleaner.find({ kycStatus: { $in: ['pending', 'rejected'] } }).sort('-updatedAt').select('name phone email city age fatherName currentAddress permanentAddress localReference kyc kycStatus kycRejectionNote createdAt')
   ]);
 
   // Convert KYC cleaners to a similar format for the frontend
@@ -615,6 +616,11 @@ export const getCleanerApplications = asyncHandler(async (req, res) => {
     phone: c.phone,
     email: c.email,
     city: c.city,
+    age: c.age,
+    fatherName: c.fatherName,
+    currentAddress: c.currentAddress,
+    permanentAddress: c.permanentAddress,
+    localReference: c.localReference,
     kyc: c.kyc,
     status: c.kycStatus === 'rejected' ? 'rejected' : 'pending',
     rejectionNote: c.kycRejectionNote,
@@ -657,6 +663,11 @@ export const updateCleanerApplicationStatus = asyncHandler(async (req, res) => {
           phone: application.phone,
           email: application.email,
           city: application.city,
+          age: application.age,
+          fatherName: application.fatherName,
+          currentAddress: application.currentAddress,
+          permanentAddress: application.permanentAddress,
+          localReference: application.localReference,
           avatar: application.kyc?.livePhoto,
           kycStatus: 'approved',
           kyc: {
@@ -887,6 +898,14 @@ export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
 
   const cleaner = await Cleaner.findById(cleanerId);
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
+
+  if (subscription.status === 'Expired' || subscription.status === 'Cancelled') {
+    throw new ApiError(400, 'Cannot assign cleaner to an expired or cancelled subscription');
+  }
+
+  if (subscription.isTrial && subscription.completedDays >= 1) {
+    throw new ApiError(400, 'Trial subscription has already been used');
+  }
 
   subscription.assignedCleaner = cleanerId;
   await subscription.save();
