@@ -82,5 +82,5 @@ export const passwordLoginSchema = Joi.object({
     .required()
     .messages({ 'string.pattern.base': 'Phone number must be exactly 10 digits.' }),
   password: Joi.string().required(),
-  role: Joi.string().valid('customer').required(),
+  role: Joi.string().valid('customer', 'crew', 'cleaner').required(),
 });
