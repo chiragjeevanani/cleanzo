@@ -37,7 +37,7 @@ export const getTodayTasks = asyncHandler(async (req, res) => {
     date: { $gte: today, $lt: tomorrow },
   })
     .populate('vehicle', 'model number parking color')
-    .populate('customer', 'name phone')
+    .populate('customer', 'firstName lastName phone')
     .populate('subscription', 'package')
     .sort('scheduledTime')
     .lean();
@@ -48,7 +48,7 @@ export const getTodayTasks = asyncHandler(async (req, res) => {
 export const getTaskById = asyncHandler(async (req, res) => {
   const task = await Task.findOne({ _id: req.params.id, cleaner: req.user._id })
     .populate('vehicle', 'model number parking color type')
-    .populate('customer', 'name phone addresses');
+    .populate('customer', 'firstName lastName phone addresses');
   if (!task) throw new ApiError(404, 'Task not found');
   res.json({ success: true, task });
 });
@@ -92,7 +92,13 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
     const sub = await Subscription.findById(task.subscription);
     if (sub) {
       sub.completedDays += 1;
-      sub.remainingDays = sub.totalDays - sub.completedDays - sub.skippedDays;
+      sub.remainingDays = Math.max(0, sub.totalDays - sub.completedDays - sub.skippedDays);
+
+      // If trial subscription, mark as Expired after first service
+      if (sub.isTrial && sub.completedDays >= 1) {
+        sub.status = 'Expired';
+        sub.remainingDays = 0;
+      }
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
