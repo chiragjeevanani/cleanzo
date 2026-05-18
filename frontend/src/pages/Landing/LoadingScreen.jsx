@@ -20,15 +20,12 @@ export default function LoadingScreen({ onComplete }) {
           setTimeout(() => onComplete?.(), 500)
           return 100
         }
-        
-        const newStatusIdx = Math.floor((prev / 100) * statusMessages.length)
-        if (newStatusIdx !== statusIdx) setStatusIdx(newStatusIdx)
-
+        setStatusIdx(Math.floor((prev / 100) * statusMessages.length))
         return prev + 2
       })
     }, 40)
     return () => clearInterval(interval)
-  }, [onComplete, statusIdx])
+  }, [onComplete])
 
   return (
     <div className="loading-screen simple-theme">

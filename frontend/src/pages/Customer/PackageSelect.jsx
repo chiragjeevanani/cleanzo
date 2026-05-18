@@ -12,6 +12,7 @@ export default function PackageSelect() {
   const loading = dataLoading.packages || dataLoading.subscriptions
   const error = '' // Handled by global context if needed
 
+  if (loading) return (
     <div className="app-shell">
       <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
         <div className="skeleton" style={{ width: 150, height: 24, borderRadius: 8 }} />

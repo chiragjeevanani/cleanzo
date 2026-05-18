@@ -60,11 +60,13 @@
 .stat-item:nth-child(even) .stat-number {
   background: linear-gradient(135deg, var(--accent-lime), var(--primary-blue));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .stat-item:nth-child(odd) .stat-number {
   background: linear-gradient(135deg, var(--primary-blue), var(--accent-lime));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 

@@ -18,9 +18,25 @@ const HERO_IMAGE_URL = 'https://images.unsplash.com/photo-1618843479313-40f8afb4
 export default function LandingPage() {
   const { theme } = useTheme()
   const [loading, setLoading] = useState(true)
+  const [progressDone, setProgressDone] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
   const mainRef = useRef(null)
 
-  const handleLoadComplete = useCallback(() => setLoading(false), [])
+  const handleLoadComplete = useCallback(() => setProgressDone(true), [])
+
+  // Preload hero image; dismiss loading screen only when both progress and image are ready
+  useEffect(() => {
+    const img = new Image()
+    img.onload = () => setImageLoaded(true)
+    img.onerror = () => setImageLoaded(true)
+    img.src = HERO_IMAGE_URL
+    const timeout = setTimeout(() => setImageLoaded(true), 5000)
+    return () => clearTimeout(timeout)
+  }, [])
+
+  useEffect(() => {
+    if (progressDone && imageLoaded) setLoading(false)
+  }, [progressDone, imageLoaded])
 
   /* Scroll-reveal observer */
   useEffect(() => {
@@ -47,20 +63,25 @@ export default function LandingPage() {
 
   return (
     <div className={`landing-page-root theme-${theme}`}>
-      {loading && <LoadingScreen onComplete={handleLoadComplete} />}
-      <div className="scroll-progress-bar" id="scroll-progress" />
-      <Navbar />
-      <main ref={mainRef} className="landing-main">
-        <HeroSection bgImageUrl={HERO_IMAGE_URL} heroReady={!loading} />
-        <PrecisionSection />
-        <ServicesSection />
-        <PricingSection />
-        <ProcessSection />
-        <TestimonialsSection />
-        <AppDownloadSection />
-        <FAQSection />
-        <Footer />
-      </main>
+      {loading ? (
+        <LoadingScreen onComplete={handleLoadComplete} />
+      ) : (
+        <>
+          <div className="scroll-progress-bar" id="scroll-progress" />
+          <Navbar />
+          <main ref={mainRef} className="landing-main">
+            <HeroSection bgImageUrl={HERO_IMAGE_URL} heroReady={true} />
+            <PrecisionSection />
+            <ServicesSection />
+            <PricingSection />
+            <ProcessSection />
+            <TestimonialsSection />
+            <AppDownloadSection />
+            <FAQSection />
+            <Footer />
+          </main>
+        </>
+      )}
     </div>
   )
 }
