@@ -4,6 +4,7 @@ import Subscription from '../models/Subscription.js';
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
 import Society from '../models/Society.js';
+import { getISTMidnight } from '../utils/dateHelper.js';
 
 // ─── Job 1: Expire referral discounts (midnight) ──────────────────────────────
 const expireReferralDiscounts = async () => {
@@ -61,8 +62,9 @@ const expireSubscriptions = async () => {
 // ─── Job 3: Create daily tasks for all active subscriptions (4 AM) ────────────
 const createDailyTasks = async () => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getISTMidnight();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     const activeSubs = await Subscription.find({ status: 'Active' })
       .populate('package', 'name')
@@ -74,10 +76,10 @@ const createDailyTasks = async () => {
       return;
     }
 
-    // One query to find all sub IDs that already have a task today
+    // One query to find all sub IDs that already have a task today (range check)
     const subIds = activeSubs.map(s => s._id);
     const existingToday = await Task.find(
-      { subscription: { $in: subIds }, date: today },
+      { subscription: { $in: subIds }, date: { $gte: today, $lt: tomorrow } },
       { subscription: 1 }
     ).lean();
     const alreadyCreated = new Set(existingToday.map(t => t.subscription.toString()));
@@ -106,8 +108,16 @@ const createDailyTasks = async () => {
     }
 
     if (newDocs.length > 0) {
-      // ordered: false — a single duplicate key won't abort the whole batch
-      await Task.insertMany(newDocs, { ordered: false });
+      try {
+        // ordered: false — a single duplicate key won't abort the whole batch
+        await Task.insertMany(newDocs, { ordered: false });
+      } catch (insertErr) {
+        // Handle duplicate key errors (Mongoose BulkWriteError / MongoServerError)
+        if (insertErr.code !== 11000 && !insertErr.writeErrors?.every(we => we.code === 11000)) {
+          throw insertErr;
+        }
+        console.log('[CRON] Some tasks were already created (duplicate key ignored)');
+      }
     }
 
     console.log(`[CRON] Created ${newDocs.length} tasks for ${today.toDateString()}`);

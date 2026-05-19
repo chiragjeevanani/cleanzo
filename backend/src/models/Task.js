@@ -26,5 +26,6 @@ const taskSchema = new Schema({
 taskSchema.index({ cleaner: 1, date: 1 });        // getTodayTasks
 taskSchema.index({ cleaner: 1, status: 1 });       // getHistory filter
 taskSchema.index({ customer: 1, status: 1 });      // customer history/home
+taskSchema.index({ subscription: 1, date: 1 }, { unique: true });
 
 export default mongoose.model('Task', taskSchema);

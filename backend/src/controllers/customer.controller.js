@@ -17,6 +17,7 @@ import VehicleCategory from '../models/VehicleCategory.js';
 import { logActivity } from './admin.controller.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import { clearCache } from '../middleware/cache.js';
+import { getISTMidnight } from '../utils/dateHelper.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -113,12 +114,13 @@ export const getSubscriptions = asyncHandler(async (req, res) => {
 
 // Helper to calculate dynamic next wash
 const calculateDynamicNextWash = async (subId) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getISTMidnight();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
   
   const todaysTask = await Task.findOne({
     subscription: subId,
-    date: today,
+    date: { $gte: today, $lt: tomorrow },
   }).lean();
 
   let startDate = new Date(today);
@@ -301,17 +303,16 @@ export const skipService = asyncHandler(async (req, res) => {
   if (!date) throw new ApiError(400, 'Date is required to skip service');
 
   // Validate date is a proper ISO date string (YYYY-MM-DD or ISO 8601)
-  const skipDate = new Date(date);
-  if (isNaN(skipDate.getTime())) throw new ApiError(400, 'Invalid date format. Use YYYY-MM-DD.');
-  skipDate.setHours(0, 0, 0, 0);
+  const parsedDate = new Date(date);
+  if (isNaN(parsedDate.getTime())) throw new ApiError(400, 'Invalid date format. Use YYYY-MM-DD.');
+  const skipDate = getISTMidnight(parsedDate);
 
   const sub = await Subscription.findOne({ _id: req.params.id, customer: req.user._id });
   if (!sub) throw new ApiError(404, 'Subscription not found');
   if (sub.status !== 'Active') throw new ApiError(400, 'Only active subscriptions can be skipped');
   if (sub.isTrial) throw new ApiError(400, 'Trial subscriptions cannot be skipped');
-  const tomorrow = new Date();
+  const tomorrow = getISTMidnight();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
 
   if (skipDate < tomorrow) {
     throw new ApiError(400, 'Skip must be requested at least 1 day in advance');

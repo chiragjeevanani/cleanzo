@@ -17,6 +17,7 @@ import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { clearCache } from '../middleware/cache.js';
+import { getISTMidnight } from '../utils/dateHelper.js';
 
 // Helper to log activities
 export const logActivity = async ({ type, message, performer, metadata }) => {
@@ -35,8 +36,7 @@ export const uploadImage = asyncHandler(async (req, res) => {
 
 // ─── DASHBOARD ───────────────────────────────────
 export const getDashboard = asyncHandler(async (req, res) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getISTMidnight();
 
   // Month boundaries for growth calculation
   const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -911,8 +911,7 @@ export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
   await subscription.save();
 
   // Automatically create or update today's task
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getISTMidnight();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -929,16 +928,31 @@ export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
       if (slot?.timeWindow) scheduledTime = slot.timeWindow.split(' - ')[0];
     }
 
-    await Task.create({
-      subscription: subscriptionId,
-      customer: subscription.customer,
-      cleaner: cleanerId,
-      vehicle: subscription.vehicle,
-      date: today,
-      scheduledTime,
-      status: 'pending',
-      packageName: subscription.package?.name || (subscription.isTrial ? 'Trial' : 'Standard'),
-    });
+    try {
+      await Task.create({
+        subscription: subscriptionId,
+        customer: subscription.customer,
+        cleaner: cleanerId,
+        vehicle: subscription.vehicle,
+        date: today,
+        scheduledTime,
+        status: 'pending',
+        packageName: subscription.package?.name || (subscription.isTrial ? 'Trial' : 'Standard'),
+      });
+    } catch (createErr) {
+      if (createErr.code !== 11000) {
+        throw createErr;
+      }
+      // If a task was created in parallel, just update its cleaner
+      const duplicateTask = await Task.findOne({
+        subscription: subscriptionId,
+        date: { $gte: today, $lt: tomorrow }
+      });
+      if (duplicateTask) {
+        duplicateTask.cleaner = cleanerId;
+        await duplicateTask.save();
+      }
+    }
   } else {
     // Force update the cleaner even if one was already assigned (handles re-assignment)
     existingTask.cleaner = cleanerId;

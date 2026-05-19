@@ -5,6 +5,7 @@ import Notification from '../models/Notification.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
+import { getISTMidnight } from '../utils/dateHelper.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -27,8 +28,7 @@ export const toggleAvailability = asyncHandler(async (req, res) => {
 
 // ─── TASKS ───────────────────────────────────────
 export const getTodayTasks = asyncHandler(async (req, res) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getISTMidnight();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -100,8 +100,7 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
         sub.remainingDays = 0;
       }
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = getISTMidnight();
       
       const skippedTasks = await Task.find({
         subscription: sub._id,
@@ -128,8 +127,7 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
 
   // Auto-mark attendance on first action of the day
   const { default: Attendance } = await import('../models/Attendance.js');
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getISTMidnight();
   await Attendance.findOneAndUpdate(
     { cleaner: req.user._id, date: today },
     {
@@ -287,8 +285,7 @@ export const requestLeave = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
 
-  const leaveDate = new Date(date);
-  leaveDate.setHours(0, 0, 0, 0);
+  const leaveDate = getISTMidnight(date);
 
   const { default: Attendance } = await import('../models/Attendance.js');
   

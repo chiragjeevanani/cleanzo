@@ -5,6 +5,7 @@ import Subscription from '../models/Subscription.js';
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
 import Society from '../models/Society.js';
+import { getISTMidnight } from '../utils/dateHelper.js';
 
 // Import cron job functions directly for unit-testing without the scheduler
 import { createCustomer, createCleaner, createVehicle, createSociety } from './helpers.js';
@@ -138,9 +139,11 @@ describe('CRON-3 | createDailyTasks idempotency', () => {
       assignedCleaner: cleaner._id,
     });
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = getISTMidnight();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     const activeSubs = await Subscription.find({ status: 'Active' }).populate('package', 'name').populate('assignedCleaner', '_id').populate('society', 'slots');
-    const existing = await Task.find({ subscription: { $in: activeSubs.map(s => s._id) }, date: today }, { subscription: 1 }).lean();
+    const existing = await Task.find({ subscription: { $in: activeSubs.map(s => s._id) }, date: { $gte: today, $lt: tomorrow } }, { subscription: 1 }).lean();
     const alreadyCreated = new Set(existing.map(t => t.subscription.toString()));
 
     const newDocs = [];
@@ -150,7 +153,7 @@ describe('CRON-3 | createDailyTasks idempotency', () => {
     }
     if (newDocs.length > 0) await Task.insertMany(newDocs, { ordered: false });
 
-    const tasks = await Task.find({ subscription: sub._id, date: today });
+    const tasks = await Task.find({ subscription: sub._id, date: { $gte: today, $lt: tomorrow } });
     expect(tasks.length).toBe(1);
   });
 
@@ -165,13 +168,15 @@ describe('CRON-3 | createDailyTasks idempotency', () => {
       totalDays: 30, remainingDays: 30, amount: 399, status: 'Active',
     });
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = getISTMidnight();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     // Replicate actual cron Set-based deduplication logic
     async function runCreateDailyTasks() {
       const activeSubs = await Subscription.find({ status: 'Active' });
       const existing = await Task.find(
-        { subscription: { $in: activeSubs.map(s => s._id) }, date: today },
+        { subscription: { $in: activeSubs.map(s => s._id) }, date: { $gte: today, $lt: tomorrow } },
         { subscription: 1 }
       ).lean();
       const alreadyCreated = new Set(existing.map(t => t.subscription.toString()));
@@ -181,7 +186,15 @@ describe('CRON-3 | createDailyTasks idempotency', () => {
         if (alreadyCreated.has(s._id.toString())) continue;
         newDocs.push({ subscription: s._id, customer: s.customer, vehicle: s.vehicle, date: today, status: 'pending', packageName: 'Standard' });
       }
-      if (newDocs.length > 0) await Task.insertMany(newDocs, { ordered: false });
+      if (newDocs.length > 0) {
+        try {
+          await Task.insertMany(newDocs, { ordered: false });
+        } catch (insertErr) {
+          if (insertErr.code !== 11000 && !insertErr.writeErrors?.every(we => we.code === 11000)) {
+            throw insertErr;
+          }
+        }
+      }
     }
 
     // First run → creates 1 task
@@ -189,7 +202,7 @@ describe('CRON-3 | createDailyTasks idempotency', () => {
     // Second run → Set already contains sub._id → newDocs is empty → no insert
     await runCreateDailyTasks();
 
-    const tasks = await Task.find({ subscription: sub._id, date: today });
+    const tasks = await Task.find({ subscription: sub._id, date: { $gte: today, $lt: tomorrow } });
     expect(tasks.length).toBe(1);
   });
 });
