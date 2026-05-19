@@ -11,6 +11,7 @@ import { normalizePhone } from '../utils/helpers.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logActivity } from './admin.controller.js';
+import { syncCleanerStats } from '../utils/cleanerStats.js';
 
 const generateToken = (id, role) =>
   jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -51,7 +52,11 @@ const userResponse = (user, role) => ({
   referralCode: user.referralCode,
   avatar: user.avatar,
   kycStatus: user.kycStatus,
-  ...(role === 'cleaner' && { kycRejectionNote: user.kycRejectionNote }),
+  ...(role === 'cleaner' && { 
+    kycRejectionNote: user.kycRejectionNote,
+    completionRate: user.completionRate,
+    totalCompleted: user.totalCompleted
+  }),
 });
 
 const sendTokenResponse = async (user, role, res) => {
@@ -385,7 +390,13 @@ export const handleResetPassword = asyncHandler(async (req, res) => {
  * Protected
  */
 export const getMe = asyncHandler(async (req, res) => {
-  res.json({ success: true, user: req.user, role: req.userRole });
+  if (req.userRole === 'cleaner') {
+    await syncCleanerStats(req.user._id);
+    const updatedUser = await Cleaner.findById(req.user._id);
+    res.json({ success: true, user: updatedUser, role: req.userRole });
+  } else {
+    res.json({ success: true, user: req.user, role: req.userRole });
+  }
 });
 
 /**

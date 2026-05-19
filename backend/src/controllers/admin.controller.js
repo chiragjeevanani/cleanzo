@@ -18,6 +18,7 @@ import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { clearCache } from '../middleware/cache.js';
 import { getISTMidnight } from '../utils/dateHelper.js';
+import { syncCleanerStats } from '../utils/cleanerStats.js';
 
 // Helper to log activities
 export const logActivity = async ({ type, message, performer, metadata }) => {
@@ -250,6 +251,7 @@ export const deleteUser = asyncHandler(async (req, res) => {
 });
 
 export const getCleanerById = asyncHandler(async (req, res) => {
+  await syncCleanerStats(req.params.id);
   const cleaner = await Cleaner.findById(req.params.id);
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
   
@@ -271,10 +273,19 @@ export const getCleaners = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   const [cleaners, total] = await Promise.all([
-    Cleaner.find().sort('-createdAt').skip(skip).limit(limit).lean(),
+    Cleaner.find().sort('-createdAt').skip(skip).limit(limit),
     Cleaner.countDocuments(),
   ]);
-  res.json({ success: true, cleaners, page, totalPages: Math.ceil(total / limit), total });
+
+  // Sync cleaner stats dynamically before returning the list
+  const syncedCleaners = await Promise.all(
+    cleaners.map(async (c) => {
+      await syncCleanerStats(c._id);
+      return Cleaner.findById(c._id).lean();
+    })
+  );
+
+  res.json({ success: true, cleaners: syncedCleaners, page, totalPages: Math.ceil(total / limit), total });
 });
 
 export const addCleaner = asyncHandler(async (req, res) => {
@@ -907,6 +918,7 @@ export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Trial subscription has already been used');
   }
 
+  const previousCleanerId = subscription.assignedCleaner || null;
   subscription.assignedCleaner = cleanerId;
   await subscription.save();
 
@@ -957,6 +969,12 @@ export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
     // Force update the cleaner even if one was already assigned (handles re-assignment)
     existingTask.cleaner = cleanerId;
     await existingTask.save();
+  }
+
+  // Recalculate stats for the new cleaner and the old cleaner
+  await syncCleanerStats(cleanerId);
+  if (previousCleanerId && previousCleanerId.toString() !== cleanerId.toString()) {
+    await syncCleanerStats(previousCleanerId);
   }
 
   await logActivity({

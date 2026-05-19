@@ -6,11 +6,14 @@ import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import { getISTMidnight } from '../utils/dateHelper.js';
+import { syncCleanerStats } from '../utils/cleanerStats.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
 export const getProfile = asyncHandler(async (req, res) => {
-  res.json({ success: true, user: req.user });
+  await syncCleanerStats(req.user._id);
+  const updatedCleaner = await Cleaner.findById(req.user._id);
+  res.json({ success: true, user: updatedCleaner });
 });
 
 export const updateProfile = asyncHandler(async (req, res) => {
@@ -78,15 +81,7 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
 
   if (status === 'completed' && updatedTask) {
     // Update cleaner stats only after confirming the task was actually updated
-    const [cleaner, totalAssigned] = await Promise.all([
-      Cleaner.findById(req.user._id),
-      Task.countDocuments({ cleaner: req.user._id }),
-    ]);
-    cleaner.totalCompleted += 1;
-    cleaner.completionRate = totalAssigned > 0
-      ? Math.min(100, Math.round((cleaner.totalCompleted / totalAssigned) * 100))
-      : 100;
-    await cleaner.save({ validateModifiedOnly: true });
+    await syncCleanerStats(req.user._id);
 
     // Update subscription completed days and nextWash
     const sub = await Subscription.findById(task.subscription);
