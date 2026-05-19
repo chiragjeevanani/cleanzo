@@ -94,8 +94,8 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
       sub.completedDays += 1;
       sub.remainingDays = Math.max(0, sub.totalDays - sub.completedDays - sub.skippedDays);
 
-      // If trial subscription, mark as Expired after first service
-      if (sub.isTrial && sub.completedDays >= 1) {
+      // If no usage left (or trial limits reached), mark as Expired
+      if (sub.remainingDays <= 0 || (sub.isTrial && sub.completedDays >= 1)) {
         sub.status = 'Expired';
         sub.remainingDays = 0;
       }
