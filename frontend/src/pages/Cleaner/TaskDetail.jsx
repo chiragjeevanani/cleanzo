@@ -86,7 +86,7 @@ export default function TaskDetail() {
       {/* Car Info */}
       <div className="glass" style={{ padding: 24, marginBottom: 16 }}>
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, marginBottom: 4 }}>{task.vehicle?.model || 'Vehicle'}</div>
-        <div className="text-body-sm" style={{ color: 'var(--accent-lime)', fontWeight: 600, marginBottom: 16 }}>{task.vehicle?.number || 'Plate'}</div>
+        <div className="text-body-sm" style={{ color: 'var(--text-accent)', fontWeight: 600, marginBottom: 16 }}>{task.vehicle?.number || 'Plate'}</div>
         <div className="flex flex-col gap-12">
           {[
             { icon: User, label: 'Customer', value: task.customer?.name || task.customer?.phone || 'Customer' },

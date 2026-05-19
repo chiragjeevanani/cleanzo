@@ -171,7 +171,7 @@ function DocUpload({ step, preview, onFile, onCamera }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {preview ? (
-        <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', border: '2px solid var(--accent-lime)' }}>
+        <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', border: '2px solid var(--bg-accent)' }}>
           <img src={preview} alt="Document preview" style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block' }} />
           <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(101,199,55,0.9)', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CheckCircle2 size={20} color="#000" />
@@ -272,7 +272,7 @@ export default function CleanerKYC() {
   if (submitted) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', padding: 24, flexDirection: 'column', gap: 24, textAlign: 'center' }}>
       {previews.live_photo && (
-        <div style={{ width: 100, height: 100, borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--accent-lime)' }}>
+        <div style={{ width: 100, height: 100, borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--bg-accent)' }}>
           <img src={previews.live_photo} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       )}
@@ -363,7 +363,7 @@ export default function CleanerKYC() {
               /* Live photo — camera only */
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {previews.live_photo ? (
-                  <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', border: '3px solid var(--accent-lime)' }}>
+                  <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', border: '3px solid var(--bg-accent)' }}>
                     <img src={previews.live_photo} alt="Live photo" style={{ width: '100%', height: 280, objectFit: 'cover', display: 'block' }} />
                     <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(101,199,55,0.9)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <CheckCircle2 size={22} color="#000" />

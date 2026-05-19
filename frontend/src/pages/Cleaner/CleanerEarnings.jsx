@@ -40,7 +40,7 @@ export default function CleanerEarnings() {
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>My Earnings</h1>
           <p className="text-secondary" style={{ fontSize: 13, marginTop: 3 }}>Current month payout</p>
         </div>
-        <div style={{ width: 48, height: 48, borderRadius: 16, background: 'rgba(var(--accent-lime-rgb, 223,255,0), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-lime)' }}>
+        <div style={{ width: 48, height: 48, borderRadius: 16, background: 'rgba(var(--bg-accent-rgb, 223,255,0), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-accent)' }}>
           <TrendingUp size={22} />
         </div>
       </div>
@@ -109,13 +109,13 @@ export default function CleanerEarnings() {
 
         <div className="flex justify-between items-center" style={{ paddingTop: 16, borderTop: '2px dashed var(--divider)' }}>
           <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-tertiary)' }}>Net Payable</span>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--accent-lime)' }}>₹{data?.totalEarnings ?? 0}</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-accent)' }}>₹{data?.totalEarnings ?? 0}</span>
         </div>
       </div>
 
       {/* Info Banner */}
-      <div style={{ background: 'rgba(var(--accent-lime-rgb, 223,255,0), 0.05)', borderRadius: 24, padding: '20px 20px', marginBottom: 16, border: '1px solid rgba(var(--accent-lime-rgb, 223,255,0), 0.12)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-lime)', flexShrink: 0 }}>
+      <div style={{ background: 'rgba(var(--bg-accent-rgb, 223,255,0), 0.05)', borderRadius: 24, padding: '20px 20px', marginBottom: 16, border: '1px solid rgba(var(--bg-accent-rgb, 223,255,0), 0.12)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-accent)', flexShrink: 0 }}>
           <ShieldCheck size={22} />
         </div>
         <div>

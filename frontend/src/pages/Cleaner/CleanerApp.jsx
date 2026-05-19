@@ -77,7 +77,7 @@ export default function CleanerApp() {
               <div style={{ position: 'relative', display: 'inline-flex' }}>
                 <t.icon size={22} />
                 {t.label === 'Tasks' && pendingCount > 0 && (
-                  <div style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-lime)', boxShadow: '0 0 6px var(--accent-lime)' }} />
+                  <div style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, borderRadius: '50%', background: 'var(--bg-accent)', boxShadow: '0 0 6px var(--bg-accent)' }} />
                 )}
               </div>
               <span>{t.label}</span>

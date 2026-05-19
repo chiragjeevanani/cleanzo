@@ -23,7 +23,7 @@ export default function ProtectedRoute({ children, role, redirectTo = '/login' }
           height: 40,
           borderRadius: '50%',
           border: '3px solid var(--border-glass)',
-          borderTopColor: 'var(--accent-lime)',
+          borderTopColor: 'var(--text-accent)',
           animation: 'spin 0.8s linear infinite',
         }} />
       </div>

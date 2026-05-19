@@ -77,7 +77,7 @@ const CleanerAttendance = () => {
       <div className="glass" style={{ padding: 24, borderRadius: 28, marginBottom: 32, border: '1px solid var(--border-glass)' }}>
         <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
           <div className="flex items-center gap-10">
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(223,255,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(var(--bg-accent-rgb), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <CalendarCheck size={20} className="text-lime" />
             </div>
             <span style={{ fontWeight: 700, fontSize: 16 }}>Monthly Summary</span>
@@ -87,7 +87,7 @@ const CleanerAttendance = () => {
 
         <div className="grid grid-cols-3 gap-12">
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--accent-lime)' }}>{stats.present}</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>{stats.present}</div>
             <div className="text-label" style={{ fontSize: 9, marginTop: 4, color: 'var(--text-tertiary)' }}>PRESENT</div>
           </div>
           <div style={{ textAlign: 'center', borderLeft: '1px solid var(--divider)', borderRight: '1px solid var(--divider)' }}>
@@ -125,7 +125,7 @@ const CleanerAttendance = () => {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: 16,
-                  border: isToday ? '1px solid var(--accent-lime)' : '1px solid var(--border-glass)',
+                  border: isToday ? '1px solid var(--bg-accent)' : '1px solid var(--border-glass)',
                   opacity: date > new Date() ? 0.4 : 1
                 }}
               >
@@ -133,19 +133,19 @@ const CleanerAttendance = () => {
                   width: 44, 
                   height: 44, 
                   borderRadius: 14, 
-                  background: isToday ? 'var(--accent-lime)' : 'rgba(255,255,255,0.05)', 
+                  background: isToday ? 'var(--bg-accent)' : 'rgba(255,255,255,0.05)', 
                   display: 'flex', 
                   flexDirection: 'column', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  color: isToday ? '#000' : 'var(--text-primary)'
+                  color: isToday ? 'var(--text-on-accent)' : 'var(--text-primary)'
                 }}>
                   <span style={{ fontSize: 9, fontWeight: 900, textTransform: 'uppercase', lineHeight: 1 }}>{date.toLocaleDateString('default', { weekday: 'short' })}</span>
                   <span style={{ fontSize: 16, fontWeight: 900, marginTop: 2, lineHeight: 1 }}>{dayNum}</span>
                 </div>
 
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15, textTransform: 'capitalize', color: status === 'present' ? 'var(--accent-lime)' : 'var(--text-primary)' }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, textTransform: 'capitalize', color: status === 'present' ? 'var(--text-accent)' : 'var(--text-primary)' }}>
                     {status === 'present' ? 'Present' : status === 'absent' ? 'Absent' : status === 'leave' ? 'On Leave' : 'Pending'}
                   </div>
                   {record?.checkIn && (

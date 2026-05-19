@@ -104,15 +104,19 @@ export default function CleanerDashboard() {
           {user?.kycStatus === 'approved' ? (
             <div style={{ 
               padding: '6px 12px', 
-              borderRadius: 10, 
-              background: 'var(--accent-lime)', 
-              color: '#000', 
+              borderRadius: 12, 
+              background: 'rgba(var(--bg-accent-rgb), 0.12)', 
+              color: 'var(--text-accent)', 
               fontSize: 11, 
               fontWeight: 800, 
               textTransform: 'uppercase', 
               letterSpacing: '0.05em',
-              boxShadow: '0 4px 12px rgba(var(--accent-lime-rgb), 0.2)'
+              border: '1px solid rgba(var(--bg-accent-rgb), 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
             }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-accent)', display: 'inline-block' }} className="animate-pulse" />
               Crew Active
             </div>
           ) : user?.kycStatus === 'pending' ? (
@@ -147,14 +151,14 @@ export default function CleanerDashboard() {
             <Link to="/cleaner/kyc" style={{ 
               padding: '6px 12px', 
               borderRadius: 10, 
-              background: 'var(--accent-lime)', 
-              color: '#000', 
+              background: 'var(--bg-accent)', 
+              color: 'var(--text-on-accent)', 
               fontSize: 11, 
               fontWeight: 800, 
               textTransform: 'uppercase', 
               letterSpacing: '0.05em',
               textDecoration: 'none',
-              boxShadow: '0 4px 12px rgba(var(--accent-lime-rgb), 0.2)'
+              boxShadow: '0 4px 12px rgba(var(--bg-accent-rgb), 0.2)'
             }}>
               Submit KYC
             </Link>
@@ -220,17 +224,17 @@ export default function CleanerDashboard() {
           margin: '0 0 20px', 
           padding: '16px', 
           borderRadius: 20, 
-          background: 'linear-gradient(135deg, rgba(var(--accent-lime-rgb), 0.1) 0%, rgba(var(--accent-lime-rgb), 0.03) 100%)', 
-          border: '1px solid rgba(var(--accent-lime-rgb), 0.2)',
+          background: 'linear-gradient(135deg, rgba(var(--bg-accent-rgb), 0.1) 0%, rgba(var(--bg-accent-rgb), 0.03) 100%)', 
+          border: '1px solid rgba(var(--bg-accent-rgb), 0.2)',
           display: 'flex',
           alignItems: 'center',
           gap: 14,
           textDecoration: 'none',
-          boxShadow: '0 8px 32px rgba(var(--accent-lime-rgb), 0.05)'
+          boxShadow: '0 8px 32px rgba(var(--bg-accent-rgb), 0.05)'
         }}>
           <div style={{ 
-            width: 42, height: 42, borderRadius: 12, background: 'var(--accent-lime)', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000' 
+            width: 42, height: 42, borderRadius: 12, background: 'var(--bg-accent)', 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-on-accent)' 
           }}>
             <Award size={22} />
           </div>
@@ -244,9 +248,9 @@ export default function CleanerDashboard() {
 
       {/* Today's count */}
       <div className="glass" style={{ padding: '32px 24px', textAlign: 'center', marginBottom: 20, position: 'relative', overflow: 'hidden', border: '1px solid var(--border-glass-hover)' }}>
-        <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: 140, height: 140, background: 'var(--accent-lime)', filter: 'blur(80px)', opacity: 0.1, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: 140, height: 140, background: 'var(--bg-accent)', filter: 'blur(80px)', opacity: 0.1, pointerEvents: 'none' }} />
         <div className="text-label text-secondary" style={{ marginBottom: 8, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Today's Tasks</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 72, fontWeight: 900, color: 'var(--accent-lime)', lineHeight: 1, letterSpacing: '-0.04em', textShadow: '0 0 30px rgba(var(--accent-lime-rgb), 0.3)' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 72, fontWeight: 900, color: 'var(--text-accent)', lineHeight: 1, letterSpacing: '-0.04em', textShadow: '0 0 30px rgba(var(--bg-accent-rgb), 0.3)' }}>
           {tasks.length}
         </div>
         <div className="text-body-sm text-secondary" style={{ marginTop: 10, fontWeight: 500 }}>vehicles assigned for today</div>
@@ -271,7 +275,7 @@ export default function CleanerDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
         <Link to="/cleaner/earnings" className="glass" style={{ padding: '18px 16px', textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', gap: 14, border: '1px solid var(--border-glass)' }}>
           <div className="flex justify-between items-start">
-            <div style={{ width: 38, height: 38, background: 'var(--accent-lime)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black', boxShadow: '0 4px 12px rgba(var(--accent-lime-rgb), 0.25)' }}>
+            <div style={{ width: 38, height: 38, background: 'var(--bg-accent)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-on-accent)', boxShadow: '0 4px 12px rgba(var(--bg-accent-rgb), 0.25)' }}>
                <IndianRupee size={18} />
             </div>
             <ArrowRight size={14} style={{ opacity: 0.5 }} />
