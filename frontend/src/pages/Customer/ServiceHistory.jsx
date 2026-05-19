@@ -101,7 +101,7 @@ export default function ServiceHistory() {
       </div>
     </div>
   )
-  if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
+
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>

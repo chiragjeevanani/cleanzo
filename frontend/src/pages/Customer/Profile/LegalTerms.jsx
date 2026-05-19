@@ -18,22 +18,22 @@ export default function TermsOfService() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <section>
-            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>1. Acceptance of Terms</h3>
+            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--text-accent)' }}>1. Acceptance of Terms</h3>
             <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>By accessing and using the Cleanzo application and services, you agree to be bound by these Terms of Service. If you do not agree with any part of these terms, you must not use our services. These terms constitute a legally binding agreement between you and Cleanzo.</p>
           </section>
 
           <section>
-            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>2. Service Description</h3>
+            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--text-accent)' }}>2. Service Description</h3>
             <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>Cleanzo provides premium mobile car detailing and dedicated daily doorstep cleaning services. Our service includes exterior cleaning, with interior vacuuming and specialized treatments available as add-ons. We reserve the right to refuse service to any vehicle that poses a health or safety risk or is in a condition that prevents safe cleaning.</p>
           </section>
 
           <section>
-            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>3. User Obligations</h3>
+            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--text-accent)' }}>3. User Obligations</h3>
             <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>You are responsible for providing accurate location data and ensuring that your vehicle is parked in a location where our executives can safely perform the service. You must also ensure that all windows and doors are fully closed prior to the scheduled service time.</p>
           </section>
 
           <section>
-            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>4. Service Availability & External Factors</h3>
+            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--text-accent)' }}>4. Service Availability & External Factors</h3>
             <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>Cleanzo strives to provide 365-day service. However, services may be temporarily suspended due to external factors beyond our control, including:</p>
             <ul className="text-secondary text-body-sm" style={{ paddingLeft: 20, marginTop: 8, listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <li>Heavy Rain or extreme weather conditions.</li>
@@ -44,17 +44,17 @@ export default function TermsOfService() {
           </section>
 
           <section>
-            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>5. Leave Policy</h3>
+            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--text-accent)' }}>5. Leave Policy</h3>
             <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>Our cleaning staff is entitled to **one scheduled leave per month**. This day is already factored into our competitive pricing model and will **not be added back** to your subscription validity. Any additional leaves taken by the staff beyond this will be credited back to your account.</p>
           </section>
 
           <section>
-            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>6. Liability & Damages</h3>
+            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--text-accent)' }}>6. Liability & Damages</h3>
             <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>While we take the utmost care, Cleanzo is not liable for pre-existing damage, loose parts, mechanical issues, or internal electronic failures. We recommend securing or removing all valuables from the vehicle prior to service. Any claims for damage must be reported within 24 hours of service completion.</p>
           </section>
 
           <section>
-            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--accent-lime)' }}>6. Termination of Service</h3>
+            <h3 style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--text-accent)' }}>6. Termination of Service</h3>
             <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6 }}>Cleanzo reserves the right to terminate or suspend your account and access to services at our sole discretion, without notice, for conduct that we believe violates these Terms or is harmful to our interests or other users.</p>
           </section>
         </div>

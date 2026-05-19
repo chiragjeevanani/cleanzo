@@ -1,6 +1,6 @@
 import Skeleton from '../../components/Skeleton'
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Car, ChevronDown, X, Upload } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
@@ -9,6 +9,7 @@ import { useCustomerData } from '../../context/CustomerDataContext'
 const EMPTY_FORM = { brand: '', model: '', number: '', parking: '', category: '', color: '', photos: [] }
 
 export default function VehicleManager() {
+  const navigate = useNavigate()
   const { showToast } = useToast()
   const { vehicles, categories, loading: dataLoading, refreshVehicles, refreshCategories } = useCustomerData()
   
@@ -139,7 +140,7 @@ export default function VehicleManager() {
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
-        <Link to="/customer" className="flex items-center gap-8"><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>My Vehicles</span></Link>
+        <button onClick={() => navigate(-1)} className="flex items-center gap-8 bg-transparent border-none text-[color:var(--text-primary)] cursor-pointer p-0"><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>My Vehicles</span></button>
         <button className="btn btn-primary btn-sm" onClick={() => setAdding(!adding)}><Plus size={16} /> Add</button>
       </div>
 

@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Search, ChevronDown, ChevronUp, MessageCircle, PhoneCall } from 'lucide-react'
 
 export default function HelpSupport() {
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [openFaq, setOpenFaq] = useState(null)
   const isAuthed = localStorage.getItem('cleanzo_authed') === 'true'
@@ -19,9 +20,9 @@ export default function HelpSupport() {
   return (
     <div style={{ padding: '0 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div className="app-header" style={{ padding: '16px 0', marginBottom: 12 }}>
-        <Link to={isAuthed ? "/customer/profile" : "/"} className="flex items-center gap-8">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-8 bg-transparent border-none text-[color:var(--text-primary)] cursor-pointer p-0">
           <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Help & Support</span>
-        </Link>
+        </button>
       </div>
 
       <div className="glass" style={{ display: 'flex', alignItems: 'center', padding: '0 16px', borderRadius: 'var(--radius)', marginBottom: 24 }}>
@@ -60,7 +61,7 @@ export default function HelpSupport() {
         <h3 className="text-label text-secondary" style={{ marginBottom: 16 }}>Still need help?</h3>
         <div className="flex gap-12">
           <button className="btn glass flex-1 flex flex-col items-center justify-center gap-8" style={{ height: 100, border: '1px solid rgba(var(--accent-lime-rgb), 0.3)' }}>
-            <MessageCircle size={24} style={{ color: 'var(--accent-lime)' }} />
+            <MessageCircle size={24} style={{ color: 'var(--text-accent)' }} />
             <span style={{ fontWeight: 600 }}>Live Chat</span>
           </button>
           <button className="btn glass flex-1 flex flex-col items-center justify-center gap-8" style={{ height: 100 }}>

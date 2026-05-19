@@ -52,7 +52,7 @@ export default function PackageSelect() {
 
       <div className="flex flex-col gap-12" style={{ paddingBottom: 100 }}>
         {activeSub && (
-          <Link to="/customer/subscriptions" className="glass" style={{ padding: 20, border: '1px solid var(--accent-lime)', background: 'rgba(var(--accent-lime-rgb), 0.05)' }}>
+          <Link to="/customer/subscriptions" className="glass" style={{ padding: 20, border: '1px solid var(--bg-accent)', background: 'rgba(var(--bg-accent-rgb), 0.05)' }}>
             <div className="flex justify-between items-center" style={{ marginBottom: 12 }}>
               <span className="text-label text-lime">Active Subscription</span>
               <ChevronRight size={16} className="text-lime" />
@@ -78,7 +78,7 @@ export default function PackageSelect() {
                 padding: 24, 
                 display: 'block', 
                 marginBottom: 16,
-                border: isElite ? '1px solid var(--accent-lime)' : '1px solid var(--border-glass)',
+                border: isElite ? '1px solid var(--bg-accent)' : '1px solid var(--border-glass)',
                 boxShadow: isElite ? 'var(--shadow-glow-lime)' : 'var(--shadow-sm)'
               }}
             >
@@ -92,7 +92,7 @@ export default function PackageSelect() {
                 </div>
                 
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--accent-lime)' }}>₹{pkg.price}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-accent)' }}>₹{pkg.price}</div>
                   <div className="text-body-sm text-secondary">/month</div>
                 </div>
               </div>

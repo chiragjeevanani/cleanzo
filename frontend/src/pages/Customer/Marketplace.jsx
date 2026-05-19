@@ -273,7 +273,7 @@ export default function Marketplace() {
                     <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, lineHeight: 1.2 }}>{p.name}</h3>
                     <div className="flex items-center justify-between">
                       <div className="flex flex-col">
-                        <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent-lime)' }}>₹{p.discountPrice || p.price}</span>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-accent)' }}>₹{p.discountPrice || p.price}</span>
                         {p.discountPrice && <span style={{ fontSize: 11, textDecoration: 'line-through', opacity: 0.5 }}>₹{p.price}</span>}
                       </div>
                       <span className="text-[10px] text-secondary font-bold uppercase">{p.category.split(' ')[0]}</span>
@@ -323,7 +323,7 @@ export default function Marketplace() {
                     <img src={item.images[0]} style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover' }} />
                     <div className="flex-1">
                       <h4 style={{ fontSize: 15, fontWeight: 700 }}>{item.name}</h4>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--accent-lime)' }}>₹{item.discountPrice || item.price}</div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-accent)' }}>₹{item.discountPrice || item.price}</div>
                     </div>
                     <div className="flex items-center gap-12 bg-black/20 rounded-xl p-4">
                       <button className="p-4" onClick={() => updateQuantity(item._id, -1)}><Minus size={14} /></button>
