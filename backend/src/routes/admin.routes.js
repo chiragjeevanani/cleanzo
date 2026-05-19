@@ -81,5 +81,8 @@ router.post('/vehicle-categories', ctrl.addVehicleCategory);
 router.put('/vehicle-categories/:id', ctrl.updateVehicleCategory);
 router.delete('/vehicle-categories/:id', ctrl.deleteVehicleCategory);
 
+// Maintenance
+router.post('/maintenance/cleanup-duplicate-tasks', ctrl.cleanupDuplicateTasks);
 
 export default router;
+

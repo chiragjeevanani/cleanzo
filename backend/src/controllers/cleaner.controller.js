@@ -35,7 +35,7 @@ export const getTodayTasks = asyncHandler(async (req, res) => {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const tasks = await Task.find({
+  const rawTasks = await Task.find({
     cleaner: req.user._id,
     date: { $gte: today, $lt: tomorrow },
   })
@@ -44,6 +44,22 @@ export const getTodayTasks = asyncHandler(async (req, res) => {
     .populate('subscription', 'package')
     .sort('scheduledTime')
     .lean();
+
+  // Deduplicate by vehicle — if two tasks exist for the same vehicle on the same
+  // day (e.g. trial + paid subscription overlap), keep only the one with the
+  // most-advanced status so the cleaner sees exactly one card per vehicle.
+  // Priority: completed > in-progress > pending > others
+  const statusPriority = { completed: 4, 'in-progress': 3, pending: 2 };
+  const vehicleMap = new Map();
+  for (const t of rawTasks) {
+    const vehicleId = t.vehicle?._id?.toString() || t.vehicle?.toString();
+    if (!vehicleId) continue;
+    const existing = vehicleMap.get(vehicleId);
+    if (!existing || (statusPriority[t.status] ?? 0) > (statusPriority[existing.status] ?? 0)) {
+      vehicleMap.set(vehicleId, t);
+    }
+  }
+  const tasks = [...vehicleMap.values()];
 
   res.json({ success: true, tasks });
 });

@@ -1014,3 +1014,58 @@ export const deleteVehicleCategory = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Category deleted' });
 });
 
+// ─── MAINTENANCE: CLEANUP DUPLICATE TASKS ────────
+/**
+ * POST /api/admin/maintenance/cleanup-duplicate-tasks
+ * Finds tasks where the same cleaner has multiple entries for the same vehicle
+ * on the same day (happens when a customer has overlapping subscriptions).
+ * Keeps the most-advanced-status task and deletes the rest.
+ * Then resyncs completion stats for all affected cleaners.
+ */
+export const cleanupDuplicateTasks = asyncHandler(async (req, res) => {
+  const statusPriority = { completed: 4, 'in-progress': 3, pending: 2, missed: 1, skipped: 0, rain: 0, curfew: 0 };
+
+  const duplicates = await Task.aggregate([
+    {
+      $group: {
+        _id: { cleaner: '$cleaner', vehicle: '$vehicle', date: '$date' },
+        count: { $sum: 1 },
+        tasks: { $push: { id: '$_id', status: '$status' } }
+      }
+    },
+    { $match: { count: { $gt: 1 } } }
+  ]);
+
+  if (duplicates.length === 0) {
+    return res.json({ success: true, message: 'No duplicate tasks found', deleted: 0 });
+  }
+
+  const toDelete = [];
+  for (const group of duplicates) {
+    const sorted = group.tasks.sort(
+      (a, b) => (statusPriority[b.status] ?? 0) - (statusPriority[a.status] ?? 0)
+    );
+    const [, ...discard] = sorted;
+    toDelete.push(...discard.map(d => d.id));
+  }
+
+  const result = await Task.deleteMany({ _id: { $in: toDelete } });
+
+  const affectedCleanerIds = [...new Set(
+    duplicates.map(d => d._id.cleaner?.toString()).filter(Boolean)
+  )];
+  await Promise.all(affectedCleanerIds.map(id => syncCleanerStats(id)));
+
+  await logActivity({
+    type: 'maintenance',
+    message: `Cleanup: removed ${result.deletedCount} duplicate task(s) across ${duplicates.length} group(s)`,
+    performer: req.user._id,
+  });
+
+  res.json({
+    success: true,
+    message: `Deleted ${result.deletedCount} duplicate task(s). Stats resynced for ${affectedCleanerIds.length} cleaner(s).`,
+    deleted: result.deletedCount,
+    groupsFound: duplicates.length,
+  });
+});
