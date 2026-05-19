@@ -60,7 +60,7 @@
 }
 
 .process-step.active .step-title {
-  color: var(--accent-lime);
+  color: var(--text-accent);
 }
 
 .step-desc {

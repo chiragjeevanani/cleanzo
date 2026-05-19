@@ -37,7 +37,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`landing-nav ${scrolled ? 'nav-scrolled' : ''} ${hidden ? 'nav-hidden' : ''}`}>
+      <nav className={`landing-nav ${scrolled ? 'nav-scrolled' : ''} ${hidden ? 'nav-hidden' : ''} ${mobileOpen ? 'nav-mobile-open' : ''}`}>
         <div className="nav-inner">
           <Link to="/" className="nav-logo">
             <span className="nav-logo-text">CLEANZO</span>

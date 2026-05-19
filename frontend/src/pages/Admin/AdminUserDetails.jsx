@@ -111,7 +111,7 @@ export default function AdminUserDetails() {
                   <div style={{ fontWeight: 600, fontSize: 16 }}>{v.brand} {v.model}</div>
                   <div className="chip chip-ghost mt-4">{v.number}</div>
                 </div>
-                <div className="chip chip-lime" style={{ textTransform: 'capitalize' }}>{v.category.replace('_', ' ')}</div>
+                <div className="chip chip-lime" style={{ textTransform: 'capitalize' }}>{(v.category || 'vehicle').replace('_', ' ')}</div>
               </div>
               <div className="text-sm text-secondary mb-12">
                 Color: {v.color || 'N/A'} <br/>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Loader2 } from 'lucide-react'
+import { Check } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { mockPackages } from '../../data/mockData'
 import './PricingSection.css'
 
 export default function PricingSection() {
@@ -9,12 +10,28 @@ export default function PricingSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let active = true;
     apiClient.get('/public/packages')
       .then(res => {
-        if (res.success) setPackages(res.packages)
+        if (active) {
+          if (res.success && res.packages && res.packages.length > 0) {
+            setPackages(res.packages)
+          } else {
+            setPackages(mockPackages)
+          }
+        }
       })
-      .catch(err => console.error('Failed to fetch packages:', err))
-      .finally(() => setLoading(false))
+      .catch(err => {
+        console.warn('Failed to fetch packages from API, using mock packages:', err)
+        if (active) setPackages(mockPackages)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false;
+    }
   }, [])
 
   return (
@@ -26,8 +43,20 @@ export default function PricingSection() {
         </div>
 
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}>
-            <Loader2 className="animate-spin" size={48} color="var(--accent-lime)" />
+          <div className="pricing-grid-premium">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="skeleton-card">
+                <div className="skeleton-shimmer"></div>
+                <div className="skeleton-element skeleton-title"></div>
+                <div className="skeleton-element skeleton-desc"></div>
+                <div className="skeleton-element skeleton-price"></div>
+                <div className="skeleton-element skeleton-btn"></div>
+                <div className="skeleton-element skeleton-features-title"></div>
+                <div className="skeleton-element skeleton-feature"></div>
+                <div className="skeleton-element skeleton-feature" style={{ width: '75%' }}></div>
+                <div className="skeleton-element skeleton-feature" style={{ width: '85%' }}></div>
+              </div>
+            ))}
           </div>
         ) : (
             <div className="pricing-grid-premium reveal">
@@ -36,12 +65,12 @@ export default function PricingSection() {
                   <p className="text-secondary">No active subscription plans available at the moment. Please check back later.</p>
                 </div>
               ) : packages.map((pkg) => (
-                <div key={pkg._id} className={`pricing-card-premium ${pkg.popular ? 'featured' : ''}`}>
+                <div key={pkg._id || pkg.id} className={`pricing-card-premium ${pkg.popular ? 'featured' : ''}`}>
                   {pkg.popular && <div className="popular-tag">MOST REQUESTED</div>}
                   
                   <div className="card-top">
                     <h3 className="tier-name">{pkg.name}</h3>
-                    <p className="tier-desc" style={{ textTransform: 'capitalize' }}>Tier: {pkg.tier} • For {pkg.category.replace('_', ' ')}s</p>
+                    <p className="tier-desc" style={{ textTransform: 'capitalize' }}>Tier: {pkg.tier} • For {(pkg.category || 'vehicle').replace('_', ' ')}s</p>
                   </div>
   
                   <div className="tier-price">
@@ -51,7 +80,7 @@ export default function PricingSection() {
                   </div>
   
                   <Link to="/login" className={`btn btn-lg pricing-btn ${pkg.popular ? 'btn-primary' : 'btn-glass'}`}>
-                    {pkg.popular ? 'START ₹30 TRIAL' : 'START SUBSCRIPTION'}
+                    {pkg.popular ? 'GET STARTED' : 'START SUBSCRIPTION'}
                   </Link>
   
                   <div className="features-list">
@@ -68,8 +97,9 @@ export default function PricingSection() {
             </div>
         )}
         
-        <div className="pricing-note reveal" style={{ marginTop: '40px', textAlign: 'center', opacity: 0.6, fontSize: '12px' }}>
-          *Pricing varies by vehicle category. One-day trial available for ₹30. Skip days extend subscription validity.
+        <div className="pricing-note-container reveal">
+          <span className="pricing-note-asterisk">*</span>
+          <span>Pricing varies by vehicle category. One-day trial available for <strong className="highlight">₹30</strong>. <strong className="highlight">Skip days</strong> extend subscription validity.</span>
         </div>
       </div>
     </section>

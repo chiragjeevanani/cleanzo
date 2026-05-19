@@ -32,7 +32,7 @@ export default function TestimonialsSection() {
           {reviews.map((review, i) => (
             <div key={i} className="review-card glass">
               <div className="review-stars">
-                {[1,2,3,4,5].map(s => <Star key={s} size={16} fill="var(--accent-lime)" stroke="none" />)}
+                {[1,2,3,4,5].map(s => <Star key={s} size={16} fill="var(--text-accent)" stroke="none" />)}
               </div>
               <p className="review-text">{review.text}</p>
               <div className="review-footer">

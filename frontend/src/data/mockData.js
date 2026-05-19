@@ -14,19 +14,19 @@ export const mockPackages = [
     id: 1, name: 'Basic Plan', tier: 'Essential Care',
     price: 599, duration: 'Monthly', perDay: 20,
     features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Doorstep Service', 'Windshield Rinse'],
-    popular: false
+    popular: false, category: 'hatchback'
   },
   {
     id: 2, name: 'Standard Plan', tier: 'Popular Choice',
     price: 999, duration: 'Monthly', perDay: 33,
     features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Liquid Wax Shine (Weekly)', 'Tire Polish (Weekly)', 'Monthly Interior Add-on'],
-    popular: true
+    popular: true, category: 'sedan'
   },
   {
     id: 3, name: 'Elite Plan', tier: 'Luxury Care',
     price: 1999, duration: 'Monthly', perDay: 66,
     features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Interior Cleaning (Weekly)', 'Microfiber Deep Dry', 'Priority Support'],
-    popular: false
+    popular: false, category: 'suv'
   }
 ]
 

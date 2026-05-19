@@ -26,7 +26,7 @@
 }
 
 .faq-item:hover {
-  border-color: var(--accent-lime);
+  border-color: var(--text-accent);
   background: var(--bg-glass-hover);
 }
 
@@ -42,7 +42,7 @@
 }
 
 .faq-toggle {
-  color: var(--accent-lime);
+  color: var(--text-accent);
   display: flex;
   align-items: center;
   justify-content: center;

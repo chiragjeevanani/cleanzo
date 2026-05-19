@@ -19,6 +19,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   --primary-blue-rgb: 0, 122, 255;
   --accent-lime: #DFFF00;
   --accent-lime-rgb: 223, 255, 0;
+  --text-accent: #DFFF00;
   --bg-primary: #0A0A0A;
   --bg-secondary: #111111;
   --bg-surface: #161616;
@@ -55,6 +56,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   --primary-blue-rgb: 0, 86, 179;
   --accent-lime: #DFFF00;
   --accent-lime-rgb: 223, 255, 0;
+  --text-accent: #0056B3;
   --bg-primary: #F6F7F2;
   --bg-secondary: #EEEEE9;
   --bg-surface: #FFFFFF;

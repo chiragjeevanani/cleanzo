@@ -142,3 +142,18 @@
   transform: rotate(15deg);
 }
 
+/* Ensure navbar elements remain light-colored/visible on dark hero section when transparent and mobile menu is closed */
+.landing-nav:not(.nav-scrolled):not(.nav-mobile-open) {
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --bg-glass: rgba(255, 255, 255, 0.03);
+  --bg-glass-hover: rgba(255, 255, 255, 0.06);
+}
+
+/* Scrolled/Mobile-open state logo text in light theme */
+.theme-light .landing-nav.nav-scrolled .nav-logo-text,
+.theme-light .landing-nav.nav-mobile-open .nav-logo-text {
+  color: var(--primary-blue);
+}
+
