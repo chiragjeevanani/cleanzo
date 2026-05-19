@@ -41,9 +41,18 @@ export default function AdminSubscriptions() {
     }
   }
 
+  const getDisplayStatus = (s) => {
+    const remaining = s.remainingDays ?? (s.totalDays - s.completedDays)
+    let displayStatus = s.status || 'Active'
+    if (remaining <= 0 && displayStatus.toLowerCase() === 'active') {
+      displayStatus = 'Expired'
+    }
+    return displayStatus
+  }
+
   const filtered = filter === 'all'
     ? subs
-    : subs.filter(s => (s.status || '').toLowerCase() === filter)
+    : subs.filter(s => getDisplayStatus(s).toLowerCase() === filter.toLowerCase())
 
   if (loading) return (
     <div>
@@ -87,10 +96,7 @@ export default function AdminSubscriptions() {
               const usage = `${s.completedDays || 0}/${s.totalDays || 30}`
               const remaining = s.remainingDays ?? (s.totalDays - s.completedDays)
 
-              let displayStatus = s.status || 'Active'
-              if (remaining <= 0 && displayStatus.toLowerCase() === 'active') {
-                displayStatus = 'Expired'
-              }
+              const displayStatus = getDisplayStatus(s)
               const statusLower = displayStatus.toLowerCase()
               const isExpired = statusLower === 'expired' || statusLower === 'cancelled'
 
