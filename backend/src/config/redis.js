@@ -5,6 +5,29 @@ dotenv.config();
 
 let redis;
 
+const handleRedisDisable = (client) => {
+  if (!client) return;
+  console.warn('⚠️ Redis connection failed. Disabling Redis caching and continuing in fallback mode.');
+  client.status = 'disabled';
+  client.get = async () => null;
+  client.setex = async () => null;
+  client.scanStream = () => {
+    return {
+      on: (event, handler) => {}
+    };
+  };
+};
+
+const retryStrategy = (times) => {
+  if (times > 3) {
+    setTimeout(() => {
+      handleRedisDisable(redis);
+    }, 0);
+    return null; // Stop retrying
+  }
+  return times * 1000; // Retry after 1s, 2s, 3s
+};
+
 if (process.env.DISABLE_REDIS === 'true') {
   console.log('ℹ️  Redis is disabled via DISABLE_REDIS environment variable');
   
@@ -25,10 +48,7 @@ if (process.env.DISABLE_REDIS === 'true') {
     host: process.env.REDIS_HOST || '127.0.0.1',
     port: process.env.REDIS_PORT || 6379,
     password: process.env.REDIS_PASSWORD || undefined,
-    retryStrategy: (times) => {
-      const delay = Math.min(times * 50, 2000);
-      return delay;
-    },
+    retryStrategy,
     maxRetriesPerRequest: 3,
     enableOfflineQueue: false,
     connectTimeout: 5000,
@@ -39,7 +59,8 @@ if (process.env.DISABLE_REDIS === 'true') {
     ? new Redis(process.env.REDIS_URL, { 
         maxRetriesPerRequest: 3, 
         enableOfflineQueue: false,
-        connectTimeout: 5000
+        connectTimeout: 5000,
+        retryStrategy
       }) 
     : new Redis(redisConfig);
 
@@ -48,7 +69,9 @@ if (process.env.DISABLE_REDIS === 'true') {
   });
 
   redis.on('error', (err) => {
-    console.error('❌ Redis error:', err.message);
+    if (redis.status !== 'disabled') {
+      console.error('❌ Redis error:', err.message);
+    }
   });
 }
 
