@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Share2, Globe } from 'lucide-react'
+import { Instagram, Facebook, Linkedin } from 'lucide-react'
 import './Footer.css'
 
 export default function Footer() {
@@ -12,9 +12,16 @@ export default function Footer() {
             <p className="text-body-sm text-secondary" style={{ maxWidth: 320, marginTop: 16 }}>
               The global benchmark in technical automotive interior restoration and high-performance protection systems.
             </p>
-            <div className="footer-social-premium" style={{ marginTop: 24, display: 'flex', gap: 24 }}>
-              <Share2 size={18} color="var(--text-tertiary)" />
-              <Globe size={18} color="var(--text-tertiary)" />
+            <div className="footer-social-premium" style={{ marginTop: 24, display: 'flex', gap: 16 }}>
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="social-link-icon" aria-label="Instagram">
+                <Instagram size={18} />
+              </a>
+              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="social-link-icon" aria-label="Facebook">
+                <Facebook size={18} />
+              </a>
+              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="social-link-icon" aria-label="LinkedIn">
+                <Linkedin size={18} />
+              </a>
             </div>
           </div>
 
@@ -34,7 +41,7 @@ export default function Footer() {
         </div>
 
         <div className="footer-bottom-premium">
-           <span className="text-body-sm text-tertiary">© 2024 CLEANZO ARTIFACT DEVICES INC. ENGINEERED FOR THE ELITE.</span>
+           <span className="text-body-sm text-tertiary">© {new Date().getFullYear()} CLEANZO ARTIFACT DEVICES INC. ENGINEERED FOR THE ELITE.</span>
         </div>
       </div>
     </footer>

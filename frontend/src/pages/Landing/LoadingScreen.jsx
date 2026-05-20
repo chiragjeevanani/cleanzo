@@ -17,13 +17,13 @@ export default function LoadingScreen({ onComplete }) {
       setProgress(prev => {
         if (prev >= 100) {
           clearInterval(interval)
-          setTimeout(() => onComplete?.(), 500)
+          setTimeout(() => onComplete?.(), 100)
           return 100
         }
-        setStatusIdx(Math.floor((prev / 100) * statusMessages.length))
-        return prev + 2
+        setStatusIdx(Math.min(Math.floor((prev / 100) * statusMessages.length), statusMessages.length - 1))
+        return prev + 10
       })
-    }, 40)
+    }, 15)
     return () => clearInterval(interval)
   }, [onComplete])
 

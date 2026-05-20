@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { Image, Send, Eye, Loader2, Trash2, Globe, ExternalLink, X, Plus } from 'lucide-react'
+import { Image, Send, Eye, Loader2, Trash2, Globe, ExternalLink, X, Plus, MessageSquare, HelpCircle } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
+import TestimonialsManager from './TestimonialsManager'
+import FaqsManager from './FaqsManager'
 
 export default function AdminContent() {
   const { showToast } = useToast()
+  const [activeTab, setActiveTab] = useState('banners')
   
   // Notification State
   const [notification, setNotification] = useState({ title: '', body: '', audience: 'All Users' })
@@ -114,13 +117,44 @@ export default function AdminContent() {
 
   return (
     <div style={{ paddingBottom: 80 }}>
-      <div className="flex justify-between items-center" style={{ marginBottom: 32 }}>
+      <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Content Management</h1>
-          <p className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>Manage banners, offers, and push notifications</p>
+          <p className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>Manage banners, testimonials, FAQs and push notifications</p>
         </div>
       </div>
 
+      {/* Tab Nav */}
+      <div className="flex gap-8" style={{ marginBottom: 28, borderBottom: '1px solid var(--divider)', paddingBottom: 0 }}>
+        {[['banners', Image, 'Banners'], ['testimonials', MessageSquare, 'Testimonials'], ['faqs', HelpCircle, 'FAQs']].map(([id, Icon, label]) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px',
+              fontSize: 13, fontWeight: 600, borderBottom: activeTab === id ? '2px solid var(--accent-lime)' : '2px solid transparent',
+              color: activeTab === id ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              marginBottom: -1, transition: 'color 0.2s'
+            }}
+          >
+            <Icon size={15} />{label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'testimonials' && (
+        <div className="glass" style={{ padding: 32, borderRadius: 28 }}>
+          <TestimonialsManager />
+        </div>
+      )}
+
+      {activeTab === 'faqs' && (
+        <div className="glass" style={{ padding: 32, borderRadius: 28 }}>
+          <FaqsManager />
+        </div>
+      )}
+
+      {activeTab === 'banners' && (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-24">
         {/* Banner Editor */}
         <div className="lg:col-span-7 flex flex-col gap-24">
@@ -351,6 +385,7 @@ export default function AdminContent() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

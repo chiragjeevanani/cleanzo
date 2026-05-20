@@ -2,7 +2,7 @@ import { useState } from 'react'
 import './ProcessSection.css'
 
 const steps = [
-  { id: '01', title: 'SOCIETY SIGNUP', desc: 'Select your residential society and allocated time slot (5 AM - 12 PM) for daily cleaning.' },
+  { id: '01', title: 'SOCIETY SIGNUP', desc: 'Select your residential society and allocated time slot (6 AM - 12 PM) for daily cleaning.' },
   { id: '02', title: 'MICROFIBER CARE', desc: 'Our trained crew performs a water-efficient exterior cleaning using premium microfiber technology.' },
   { id: '03', title: 'DAILY CONSISTENCY', desc: 'Wake up to a clean car every morning. Track service history and manage skips via your dashboard.' },
 ]
@@ -16,7 +16,7 @@ export default function ProcessSection() {
         <div className="process-info reveal">
           <span className="section-label">OPERATIONAL FLOW</span>
           <h2 className="section-title-premium">SOCIETY-WISE<br />RELIABILITY.</h2>
-          <p className="process-intro">Trained crew members allocated society-wise to ensure daily consistent cleaning between 5:00 AM to 12:00 PM.</p>
+          <p className="process-intro">Trained crew members allocated society-wise to ensure daily consistent cleaning between 6:00 AM to 12:00 PM.</p>
 
           <div className="process-steps">
             {steps.map((step, i) => (
@@ -42,7 +42,7 @@ export default function ProcessSection() {
                 <span className="stat-label">RELIABILITY</span>
               </div>
               <div className="process-stat">
-                <span className="stat-value">5AM-12PM</span>
+                <span className="stat-value">6AM-12PM</span>
                 <span className="stat-label">SERVICE WINDOW</span>
               </div>
             </div>

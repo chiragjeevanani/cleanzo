@@ -64,7 +64,12 @@ async function request(url, options = {}) {
     }
 
     if (!response.ok) {
-      const isAuthRoute = url.includes('/login') || url.includes('/verify-otp') || url.includes('/refresh-token') || url.includes('/send-otp');
+      const isAuthRoute = 
+        url.includes('login') || 
+        url.includes('otp') || 
+        url.includes('token') || 
+        url.includes('password') || 
+        url.includes('logout');
       if (response.status === 401 && !options._retry && !isAuthRoute) {
         try {
           const refreshRes = await fetch(`${BASE_URL}/auth/refresh-token`, {

@@ -125,7 +125,7 @@ export default function HeroSection({ bgImageUrl, heroReady }) {
           </h1>
 
           <p className="hero-sub-premium animate-fade-in-up delay-2">
-            Scheduled daily doorstep cleaning at your residential society. Reliability and convenience delivered directly to your parking slot between 5:00 AM to 12:00 PM.
+            Scheduled daily doorstep cleaning at your residential society. Reliability and convenience delivered directly to your parking slot between 6:00 AM to 12:00 PM.
           </p>
 
           <div className="hero-actions-premium animate-fade-in-up delay-3">

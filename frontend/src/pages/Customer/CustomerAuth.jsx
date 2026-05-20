@@ -366,7 +366,7 @@ export default function CustomerAuth() {
           {step !== 'otp' && (
             <div className="glass" style={{ padding: 6, borderRadius: 16, display: 'flex', marginBottom: 28, position: 'relative', border: '1px solid var(--border-glass)' }}>
               <div style={{ position: 'absolute', top: 6, bottom: 6, left: role === 'customer' ? 6 : 'calc(50% + 3px)', width: 'calc(50% - 9px)', background: 'var(--accent-lime)', borderRadius: 12, transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)', zIndex: 0, boxShadow: '0 4px 12px rgba(var(--accent-lime-rgb), 0.3)' }} />
-              {[['customer', 'Customer'], ['crew', 'Crew / Executive']].map(([val, label]) => (
+              {[['customer', 'Car Owner'], ['crew', 'Crew / Executive']].map(([val, label]) => (
                 <button key={val} onClick={() => { setRole(val); setErrorMsg(''); if (val === 'crew') setMode('login'); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'none', color: role === val ? '#000' : 'var(--text-secondary)', fontWeight: 700, fontSize: 14, position: 'relative', zIndex: 1, transition: 'color 0.3s', cursor: 'pointer' }}>
                   {label}
                 </button>

@@ -120,4 +120,25 @@ router.get('/banners', cacheMiddleware(3600), asyncHandler(async (req, res) => {
 router.get('/products', cacheMiddleware(3600), publicCtrl.listProducts);
 router.get('/products/:id', cacheMiddleware(3600), publicCtrl.getProductById);
 
+// ─── TESTIMONIALS ─────────────────────────────────
+router.get('/testimonials', cacheMiddleware(3600), asyncHandler(async (req, res) => {
+  const { default: Testimonial } = await import('../models/Testimonial.js');
+  const testimonials = await Testimonial.find({ isActive: true }).sort('sortOrder -createdAt');
+  res.json({ success: true, testimonials });
+}));
+
+// ─── FAQs ─────────────────────────────────────────
+router.get('/faqs', cacheMiddleware(3600), asyncHandler(async (req, res) => {
+  const { default: FAQ } = await import('../models/FAQ.js');
+  const faqs = await FAQ.find({ isActive: true }).sort('sortOrder -createdAt');
+  res.json({ success: true, faqs });
+}));
+
+// Brands & Models
+router.get('/brands', cacheMiddleware(3600), asyncHandler(async (req, res) => {
+  const { default: Brand } = await import('../models/Brand.js');
+  const brands = await Brand.find({ isActive: true }).sort('name');
+  res.json({ success: true, brands });
+}));
+
 export default router;

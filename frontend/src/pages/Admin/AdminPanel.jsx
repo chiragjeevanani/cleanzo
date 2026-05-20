@@ -2,7 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut, User, MapPin, ShoppingCart } from 'lucide-react'
+import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut, User, MapPin, ShoppingCart, Car } from 'lucide-react'
 import PageLoader from '../../components/PageLoader'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import apiClient from '../../services/apiClient'
@@ -24,6 +24,7 @@ const AdminProfile      = lazy(() => import('./AdminProfile'))
 const AdminNotifications= lazy(() => import('./AdminNotifications'))
 const AdminMarketplace  = lazy(() => import('./AdminMarketplace'))
 const AdminVehicleCategories = lazy(() => import('./AdminVehicleCategories'))
+const AdminBrands = lazy(() => import('./AdminBrands'))
 
 const navItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -33,6 +34,7 @@ const navItems = [
   { path: '/admin/societies', icon: MapPin, label: 'Societies' },
   { path: '/admin/leads', icon: Users, label: 'Leads' },
   { path: '/admin/vehicle-categories', icon: MapPin, label: 'Vehicle Types' },
+  { path: '/admin/brands', icon: Car, label: 'Brands & Models' },
   { path: '/admin/packages', icon: Package, label: 'Packages' },
   { path: '/admin/marketplace', icon: ShoppingCart, label: 'Marketplace' },
   { path: '/admin/subscriptions', icon: CreditCard, label: 'Subscriptions' },
@@ -209,6 +211,7 @@ export default function AdminPanel() {
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="marketplace" element={<AdminMarketplace />} />
             <Route path="vehicle-categories" element={<AdminVehicleCategories />} />
+            <Route path="brands" element={<AdminBrands />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="profile" element={<AdminProfile />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />

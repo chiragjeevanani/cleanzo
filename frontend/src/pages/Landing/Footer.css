@@ -68,3 +68,21 @@
     transform: none;
   }
 }
+
+.social-link-icon {
+  color: var(--text-tertiary);
+  transition: color var(--transition-fast), transform var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.social-link-icon:hover {
+  color: var(--accent-lime);
+  transform: translateY(-2px);
+}
+
+.theme-light .social-link-icon:hover {
+  color: var(--primary-blue);
+}
+

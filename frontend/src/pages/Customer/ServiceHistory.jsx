@@ -124,8 +124,8 @@ export default function ServiceHistory() {
               </div>
               
               {s.status === 'completed' && !isRated && (
-                <button onClick={() => setRatingTask(s)} className="btn btn-ghost" style={{ width: '100%', marginTop: 12, padding: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#FFD700' }}>
-                  <Star size={16} /> Rate this service
+                <button onClick={() => setRatingTask(s)} style={{ width: '100%', marginTop: 12, padding: '10px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#B8860B', background: 'rgba(255, 193, 7, 0.12)', border: '1px solid rgba(255, 193, 7, 0.3)', borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: 'pointer', transition: 'background 0.2s' }}>
+                  <Star size={16} fill="#B8860B" stroke="none" /> Rate this service
                 </button>
               )}
               {isRated && (

@@ -28,6 +28,8 @@ router.put('/cleaners/:id/set-password', ctrl.setCleanerPassword);
 router.get('/packages', ctrl.getAllPackages);
 router.post('/packages', ctrl.createPackage);
 router.put('/packages/:id', ctrl.updatePackage);
+router.delete('/packages/:id', ctrl.deletePackage);
+
 
 router.get('/subscriptions', ctrl.getAllSubscriptions);
 router.put('/subscriptions/:subscriptionId/assign-cleaner', ctrl.assignCleanerToSubscription);
@@ -84,5 +86,24 @@ router.delete('/vehicle-categories/:id', ctrl.deleteVehicleCategory);
 // Maintenance
 router.post('/maintenance/cleanup-duplicate-tasks', ctrl.cleanupDuplicateTasks);
 
+// Testimonials
+router.get('/testimonials', ctrl.getTestimonials);
+router.post('/testimonials', ctrl.createTestimonial);
+router.put('/testimonials/:id', ctrl.updateTestimonial);
+router.delete('/testimonials/:id', ctrl.deleteTestimonial);
+
+// FAQs
+router.get('/faqs', ctrl.getFaqs);
+router.post('/faqs', ctrl.createFaq);
+router.put('/faqs/:id', ctrl.updateFaq);
+router.delete('/faqs/:id', ctrl.deleteFaq);
+
+// Brands & Models
+router.get('/brands', ctrl.getBrands);
+router.post('/brands', ctrl.createBrand);
+router.put('/brands/:id', ctrl.updateBrand);
+router.delete('/brands/:id', ctrl.deleteBrand);
+
 export default router;
+
 

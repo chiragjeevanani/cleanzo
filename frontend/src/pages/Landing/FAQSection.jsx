@@ -1,15 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Minus } from 'lucide-react'
+import apiClient from '../../services/apiClient'
 import './FAQSection.css'
 
-const faqs = [
+const FALLBACK_FAQS = [
   {
     question: "Which societies do you currently serve?",
     answer: "We currently serve 50+ premium residential societies across Delhi-NCR. You can use the search widget in the hero section to check if your society is covered."
   },
   {
     question: "What time is the cleaning performed?",
-    answer: "Our crew operates between 5:00 AM and 12:00 PM daily. This ensures your car is clean and ready before you leave for work."
+    answer: "Our crew operates between 6:00 AM and 12:00 PM daily. This ensures your car is clean and ready before you leave for work."
   },
   {
     question: "Is this a waterless wash?",
@@ -27,6 +28,19 @@ const faqs = [
 
 export default function FAQSection() {
   const [openIdx, setOpenIdx] = useState(0)
+  const [faqs, setFaqs] = useState(FALLBACK_FAQS)
+
+  useEffect(() => {
+    let active = true
+    apiClient.get('/public/faqs')
+      .then(res => {
+        if (active && res.success && res.faqs && res.faqs.length > 0) {
+          setFaqs(res.faqs)
+        }
+      })
+      .catch(() => {/* silent — fallback already set */})
+    return () => { active = false }
+  }, [])
 
   return (
     <section className="faq-section" id="faq">
@@ -39,7 +53,7 @@ export default function FAQSection() {
         <div className="faq-grid">
           {faqs.map((faq, i) => (
             <div 
-              key={i} 
+              key={faq._id || i} 
               className={`faq-item ${openIdx === i ? 'faq-open' : ''}`}
               onClick={() => setOpenIdx(openIdx === i ? -1 : i)}
             >

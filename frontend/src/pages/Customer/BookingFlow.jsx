@@ -9,6 +9,27 @@ import { useLocation } from 'react-router-dom'
 
 const steps = ['Vehicle', 'Location', 'Plan', 'Confirm']
 
+const isVehicleEligibleForPackage = (vehicle, pkg) => {
+  if (!vehicle || !pkg) return false;
+  if (pkg.isTrial) return true;
+
+  // Fallback to category check if applicableModels is not defined or empty (legacy support)
+  if (!pkg.applicableModels || pkg.applicableModels.length === 0) {
+    return vehicle.category === pkg.category;
+  }
+
+  const brandMatch = pkg.applicableModels.find(
+    app => app.brand.toLowerCase() === vehicle.brand.toLowerCase()
+  );
+
+  if (!brandMatch) return false;
+  if (!brandMatch.models || brandMatch.models.length === 0) return true;
+
+  return brandMatch.models.some(
+    m => m.toLowerCase() === vehicle.model.toLowerCase()
+  );
+};
+
 export default function BookingFlow() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -52,7 +73,7 @@ export default function BookingFlow() {
     if (vehicles.length > 0 && !selectedVehicle) {
       if (initialPackageId) {
         const pkg = packages.find(p => p._id === initialPackageId)
-        const eligible = vehicles.find(v => v.category === pkg?.category)
+        const eligible = vehicles.find(v => isVehicleEligibleForPackage(v, pkg))
         if (eligible) setSelectedVehicle(eligible)
         else setSelectedVehicle(vehicles[0])
       } else {
@@ -259,23 +280,23 @@ export default function BookingFlow() {
                 <p className="text-secondary mb-24 font-medium">No vehicles found in your profile.</p>
                 <button className="btn btn-primary w-full" style={{ borderRadius: 16, padding: 18 }} onClick={() => navigate('/customer/profile')}>Add Your First Vehicle</button>
               </div>
-            ) : selectedPkg && vehicles.filter(v => v.category === selectedPkg.category).length === 0 ? (
+            ) : selectedPkg && vehicles.filter(v => isVehicleEligibleForPackage(v, selectedPkg)).length === 0 ? (
               <div className="glass" style={{ padding: '48px 40px', textAlign: 'center', borderRadius: 32 }}>
                 <div style={{ width: 80, height: 80, background: 'rgba(255,50,50,0.05)', borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', color: 'var(--error)' }}>
                   <Car size={36} />
                 </div>
                 <h4 style={{ marginBottom: 12, fontWeight: 700, fontSize: 24 }}>Ineligible Vehicle</h4>
                 <p className="text-secondary text-body-sm" style={{ marginBottom: 32, lineHeight: 1.6 }}>
-                  This plan is only for <strong>{selectedPkg.category}</strong>. <br/> None of your vehicles match this category.
+                  This plan is not applicable to any of your vehicles.
                 </p>
                 <div className="flex flex-col gap-12">
                   <button className="btn btn-ghost w-full" style={{ padding: 16, borderRadius: 16 }} onClick={() => setSelectedPkg(null)}>Choose Different Plan</button>
-                  <button className="btn btn-primary w-full" style={{ padding: 18, borderRadius: 18, fontWeight: 700 }} onClick={() => navigate('/customer/vehicles')}>Add {selectedPkg.category}</button>
+                  <button className="btn btn-primary w-full" style={{ padding: 18, borderRadius: 18, fontWeight: 700 }} onClick={() => navigate('/customer/profile')}>Add Eligible Vehicle</button>
                 </div>
               </div>
             ) : (
               <div className="flex flex-col gap-14">
-                {(selectedPkg ? vehicles.filter(v => v.category === selectedPkg.category) : vehicles).map((v, i) => {
+                {(selectedPkg ? vehicles.filter(v => isVehicleEligibleForPackage(v, selectedPkg)) : vehicles).map((v, i) => {
                   const hasSub = activeSubscriptions.some(s => s.vehicle?._id === v._id && s.status === 'Active');
                   const isSelected = selectedVehicle?._id === v._id;
                   return (
@@ -292,8 +313,8 @@ export default function BookingFlow() {
                         <Car size={24} color={isSelected ? '#000' : 'var(--text-secondary)'} />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: 17 }}>{v.model}</div>
-                        <div className="text-body-sm text-secondary font-medium">{v.number} • <span className="capitalize">{v.category}</span></div>
+                        <div style={{ fontWeight: 700, fontSize: 17 }}>{v.brand} {v.model}</div>
+                        <div className="text-body-sm text-secondary font-medium">{v.number}</div>
                       </div>
                       {hasSub ? (
                         <span className="chip chip-ghost" style={{ fontSize: 9 }}>Subscribed</span>
@@ -390,19 +411,18 @@ export default function BookingFlow() {
             <div className="flex justify-between items-end">
               <div>
                 <h3 className="text-headline-sm" style={{ marginBottom: 4 }}>Choose Plan</h3>
-                <p className="text-secondary text-body-sm">Best for your <span style={{ color: 'var(--accent-lime)', fontWeight: 700 }}>{selectedVehicle?.model}</span></p>
+                <p className="text-secondary text-body-sm">Best for your <span style={{ color: 'var(--accent-lime)', fontWeight: 700 }}>{selectedVehicle?.brand} {selectedVehicle?.model}</span></p>
               </div>
-              <span className="chip chip-ghost" style={{ borderRadius: 8, fontSize: 10 }}>{selectedVehicle?.category}</span>
             </div>
             
             <div className="flex flex-col gap-16">
-              {packages.filter(p => p.category === selectedVehicle?.category).length === 0 && (
+              {packages.filter(p => isVehicleEligibleForPackage(selectedVehicle, p)).length === 0 && (
                 <div className="glass" style={{ padding: 32, textAlign: 'center', borderRadius: 24, border: '1px solid var(--border-glass)' }}>
-                  <p className="text-secondary text-body-sm" style={{ marginBottom: 8 }}>No plans available for <strong>{selectedVehicle?.category}</strong> yet.</p>
+                  <p className="text-secondary text-body-sm" style={{ marginBottom: 8 }}>No plans available for your vehicle model yet.</p>
                   <p className="text-secondary" style={{ fontSize: 12 }}>Try the Trial Wash below, or contact support.</p>
                 </div>
               )}
-              {packages.filter(p => p.category === selectedVehicle?.category).map((p, i) => {
+              {packages.filter(p => isVehicleEligibleForPackage(selectedVehicle, p)).map((p, i) => {
                 const isSelected = selectedPkg?._id === p._id;
                 return (
                   <button key={p._id} className="glass" onClick={() => setSelectedPkg(p)}
@@ -482,7 +502,7 @@ export default function BookingFlow() {
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 4, fontSize: 10 }}>VEHICLE</div>
-                    <div style={{ fontWeight: 800, fontSize: 18 }}>{selectedVehicle?.model}</div>
+                    <div style={{ fontWeight: 800, fontSize: 18 }}>{selectedVehicle?.brand} {selectedVehicle?.model}</div>
                     <div className="text-body-sm text-secondary">{selectedVehicle?.number}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>

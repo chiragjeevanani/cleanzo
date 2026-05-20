@@ -19,6 +19,9 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { clearCache } from '../middleware/cache.js';
 import { getISTMidnight } from '../utils/dateHelper.js';
 import { syncCleanerStats } from '../utils/cleanerStats.js';
+import Testimonial from '../models/Testimonial.js';
+import FAQ from '../models/FAQ.js';
+import Brand from '../models/Brand.js';
 
 // Helper to log activities
 export const logActivity = async ({ type, message, performer, metadata }) => {
@@ -381,23 +384,30 @@ export const getAllPackages = asyncHandler(async (req, res) => {
 });
 
 export const createPackage = asyncHandler(async (req, res) => {
-  const { name, tier, price, category, features, popular, sortOrder } = req.body;
+  const { name, tier, price, category, features, popular, sortOrder, applicableModels } = req.body;
   if (!name || !price) throw new ApiError(400, 'Name and price are required');
-  const pkg = await Package.create({ name, tier, price, category, features, popular, sortOrder });
+  const pkg = await Package.create({ name, tier, price, category, features, popular, sortOrder, applicableModels });
   await clearCache('cache:global:*');
   res.status(201).json({ success: true, package: pkg });
 });
 
 export const updatePackage = asyncHandler(async (req, res) => {
-  const { name, tier, price, category, features, popular, sortOrder, isActive } = req.body;
+  const { name, tier, price, category, features, popular, sortOrder, isActive, applicableModels } = req.body;
   const pkg = await Package.findByIdAndUpdate(
     req.params.id,
-    { name, tier, price, category, features, popular, sortOrder, isActive },
+    { name, tier, price, category, features, popular, sortOrder, isActive, applicableModels },
     { new: true, runValidators: true }
   );
   if (!pkg) throw new ApiError(404, 'Package not found');
   await clearCache('cache:global:*');
   res.json({ success: true, package: pkg });
+});
+
+export const deletePackage = asyncHandler(async (req, res) => {
+  const pkg = await Package.findByIdAndDelete(req.params.id);
+  if (!pkg) throw new ApiError(404, 'Package not found');
+  await clearCache('cache:global:*');
+  res.json({ success: true, message: 'Package deleted successfully' });
 });
 
 // ─── SUBSCRIPTIONS ───────────────────────────────
@@ -1069,3 +1079,121 @@ export const cleanupDuplicateTasks = asyncHandler(async (req, res) => {
     groupsFound: duplicates.length,
   });
 });
+
+// ─── TESTIMONIALS ─────────────────────────────────
+export const getTestimonials = asyncHandler(async (req, res) => {
+  const testimonials = await Testimonial.find().sort('sortOrder -createdAt');
+  res.json({ success: true, testimonials });
+});
+
+export const createTestimonial = asyncHandler(async (req, res) => {
+  const { name, role, text, rating, isActive, sortOrder } = req.body;
+  if (!name || !role || !text) throw new ApiError(400, 'Name, role, and text are required');
+  const testimonial = await Testimonial.create({ name, role, text, rating, isActive, sortOrder });
+  await clearCache('cache:global:*');
+  await logActivity({
+    type: 'system',
+    message: `Admin added testimonial from ${name}`,
+    performer: req.user._id,
+    metadata: { testimonialId: testimonial._id }
+  });
+  res.status(201).json({ success: true, testimonial });
+});
+
+export const updateTestimonial = asyncHandler(async (req, res) => {
+  const { name, role, text, rating, isActive, sortOrder } = req.body;
+  const testimonial = await Testimonial.findByIdAndUpdate(
+    req.params.id,
+    { name, role, text, rating, isActive, sortOrder },
+    { new: true, runValidators: true }
+  );
+  if (!testimonial) throw new ApiError(404, 'Testimonial not found');
+  await clearCache('cache:global:*');
+  res.json({ success: true, testimonial });
+});
+
+export const deleteTestimonial = asyncHandler(async (req, res) => {
+  const testimonial = await Testimonial.findByIdAndDelete(req.params.id);
+  if (!testimonial) throw new ApiError(404, 'Testimonial not found');
+  await clearCache('cache:global:*');
+  res.json({ success: true, message: 'Testimonial deleted' });
+});
+
+// ─── FAQs ─────────────────────────────────────────
+export const getFaqs = asyncHandler(async (req, res) => {
+  const faqs = await FAQ.find().sort('sortOrder -createdAt');
+  res.json({ success: true, faqs });
+});
+
+export const createFaq = asyncHandler(async (req, res) => {
+  const { question, answer, isActive, sortOrder } = req.body;
+  if (!question || !answer) throw new ApiError(400, 'Question and answer are required');
+  const faq = await FAQ.create({ question, answer, isActive, sortOrder });
+  await clearCache('cache:global:*');
+  await logActivity({
+    type: 'system',
+    message: `Admin added FAQ: ${question.substring(0, 60)}`,
+    performer: req.user._id,
+    metadata: { faqId: faq._id }
+  });
+  res.status(201).json({ success: true, faq });
+});
+
+export const updateFaq = asyncHandler(async (req, res) => {
+  const { question, answer, isActive, sortOrder } = req.body;
+  const faq = await FAQ.findByIdAndUpdate(
+    req.params.id,
+    { question, answer, isActive, sortOrder },
+    { new: true, runValidators: true }
+  );
+  if (!faq) throw new ApiError(404, 'FAQ not found');
+  await clearCache('cache:global:*');
+  res.json({ success: true, faq });
+});
+
+export const deleteFaq = asyncHandler(async (req, res) => {
+  const faq = await FAQ.findByIdAndDelete(req.params.id);
+  if (!faq) throw new ApiError(404, 'FAQ not found');
+  await clearCache('cache:global:*');
+  res.json({ success: true, message: 'FAQ deleted' });
+});
+
+// ─── BRANDS & MODELS ──────────────────────────────
+export const getBrands = asyncHandler(async (req, res) => {
+  const brands = await Brand.find().sort('name');
+  res.json({ success: true, brands });
+});
+
+export const createBrand = asyncHandler(async (req, res) => {
+  const { name, models, isActive } = req.body;
+  if (!name) throw new ApiError(400, 'Brand name is required');
+  const brand = await Brand.create({ name, models: models || [], isActive: isActive !== false });
+  await clearCache('cache:global:*');
+  await logActivity({
+    type: 'system',
+    message: `Admin added Brand: ${name}`,
+    performer: req.user._id,
+    metadata: { brandId: brand._id }
+  });
+  res.status(201).json({ success: true, brand });
+});
+
+export const updateBrand = asyncHandler(async (req, res) => {
+  const { name, models, isActive } = req.body;
+  const brand = await Brand.findByIdAndUpdate(
+    req.params.id,
+    { name, models: models || [], isActive },
+    { new: true, runValidators: true }
+  );
+  if (!brand) throw new ApiError(404, 'Brand not found');
+  await clearCache('cache:global:*');
+  res.json({ success: true, brand });
+});
+
+export const deleteBrand = asyncHandler(async (req, res) => {
+  const brand = await Brand.findByIdAndDelete(req.params.id);
+  if (!brand) throw new ApiError(404, 'Brand not found');
+  await clearCache('cache:global:*');
+  res.json({ success: true, message: 'Brand deleted' });
+});
+

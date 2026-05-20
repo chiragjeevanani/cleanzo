@@ -218,7 +218,25 @@ export const createSubscription = asyncHandler(async (req, res) => {
   const trialPrice = trialSetting?.value ?? 30;
   const prioritySlotFee = prioritySetting?.value ?? 99;
 
-  let basePrice = isTrial ? trialPrice : (VEHICLE_PRICING[vehicle.category] || pkg.price);
+  // Verify vehicle eligibility for the package
+  if (!isTrial && pkg.applicableModels && pkg.applicableModels.length > 0) {
+    const brandMatch = pkg.applicableModels.find(
+      app => app.brand.toLowerCase() === vehicle.brand.toLowerCase()
+    );
+    if (!brandMatch) {
+      throw new ApiError(400, `This package is not applicable to vehicle brand: ${vehicle.brand}`);
+    }
+    if (brandMatch.models && brandMatch.models.length > 0) {
+      const modelMatch = brandMatch.models.some(
+        m => m.toLowerCase() === vehicle.model.toLowerCase()
+      );
+      if (!modelMatch) {
+        throw new ApiError(400, `This package is not applicable to vehicle model: ${vehicle.model}`);
+      }
+    }
+  }
+
+  let basePrice = isTrial ? trialPrice : pkg.price;
   let priorityFee = 0;
 
   // Atomic slot increment: only succeeds if currentCount < maxVehicles

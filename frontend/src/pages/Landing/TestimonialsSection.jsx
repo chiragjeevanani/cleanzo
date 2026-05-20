@@ -1,25 +1,47 @@
+import { useState, useEffect } from 'react'
 import { Star } from 'lucide-react'
+import apiClient from '../../services/apiClient'
 import './TestimonialsSection.css'
 
-const reviews = [
+const FALLBACK_REVIEWS = [
   {
     name: 'JULIAN MARKS',
     role: 'PORSCHE COLLECTOR',
-    text: '“Cleanzo isn\'t just about cleaning. It\'s about engineering. My 911 interior looks better today than it did the day I collected it from Stuttgart.”',
+    text: '"Cleanzo isn\'t just about cleaning. It\'s about engineering. My 911 interior looks better today than it did the day I collected it from Stuttgart."',
+    rating: 5,
   },
   {
     name: 'CLAIRE VERNON',
     role: 'HOSPITALITY EXECUTIVE',
-    text: '“Cleanzo is the only team I trust with my heritage upholstery. They understand the science of restoration, not just cleaning.”',
+    text: '"Cleanzo is the only team I trust with my heritage upholstery. They understand the science of restoration, not just cleaning."',
+    rating: 5,
   },
   {
     name: 'MARCUS CHEN',
     role: 'BENTLEY OWNER',
-    text: '“Their molecular odor scan found bacteria that I thought was permanent. Truly remarkable technology.”',
+    text: '"Their molecular odor scan found bacteria that I thought was permanent. Truly remarkable technology."',
+    rating: 5,
   },
 ]
 
 export default function TestimonialsSection() {
+  const [reviews, setReviews] = useState(FALLBACK_REVIEWS)
+
+  useEffect(() => {
+    let active = true
+    apiClient.get('/public/testimonials')
+      .then(res => {
+        if (active && res.success && res.testimonials && res.testimonials.length > 0) {
+          setReviews(res.testimonials)
+        }
+      })
+      .catch(() => {/* silent — fallback already set */})
+    return () => { active = false }
+  }, [])
+
+  // Duplicate for seamless infinite loop
+  const doubled = [...reviews, ...reviews]
+
   return (
     <section className="landing-section reviews-section" id="testimonials">
       <div className="container">
@@ -27,12 +49,17 @@ export default function TestimonialsSection() {
           <span className="section-label">CLIENT FEEDBACK</span>
           <h2 className="section-title-premium">CLIENT<br />EXPERIENCES.</h2>
         </div>
+      </div>
 
-        <div className="reviews-grid reveal">
-          {reviews.map((review, i) => (
+      {/* Infinite-scroll marquee — full width, outside container */}
+      <div className="reviews-marquee-wrapper" aria-label="Client testimonials">
+        <div className="reviews-marquee-track">
+          {doubled.map((review, i) => (
             <div key={i} className="review-card glass">
               <div className="review-stars">
-                {[1,2,3,4,5].map(s => <Star key={s} size={16} fill="var(--text-accent)" stroke="none" />)}
+                {Array.from({ length: review.rating ?? 5 }).map((_, s) => (
+                  <Star key={s} size={16} fill="var(--text-accent)" stroke="none" />
+                ))}
               </div>
               <p className="review-text">{review.text}</p>
               <div className="review-footer">

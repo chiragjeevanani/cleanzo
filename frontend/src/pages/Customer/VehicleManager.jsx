@@ -6,27 +6,44 @@ import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 import { useCustomerData } from '../../context/CustomerDataContext'
 
-const EMPTY_FORM = { brand: '', model: '', number: '', parking: '', category: '', color: '', photos: [] }
+const EMPTY_FORM = { brand: '', model: '', number: '', parking: '', category: 'sedan', color: '', photos: [] }
 
 export default function VehicleManager() {
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const { vehicles, categories, loading: dataLoading, refreshVehicles, refreshCategories } = useCustomerData()
+  const { vehicles, loading: dataLoading, refreshVehicles } = useCustomerData()
   
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [brandsList, setBrandsList] = useState([])
+  const [modelsList, setModelsList] = useState([])
   const [imagePreviews, setImagePreviews] = useState([])
   const fileInputRef = useRef(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [loadingBrands, setLoadingBrands] = useState(true)
 
   useEffect(() => {
-    if (categories.length > 0 && !form.category) {
-      setForm(prev => ({ ...prev, category: categories[0].slug }))
-    }
-  }, [categories, form.category])
+    fetchBrands()
+  }, [])
 
+  const fetchBrands = async () => {
+    try {
+      const res = await apiClient.get('/public/brands')
+      setBrandsList(res.brands || [])
+    } catch (err) {
+      console.error('Failed to load brands:', err)
+    } finally {
+      setLoadingBrands(false)
+    }
+  }
+
+  const handleBrandChange = (brandName) => {
+    const selectedBrand = brandsList.find(b => b.name === brandName)
+    setForm(prev => ({ ...prev, brand: brandName, model: '' }))
+    setModelsList(selectedBrand ? selectedBrand.models : [])
+  }
 
   const addVehicle = async () => {
     if (!form.brand || !form.model || !form.number) {
@@ -61,6 +78,7 @@ export default function VehicleManager() {
       await apiClient.uploadForm('/customer/vehicles', formData)
       
       setForm(EMPTY_FORM)
+      setModelsList([])
       setImagePreviews([])
       setAdding(false)
       refreshVehicles()
@@ -84,7 +102,7 @@ export default function VehicleManager() {
     }
   }
 
-  const loading = dataLoading.vehicles || dataLoading.categories
+  const loading = dataLoading.vehicles || loadingBrands
 
   if (loading && !vehicles.length) return (
     <div className="app-shell">
@@ -153,28 +171,30 @@ export default function VehicleManager() {
       {adding && (
         <div className="glass" style={{ padding: 24, marginBottom: 16 }}>
           <div className="flex flex-col gap-12">
-            <div>
+            <div style={{ position: 'relative' }}>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Brand <span style={{ color: 'var(--error)' }}>*</span></label>
-              <input className="input-field" placeholder="e.g. Honda, Maruti, BMW" value={form.brand}
-                onChange={e => setForm({ ...form, brand: e.target.value })} />
+              <select className="input-field" style={selectStyle} value={form.brand}
+                onChange={e => handleBrandChange(e.target.value)}>
+                <option value="" disabled>Select Brand</option>
+                {brandsList.map(b => <option key={b._id} value={b.name}>{b.name}</option>)}
+              </select>
+              <ChevronDown size={16} style={{ position: 'absolute', right: 14, bottom: 14, opacity: 0.4, pointerEvents: 'none' }} />
             </div>
-            <div>
+
+            <div style={{ position: 'relative' }}>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Model <span style={{ color: 'var(--error)' }}>*</span></label>
-              <input className="input-field" placeholder="e.g. City, Swift, X5" value={form.model}
-                onChange={e => setForm({ ...form, model: e.target.value })} />
+              <select className="input-field" style={selectStyle} value={form.model} disabled={!form.brand}
+                onChange={e => setForm({ ...form, model: e.target.value })}>
+                <option value="" disabled>Select Model</option>
+                {modelsList.map((m, idx) => <option key={idx} value={m}>{m}</option>)}
+              </select>
+              <ChevronDown size={16} style={{ position: 'absolute', right: 14, bottom: 14, opacity: 0.4, pointerEvents: 'none' }} />
             </div>
+
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Number Plate <span style={{ color: 'var(--error)' }}>*</span></label>
               <input className="input-field" placeholder="e.g. MH 02 AB 1234" value={form.number}
                 onChange={e => setForm({ ...form, number: e.target.value.toUpperCase() })} />
-            </div>
-            <div style={{ position: 'relative' }}>
-              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Vehicle Type <span style={{ color: 'var(--error)' }}>*</span></label>
-              <select className="input-field" style={selectStyle} value={form.category}
-                onChange={e => setForm({ ...form, category: e.target.value })}>
-                {categories.map(c => <option key={c._id} value={c.slug}>{c.name}</option>)}
-              </select>
-              <ChevronDown size={16} style={{ position: 'absolute', right: 14, bottom: 14, opacity: 0.4, pointerEvents: 'none' }} />
             </div>
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Parking Location</label>
@@ -235,7 +255,7 @@ export default function VehicleManager() {
                 </div>
               )}
             </div>
-            <button onClick={() => setConfirmDeleteId(v._id)} style={{ color: 'var(--error)', padding: 8 }}>
+            <button onClick={() => setConfirmDeleteId(v._id)} style={{ color: 'var(--error)', padding: 8, background: 'none', border: 'none', cursor: 'pointer' }}>
               <Trash2 size={18} />
             </button>
           </div>

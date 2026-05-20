@@ -10,9 +10,13 @@ const packageSchema = new Schema({
   features:  [{ type: String }],
   category:  { 
     type: String, 
-    required: true, 
+    required: false, 
     default: 'sedan'
   },
+  applicableModels: [{
+    brand: { type: String, required: true },
+    models: [{ type: String }]
+  }],
   popular:   { type: Boolean, default: false },
   isActive:  { type: Boolean, default: true },
   sortOrder: { type: Number, default: 0 },
