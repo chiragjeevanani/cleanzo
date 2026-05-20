@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
-import { upload } from '../middleware/upload.js';
+import { upload, validateImageBytes } from '../middleware/upload.js';
 import * as ctrl from '../controllers/customer.controller.js';
 import { cacheMiddleware } from '../middleware/cache.js';
 
@@ -14,7 +14,7 @@ router.put('/profile', ctrl.updateProfile);
 
 router.get('/vehicles', cacheMiddleware(300, true), ctrl.getVehicles);
 router.post('/vehicles', upload.array('photos', 5), ctrl.addVehicle);
-router.put('/vehicles/:id', ctrl.updateVehicle);
+router.put('/vehicles/:id', upload.array('photos', 5), ctrl.updateVehicle);
 router.delete('/vehicles/:id', ctrl.deleteVehicle);
 
 router.get('/subscriptions', cacheMiddleware(300, true), ctrl.getSubscriptions);
@@ -30,7 +30,10 @@ router.put('/notifications/:id/read', ctrl.markNotificationRead);
 
 router.get('/addresses', cacheMiddleware(600, true), ctrl.getAddresses);
 router.post('/addresses', ctrl.addAddress);
+router.put('/addresses/:id', ctrl.updateAddress);
 router.delete('/addresses/:id', ctrl.deleteAddress);
+
+router.post('/grievances', upload.single('attachment'), validateImageBytes, ctrl.addGrievance);
 
 router.get('/societies', cacheMiddleware(3600), ctrl.getSocieties);
 router.get('/vehicle-categories', cacheMiddleware(3600), ctrl.getVehicleCategories);

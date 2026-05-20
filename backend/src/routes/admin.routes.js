@@ -104,6 +104,10 @@ router.post('/brands', ctrl.createBrand);
 router.put('/brands/:id', ctrl.updateBrand);
 router.delete('/brands/:id', ctrl.deleteBrand);
 
+// Grievances
+router.get('/grievances', ctrl.getGrievances);
+router.put('/grievances/:id', ctrl.updateGrievance);
+
 export default router;
 
 

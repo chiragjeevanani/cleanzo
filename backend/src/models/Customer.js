@@ -29,7 +29,11 @@ const customerSchema = new Schema({
     label:     { type: String },
     line1:     { type: String },
     line2:     { type: String },
+    societyName: { type: String },
+    tower:     { type: String },
+    flat:      { type: String },
     city:      { type: String },
+    state:     { type: String },
     pincode:   { type: String },
     society:   { type: Schema.Types.ObjectId, ref: 'Society' },
     isDefault: { type: Boolean, default: false }

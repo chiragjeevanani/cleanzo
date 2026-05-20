@@ -1,12 +1,12 @@
 import Skeleton from '../../components/Skeleton'
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Car, ChevronDown, X, Upload } from 'lucide-react'
+import { ArrowLeft, Plus, Car, ChevronDown, X, Upload, Pencil, EyeOff } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 import { useCustomerData } from '../../context/CustomerDataContext'
 
-const EMPTY_FORM = { brand: '', model: '', number: '', parking: '', category: 'sedan', color: '', photos: [] }
+const EMPTY_FORM = { brand: '', model: '', number: '', flatNumber: '', blockTower: '', slotPillar: '', category: 'sedan', color: '', photos: [] }
 
 export default function VehicleManager() {
   const navigate = useNavigate()
@@ -14,6 +14,7 @@ export default function VehicleManager() {
   const { vehicles, loading: dataLoading, refreshVehicles } = useCustomerData()
   
   const [adding, setAdding] = useState(false)
+  const [editVehicle, setEditVehicle] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [brandsList, setBrandsList] = useState([])
   const [modelsList, setModelsList] = useState([])
@@ -21,7 +22,7 @@ export default function VehicleManager() {
   const fileInputRef = useRef(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [confirmHideId, setConfirmHideId] = useState(null)
   const [loadingBrands, setLoadingBrands] = useState(true)
 
   useEffect(() => {
@@ -45,9 +46,38 @@ export default function VehicleManager() {
     setModelsList(selectedBrand ? selectedBrand.models : [])
   }
 
-  const addVehicle = async () => {
-    if (!form.brand || !form.model || !form.number) {
-      setError('Brand, model, and plate number are required')
+  const handleToggleAdd = () => {
+    setEditVehicle(null)
+    setForm(EMPTY_FORM)
+    setModelsList([])
+    setImagePreviews([])
+    setAdding(!adding)
+    setError('')
+  }
+
+  const startEdit = (v) => {
+    setEditVehicle(v)
+    setForm({
+      brand: v.brand || '',
+      model: v.model || '',
+      number: v.number || '',
+      flatNumber: v.flatNumber || '',
+      blockTower: v.blockTower || '',
+      slotPillar: v.slotPillar || '',
+      category: v.category || 'sedan',
+      color: v.color || '',
+      photos: []
+    })
+    const selectedBrand = brandsList.find(b => b.name === v.brand)
+    setModelsList(selectedBrand ? selectedBrand.models : [])
+    setImagePreviews([]) // clear previews for upload input
+    setAdding(true)
+    setError('')
+  }
+
+  const saveVehicle = async () => {
+    if (!form.brand || !form.model || !form.number || !form.flatNumber) {
+      setError('Brand, model, plate number, and flat number are required')
       return
     }
     const plateClean = form.number.replace(/\s/g, '').toUpperCase()
@@ -55,7 +85,7 @@ export default function VehicleManager() {
       setError('Enter a valid vehicle registration number (e.g. MH01AB1234)')
       return
     }
-    if (form.photos.length === 0) {
+    if (!editVehicle && form.photos.length === 0) {
       setError('Please upload at least 1 image of the vehicle')
       return
     }
@@ -66,7 +96,9 @@ export default function VehicleManager() {
       formData.append('brand', form.brand)
       formData.append('model', form.model)
       formData.append('number', form.number.toUpperCase())
-      formData.append('parking', form.parking || '')
+      formData.append('flatNumber', form.flatNumber || '')
+      formData.append('blockTower', form.blockTower || '')
+      formData.append('slotPillar', form.slotPillar || '')
       formData.append('category', form.category)
       if (form.color) formData.append('color', form.color)
       
@@ -74,31 +106,36 @@ export default function VehicleManager() {
         formData.append('photos', file)
       })
 
-      // Use uploadForm helper for multipart/form-data
-      await apiClient.uploadForm('/customer/vehicles', formData)
+      if (editVehicle) {
+        await apiClient.uploadForm(`/customer/vehicles/${editVehicle._id}`, formData, 'PUT')
+        showToast('Vehicle updated successfully')
+      } else {
+        await apiClient.uploadForm('/customer/vehicles', formData, 'POST')
+        showToast('Vehicle added successfully')
+      }
       
       setForm(EMPTY_FORM)
       setModelsList([])
       setImagePreviews([])
       setAdding(false)
+      setEditVehicle(null)
       refreshVehicles()
-      showToast('Vehicle added successfully')
     } catch (err) {
-      setError(err.message || 'Failed to add vehicle.')
+      setError(err.message || 'Failed to save vehicle.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const deleteVehicle = async (id) => {
+  const hideVehicle = async (id) => {
     try {
       await apiClient.delete(`/customer/vehicles/${id}`)
-      setConfirmDeleteId(null)
+      setConfirmHideId(null)
       refreshVehicles()
-      showToast('Vehicle removed')
+      showToast('Vehicle hidden successfully')
     } catch (err) {
-      setConfirmDeleteId(null)
-      setError('Failed to remove vehicle.')
+      setConfirmHideId(null)
+      setError('Failed to hide vehicle.')
     }
   }
 
@@ -158,8 +195,22 @@ export default function VehicleManager() {
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
-        <button onClick={() => navigate(-1)} className="flex items-center gap-8 bg-transparent border-none text-[color:var(--text-primary)] cursor-pointer p-0"><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>My Vehicles</span></button>
-        <button className="btn btn-primary btn-sm" onClick={() => setAdding(!adding)}><Plus size={16} /> Add</button>
+        <button 
+          onClick={() => {
+            if (adding) {
+              setAdding(false)
+              setEditVehicle(null)
+            } else {
+              navigate(-1)
+            }
+          }} 
+          className="flex items-center gap-8 bg-transparent border-none text-[color:var(--text-primary)] cursor-pointer p-0"
+        >
+          <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>My Vehicles</span>
+        </button>
+        <button className="btn btn-primary btn-sm" onClick={handleToggleAdd}>
+          {adding ? 'Cancel' : <><Plus size={16} /> Add</>}
+        </button>
       </div>
 
       {error && (
@@ -171,6 +222,10 @@ export default function VehicleManager() {
       {adding && (
         <div className="glass" style={{ padding: 24, marginBottom: 16 }}>
           <div className="flex flex-col gap-12">
+            <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, marginTop: 0, marginBottom: 4 }}>
+              {editVehicle ? 'Edit Vehicle Details' : 'Add New Vehicle'}
+            </h3>
+
             <div style={{ position: 'relative' }}>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Brand <span style={{ color: 'var(--error)' }}>*</span></label>
               <select className="input-field" style={selectStyle} value={form.brand}
@@ -196,18 +251,47 @@ export default function VehicleManager() {
               <input className="input-field" placeholder="e.g. MH 02 AB 1234" value={form.number}
                 onChange={e => setForm({ ...form, number: e.target.value.toUpperCase() })} />
             </div>
+
             <div>
-              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Parking Location</label>
-              <input className="input-field" placeholder="e.g. Tower A, Slot 42" value={form.parking}
-                onChange={e => setForm({ ...form, parking: e.target.value })} />
+              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Flat Number <span style={{ color: 'var(--error)' }}>*</span></label>
+              <input className="input-field" placeholder="e.g. 102" value={form.flatNumber}
+                onChange={e => setForm({ ...form, flatNumber: e.target.value })} />
             </div>
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Block / Tower</label>
+                <input className="input-field" placeholder="e.g. Tower A" value={form.blockTower}
+                  onChange={e => setForm({ ...form, blockTower: e.target.value })} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Slot / Pillar Number</label>
+                <input className="input-field" placeholder="e.g. Slot 42" value={form.slotPillar}
+                  onChange={e => setForm({ ...form, slotPillar: e.target.value })} />
+              </div>
+            </div>
+
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Color (optional)</label>
               <input className="input-field" placeholder="e.g. White, Black, Silver" value={form.color}
                 onChange={e => setForm({ ...form, color: e.target.value })} />
             </div>
+
+            {editVehicle && editVehicle.photos && editVehicle.photos.length > 0 && imagePreviews.length === 0 && (
+              <div style={{ marginTop: 4 }}>
+                <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Current Photos</label>
+                <div className="flex gap-12 flex-wrap">
+                  {editVehicle.photos.map((photo, i) => (
+                    <img key={i} src={photo} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-glass)' }} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
-              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Vehicle Photos (Min 1, Max 5) <span style={{ color: 'var(--error)' }}>*</span></label>
+              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>
+                {editVehicle ? 'Replace Photos (Optional)' : 'Vehicle Photos (Min 1, Max 5) *'}
+              </label>
               
               <div className="flex gap-12 flex-wrap" style={{ marginBottom: 16 }}>
                 {imagePreviews.map((preview, i) => (
@@ -228,8 +312,8 @@ export default function VehicleManager() {
                 <input type="file" multiple accept="image/*" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
               </div>
             </div>
-            <button className="btn btn-blue w-full" onClick={addVehicle} disabled={submitting || !form.brand || !form.model || !form.number || form.photos.length === 0}>
-              {submitting ? 'Saving…' : 'Save Vehicle'}
+            <button className="btn btn-blue w-full" onClick={saveVehicle} disabled={submitting || !form.brand || !form.model || !form.number || !form.flatNumber || (!editVehicle && form.photos.length === 0)}>
+              {submitting ? 'Saving…' : editVehicle ? 'Update Vehicle' : 'Save Vehicle'}
             </button>
           </div>
         </div>
@@ -240,48 +324,55 @@ export default function VehicleManager() {
           <div className="text-center text-secondary py-8">No vehicles added yet.</div>
         )}
         {vehicles.map(v => (
-          <div key={v._id} className="glass" style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 'var(--radius)', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-glass)' }}>
-              <Car size={22} style={{ color: 'var(--primary-blue)' }} />
+          <div key={v._id} className="glass" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 'var(--radius)', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-glass)', flexShrink: 0 }}>
+                <Car size={22} style={{ color: 'var(--primary-blue)' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>{v.brand} {v.model}</div>
+                <div className="text-body-sm text-secondary" style={{ lineHeight: 1.5, wordBreak: 'break-word' }}>{v.number} · {v.parking || 'No parking info'}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                <button onClick={() => startEdit(v)} style={{ color: 'var(--text-secondary)', padding: 8, background: 'none', border: 'none', cursor: 'pointer' }}>
+                  <Pencil size={18} />
+                </button>
+                <button onClick={() => setConfirmHideId(v._id)} style={{ color: 'var(--text-tertiary)', padding: 8, background: 'none', border: 'none', cursor: 'pointer' }}>
+                  <EyeOff size={18} />
+                </button>
+              </div>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 15 }}>{v.brand} {v.model}</div>
-              <div className="text-body-sm text-secondary">{v.number} · {v.parking || 'No parking info'}</div>
-              {v.photos && v.photos.length > 0 && (
-                <div className="flex gap-8 mt-12 overflow-x-auto" style={{ paddingBottom: 4 }}>
-                  {v.photos.map((photo, i) => (
-                    <img key={i} src={photo} alt={`Vehicle ${v.model} - ${i}`} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-glass)' }} />
-                  ))}
-                </div>
-              )}
-            </div>
-            <button onClick={() => setConfirmDeleteId(v._id)} style={{ color: 'var(--error)', padding: 8, background: 'none', border: 'none', cursor: 'pointer' }}>
-              <Trash2 size={18} />
-            </button>
+            {v.photos && v.photos.length > 0 && (
+              <div className="flex gap-8 overflow-x-auto" style={{ paddingBottom: 4, marginLeft: 60 }}>
+                {v.photos.map((photo, i) => (
+                  <img key={i} src={photo} alt={`Vehicle ${v.model} - ${i}`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-glass)', flexShrink: 0 }} />
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Delete confirmation */}
-      {confirmDeleteId && (
+      {/* Hide confirmation */}
+      {confirmHideId && (
         <div className="modal-overlay" style={{ backdropFilter: 'blur(20px)', backgroundColor: 'rgba(0,0,0,0.85)' }}>
           <div className="glass animate-scale-in" style={{
             width: 360, padding: '36px 32px', borderRadius: 28,
-            border: '1px solid rgba(255,50,50,0.2)', boxShadow: 'var(--shadow-lg)',
+            border: '1px solid rgba(255,255,255,0.05)', boxShadow: 'var(--shadow-lg)',
             background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-surface) 100%)',
             textAlign: 'center',
           }}>
-            <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,50,50,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Trash2 size={22} color="var(--error)" />
+            <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <EyeOff size={22} color="var(--text-secondary)" />
             </div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Remove Vehicle?</h2>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Hide Vehicle?</h2>
             <p className="text-secondary" style={{ fontSize: 14, marginBottom: 24 }}>
-              This will permanently remove the vehicle from your garage.
+              This will hide the vehicle from your active garage, but will preserve its booking history.
             </p>
             <div className="flex gap-12">
-              <button className="btn btn-glass w-full" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
-              <button className="btn w-full" style={{ background: 'var(--error)', color: '#fff', borderRadius: 14 }} onClick={() => deleteVehicle(confirmDeleteId)}>
-                Remove
+              <button className="btn btn-glass w-full" onClick={() => setConfirmHideId(null)}>Cancel</button>
+              <button className="btn w-full btn-primary" style={{ borderRadius: 14 }} onClick={() => hideVehicle(confirmHideId)}>
+                Hide
               </button>
             </div>
           </div>

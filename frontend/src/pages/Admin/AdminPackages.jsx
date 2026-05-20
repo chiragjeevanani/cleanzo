@@ -354,11 +354,11 @@ export default function AdminPackages() {
                     <span className="text-body-sm text-tertiary" style={{ marginLeft: 4 }}>/ month</span>
                   </div>
 
-                  <div className="flex flex-col gap-12" style={{ marginBottom: 32, borderTop: '1px solid var(--divider)', paddingTop: 20 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32, borderTop: '1px solid var(--divider)', paddingTop: 20 }}>
                     {(pkg.features || []).map((f, i) => (
-                      <div key={i} className="flex items-center gap-10 text-body-sm text-secondary">
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-lime)' }} />
-                        {f}
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-secondary)' }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-lime)', flexShrink: 0 }} />
+                        <span>{f}</span>
                       </div>
                     ))}
                   </div>

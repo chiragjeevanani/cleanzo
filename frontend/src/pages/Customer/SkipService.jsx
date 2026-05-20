@@ -55,7 +55,7 @@ export default function SkipService() {
       )
       setShowConfirm(false)
       showToast(`${selectedDates.length} day${selectedDates.length > 1 ? 's' : ''} skipped successfully`)
-      navigate('/customer')
+      navigate(-1)
     } catch (err) {
       setError(err.message || 'Failed to skip days. Check the 1-day advance notice and 5-day limit rules.')
       setShowConfirm(false)
@@ -80,7 +80,7 @@ export default function SkipService() {
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
-        <Link to="/customer" className="flex items-center gap-8"><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Skip Service</span></Link>
+        <button onClick={() => navigate(-1)}  className="flex items-center gap-8" style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Skip Service</span></button>
       </div>
 
       {error && (

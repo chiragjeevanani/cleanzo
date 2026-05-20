@@ -19,6 +19,7 @@ const SavedAddresses     = lazy(() => import('./Profile/SavedAddresses'))
 const TermsOfService     = lazy(() => import('./Profile/LegalTerms'))
 const PrivacyPolicy      = lazy(() => import('./Profile/LegalPrivacy'))
 const HelpSupport        = lazy(() => import('./Profile/HelpSupport'))
+const GrievanceForm      = lazy(() => import('./Profile/GrievanceForm'))
 const PlanDetail         = lazy(() => import('./PlanDetail'))
 const Marketplace        = lazy(() => import('./Marketplace'))
 
@@ -40,7 +41,7 @@ export default function CustomerApp() {
   if (!user) return <Navigate to="/login" replace />
 
   // Hide nav on specific sub-pages/detail pages
-  const hideNavPaths = ['/customer/vehicles', '/customer/booking', '/customer/skip', '/customer/notifications']
+  const hideNavPaths = ['/customer/vehicles', '/customer/booking', '/customer/skip', '/customer/notifications', '/customer/grievance']
   const shouldHideNav = hideNavPaths.includes(location.pathname) || location.pathname.startsWith('/customer/plan/')
 
   return (
@@ -65,6 +66,7 @@ export default function CustomerApp() {
           <Route path="terms" element={<TermsOfService />} />
           <Route path="privacy" element={<PrivacyPolicy />} />
           <Route path="help" element={<HelpSupport />} />
+          <Route path="grievance" element={<GrievanceForm />} />
           <Route path="auth" element={<CustomerAuth />} />
           <Route path="*" element={<Navigate to="/customer" replace />} />
         </Routes>

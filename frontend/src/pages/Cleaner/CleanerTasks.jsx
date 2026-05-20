@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MapPin, Clock, ChevronRight } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 
@@ -7,6 +7,8 @@ const statusColors = { pending: 'var(--warning)', 'in-progress': 'var(--primary-
 const statusLabels = { pending: 'Pending', 'in-progress': 'In Progress', completed: 'Completed' }
 
 export default function CleanerTasks() {
+  const navigate = useNavigate();
+
   const [filter, setFilter] = useState('all')
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -64,7 +66,7 @@ export default function CleanerTasks() {
         </div>
       )}
       <div className="app-header" style={{ padding: '16px 0' }}>
-        <Link to="/cleaner" className="flex items-center gap-8"><ArrowLeft size={20} /></Link>
+        <button onClick={() => navigate(-1)}  className="flex items-center gap-8" style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}><ArrowLeft size={20} /></button>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Today's Tasks</span>
         <div style={{ width: 20 }} />
       </div>

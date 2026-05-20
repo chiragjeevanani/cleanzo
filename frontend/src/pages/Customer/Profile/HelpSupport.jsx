@@ -1,21 +1,33 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Search, ChevronDown, ChevronUp, MessageCircle, PhoneCall } from 'lucide-react'
+import { ArrowLeft, Search, ChevronDown, ChevronUp, MessageCircle, PhoneCall, Mail } from 'lucide-react'
+import apiClient from '../../../services/apiClient'
+import PageLoader from '../../../components/PageLoader'
 
 export default function HelpSupport() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [openFaq, setOpenFaq] = useState(null)
-  const isAuthed = localStorage.getItem('cleanzo_authed') === 'true'
+  const [faqs, setFaqs] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const faqs = [
-    { id: 1, q: 'What happens if it rains?', a: 'During heavy rain, we pause our services for safety. The missed day will be automatically added back to your subscription validity, extending your plan.' },
-    { id: 2, q: 'Are services available during curfews or elections?', a: 'No, services are suspended during government-mandated curfews, lockdowns, or election days. All such missed days are credited back to your subscription.' },
-    { id: 3, q: 'Why was my car not cleaned today?', a: 'Our cleaning staff is entitled to one scheduled leave per month. This is already accounted for in our pricing and will not be added to your validity. Check your notifications for any other reasons.' },
-    { id: 4, q: 'How do I add interior cleaning to my plan?', a: 'Standard daily plans focus on exterior. You can purchase "Interior Deep Clean" as a one-time add-on from your dashboard anytime.' }
-  ]
+  useEffect(() => {
+    const fetchFaqs = async () => {
+      try {
+        const res = await apiClient.get('/public/faqs')
+        setFaqs(res.faqs || [])
+      } catch (err) {
+        console.error('Failed to load FAQs:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchFaqs()
+  }, [])
 
-  const filteredFaqs = faqs.filter(f => f.q.toLowerCase().includes(search.toLowerCase()))
+  const filteredFaqs = faqs.filter(f => f.question.toLowerCase().includes(search.toLowerCase()))
+
+  if (loading) return <PageLoader />
 
   return (
     <div style={{ padding: '0 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -39,14 +51,14 @@ export default function HelpSupport() {
         <h3 className="text-label text-secondary" style={{ marginBottom: 16 }}>Frequently Asked Questions</h3>
         <div className="flex flex-col gap-12">
           {filteredFaqs.map(faq => (
-            <div key={faq.id} className="glass" style={{ overflow: 'hidden', cursor: 'pointer' }} onClick={() => setOpenFaq(openFaq === faq.id ? null : faq.id)}>
+            <div key={faq._id} className="glass" style={{ overflow: 'hidden', cursor: 'pointer' }} onClick={() => setOpenFaq(openFaq === faq._id ? null : faq._id)}>
               <div style={{ padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 500, fontSize: 15, paddingRight: 16 }}>{faq.q}</span>
-                {openFaq === faq.id ? <ChevronUp size={18} className="text-secondary" /> : <ChevronDown size={18} className="text-secondary" />}
+                <span style={{ fontWeight: 500, fontSize: 15, paddingRight: 16 }}>{faq.question}</span>
+                {openFaq === faq._id ? <ChevronUp size={18} className="text-secondary" /> : <ChevronDown size={18} className="text-secondary" />}
               </div>
-              {openFaq === faq.id && (
+              {openFaq === faq._id && (
                 <div style={{ padding: '0 20px 20px', color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.6 }}>
-                  {faq.a}
+                  {faq.answer}
                 </div>
               )}
             </div>
@@ -59,16 +71,40 @@ export default function HelpSupport() {
 
       <div style={{ padding: '32px 0 100px' }}>
         <h3 className="text-label text-secondary" style={{ marginBottom: 16 }}>Still need help?</h3>
-        <div className="flex gap-12">
-          <button className="btn glass flex-1 flex flex-col items-center justify-center gap-8" style={{ height: 100, border: '1px solid rgba(var(--accent-lime-rgb), 0.3)' }}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button 
+            className="glass" 
+            style={{ flex: 1, minWidth: 0, height: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid rgba(var(--accent-lime-rgb), 0.3)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-primary)' }} 
+            onClick={() => window.open('https://wa.me/919999999999', '_blank')}
+          >
             <MessageCircle size={24} style={{ color: 'var(--text-accent)' }} />
-            <span style={{ fontWeight: 600 }}>Live Chat</span>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>WhatsApp</span>
           </button>
-          <button className="btn glass flex-1 flex flex-col items-center justify-center gap-8" style={{ height: 100 }}>
+          <button 
+            className="glass" 
+            style={{ flex: 1, minWidth: 0, height: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid var(--border-glass)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-primary)' }} 
+            onClick={() => window.location.href = 'tel:+919999999999'}
+          >
             <PhoneCall size={24} style={{ color: 'var(--primary-blue)' }} />
-            <span style={{ fontWeight: 600 }}>Call Us</span>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>Call Us</span>
+          </button>
+          <button 
+            className="glass" 
+            style={{ flex: 1, minWidth: 0, height: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid var(--border-glass)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-primary)' }} 
+            onClick={() => window.location.href = 'mailto:support@cleanzo.com'}
+          >
+            <Mail size={24} style={{ color: 'var(--text-secondary)' }} />
+            <span style={{ fontWeight: 600, fontSize: 13 }}>Email</span>
           </button>
         </div>
+
+        <button 
+          className="btn btn-primary"
+          onClick={() => navigate('/customer/grievance')}
+          style={{ width: '100%', marginTop: 24, padding: '16px', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+        >
+          File a Grievance
+        </button>
       </div>
     </div>
   )

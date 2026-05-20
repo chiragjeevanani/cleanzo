@@ -26,6 +26,9 @@ const vehicleSchema = new Schema({
   color:     { type: String, default: '' },
   photos:    [{ type: String }],   // Cloudinary URLs
   videos:    [{ type: String }],   // Cloudinary URLs
+  flatNumber: { type: String, default: '' },
+  blockTower: { type: String, default: '' },
+  slotPillar: { type: String, default: '' },
   parking:   { type: String },     // Parking spot / instructions
   isActive:  { type: Boolean, default: true },
 }, { timestamps: true });

@@ -1,6 +1,6 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Star, X } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
@@ -67,6 +67,8 @@ function RatingModal({ task, onClose, onSubmit }) {
 }
 
 export default function ServiceHistory() {
+  const navigate = useNavigate();
+
   const { history, loading: dataLoading, refreshHistory } = useCustomerData()
   const [ratingTask, setRatingTask] = useState(null)
   const [ratedTaskIds, setRatedTaskIds] = useState(new Set()) 
@@ -105,7 +107,7 @@ export default function ServiceHistory() {
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
-        <Link to="/customer" className="flex items-center gap-8"><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Service History</span></Link>
+        <button onClick={() => navigate(-1)}  className="flex items-center gap-8" style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Service History</span></button>
       </div>
       <div className="flex flex-col gap-8" style={{ paddingBottom: 100 }}>
         {history.length === 0 ? (

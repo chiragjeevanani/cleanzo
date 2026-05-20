@@ -1,4 +1,5 @@
 import Customer from '../models/Customer.js';
+import Grievance from '../models/Grievance.js';
 import Vehicle, { VEHICLE_PRICING } from '../models/Vehicle.js';
 import Subscription from '../models/Subscription.js';
 import Payment from '../models/Payment.js';
@@ -45,9 +46,18 @@ export const getVehicles = asyncHandler(async (req, res) => {
 });
 
 export const addVehicle = asyncHandler(async (req, res) => {
-  const { brand, model, number, parking, color, category } = req.body;
+  const { brand, model, number, flatNumber, blockTower, slotPillar, color, category } = req.body;
   if (!brand || !model || !number) throw new ApiError(400, 'Brand, model, and number are required');
   
+  const flatNumberClean = flatNumber || '';
+  const blockTowerClean = blockTower || '';
+  const slotPillarClean = slotPillar || '';
+  const parkingClean = [
+    blockTowerClean ? `Block/Tower: ${blockTowerClean}` : '',
+    slotPillarClean ? `Slot/Pillar: ${slotPillarClean}` : '',
+    flatNumberClean ? `Flat: ${flatNumberClean}` : ''
+  ].filter(Boolean).join(' · ');
+
   let photos = [];
   if (req.files && req.files.length > 0) {
     const uploadPromises = req.files.map(file => 
@@ -61,7 +71,10 @@ export const addVehicle = asyncHandler(async (req, res) => {
     brand, 
     model, 
     number, 
-    parking, 
+    flatNumber: flatNumberClean,
+    blockTower: blockTowerClean,
+    slotPillar: slotPillarClean,
+    parking: parkingClean, 
     color, 
     category,
     photos 
@@ -72,10 +85,39 @@ export const addVehicle = asyncHandler(async (req, res) => {
 });
 
 export const updateVehicle = asyncHandler(async (req, res) => {
-  const { brand, model, number, parking, color, category } = req.body;
+  const { brand, model, number, flatNumber, blockTower, slotPillar, color, category } = req.body;
+  
+  const flatNumberClean = flatNumber || '';
+  const blockTowerClean = blockTower || '';
+  const slotPillarClean = slotPillar || '';
+  const parkingClean = [
+    blockTowerClean ? `Block/Tower: ${blockTowerClean}` : '',
+    slotPillarClean ? `Slot/Pillar: ${slotPillarClean}` : '',
+    flatNumberClean ? `Flat: ${flatNumberClean}` : ''
+  ].filter(Boolean).join(' · ');
+
+  const updateFields = {
+    brand,
+    model,
+    number,
+    flatNumber: flatNumberClean,
+    blockTower: blockTowerClean,
+    slotPillar: slotPillarClean,
+    parking: parkingClean,
+    color,
+    category
+  };
+
+  if (req.files && req.files.length > 0) {
+    const uploadPromises = req.files.map(file => 
+      uploadBufferToCloudinary(file.buffer, 'cleanzo/vehicles')
+    );
+    updateFields.photos = await Promise.all(uploadPromises);
+  }
+
   const vehicle = await Vehicle.findOneAndUpdate(
     { _id: req.params.id, customer: req.user._id },
-    { brand, model, number, parking, color, category },
+    updateFields,
     { new: true, runValidators: true }
   );
   if (!vehicle) throw new ApiError(404, 'Vehicle not found');
@@ -502,12 +544,35 @@ export const getAddresses = asyncHandler(async (req, res) => {
 });
 
 export const addAddress = asyncHandler(async (req, res) => {
-  const { label, line1, line2, city, pincode, isDefault } = req.body;
-  if (!line1 || !city) throw new ApiError(400, 'Address line1 and city are required');
+  const { label, line1, line2, societyName, tower, flat, city, state, pincode, isDefault } = req.body;
+  if (!city) throw new ApiError(400, 'City is required');
   const customer = await Customer.findById(req.user._id);
-  customer.addresses.push({ label, line1, line2, city, pincode, isDefault });
+  customer.addresses.push({ label, line1, line2, societyName, tower, flat, city, state, pincode, isDefault });
   await customer.save({ validateModifiedOnly: true });
   res.status(201).json({ success: true, addresses: customer.addresses });
+});
+
+export const updateAddress = asyncHandler(async (req, res) => {
+  const { label, line1, line2, societyName, tower, flat, city, state, pincode, isDefault } = req.body;
+  if (!city) throw new ApiError(400, 'City is required');
+  const customer = await Customer.findById(req.user._id);
+  
+  const address = customer.addresses.id(req.params.id);
+  if (!address) throw new ApiError(404, 'Address not found');
+
+  if (label !== undefined) address.label = label;
+  if (line1 !== undefined) address.line1 = line1;
+  if (line2 !== undefined) address.line2 = line2;
+  if (societyName !== undefined) address.societyName = societyName;
+  if (tower !== undefined) address.tower = tower;
+  if (flat !== undefined) address.flat = flat;
+  if (city !== undefined) address.city = city;
+  if (state !== undefined) address.state = state;
+  if (pincode !== undefined) address.pincode = pincode;
+  if (isDefault !== undefined) address.isDefault = isDefault;
+
+  await customer.save({ validateModifiedOnly: true });
+  res.json({ success: true, addresses: customer.addresses });
 });
 
 export const deleteAddress = asyncHandler(async (req, res) => {
@@ -517,6 +582,34 @@ export const deleteAddress = asyncHandler(async (req, res) => {
   customer.addresses.splice(index, 1);
   await customer.save({ validateModifiedOnly: true });
   res.json({ success: true, addresses: customer.addresses });
+});
+
+export const addGrievance = asyncHandler(async (req, res) => {
+  const { name, email, phone, subject, issue } = req.body;
+  if (!name || !email || !phone || !subject || !issue) {
+    throw new ApiError(400, 'All fields are required');
+  }
+
+  let attachment = null;
+  if (req.file) {
+    const uploadResult = await uploadBufferToCloudinary(req.file.buffer, 'cleanzo/grievances');
+    attachment = uploadResult;
+  }
+
+  const grievance = await Grievance.create({
+    customer: req.user.id,
+    name,
+    email,
+    phone,
+    subject,
+    issue,
+    attachment
+  });
+
+  res.status(201).json({
+    success: true,
+    grievance
+  });
 });
 
 // ─── MARKETPLACE: ORDERS ──────────────────────────

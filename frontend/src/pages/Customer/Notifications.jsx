@@ -1,6 +1,6 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Bell, CreditCard, Gift } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
@@ -8,6 +8,8 @@ import { useCustomerData } from '../../context/CustomerDataContext'
 const iconMap = { service: Bell, subscription: CreditCard, offer: Gift }
 
 export default function Notifications() {
+  const navigate = useNavigate();
+
   const { notifications, loading: dataLoading, refreshNotifications } = useCustomerData()
   const error = ''
   
@@ -48,7 +50,7 @@ export default function Notifications() {
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
-        <Link to="/customer" className="flex items-center gap-8"><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Notifications</span></Link>
+        <button onClick={() => navigate(-1)}  className="flex items-center gap-8" style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Notifications</span></button>
       </div>
 
       {error && (

@@ -22,6 +22,7 @@ import { syncCleanerStats } from '../utils/cleanerStats.js';
 import Testimonial from '../models/Testimonial.js';
 import FAQ from '../models/FAQ.js';
 import Brand from '../models/Brand.js';
+import Grievance from '../models/Grievance.js';
 
 // Helper to log activities
 export const logActivity = async ({ type, message, performer, metadata }) => {
@@ -1195,5 +1196,27 @@ export const deleteBrand = asyncHandler(async (req, res) => {
   if (!brand) throw new ApiError(404, 'Brand not found');
   await clearCache('cache:global:*');
   res.json({ success: true, message: 'Brand deleted' });
+});
+
+export const getGrievances = asyncHandler(async (req, res) => {
+  const grievances = await Grievance.find()
+    .populate('customer', 'name phone email')
+    .sort('-createdAt');
+  res.json({ success: true, grievances });
+});
+
+export const updateGrievance = asyncHandler(async (req, res) => {
+  const { status, adminNotes } = req.body;
+  const grievance = await Grievance.findById(req.params.id);
+  if (!grievance) throw new ApiError(404, 'Grievance not found');
+
+  if (status) grievance.status = status;
+  if (adminNotes !== undefined) grievance.adminNotes = adminNotes;
+
+  await grievance.save();
+
+  // Optionally send notification to user here if needed in the future
+
+  res.json({ success: true, grievance });
 });
 

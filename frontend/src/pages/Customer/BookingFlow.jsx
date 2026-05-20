@@ -238,7 +238,7 @@ export default function BookingFlow() {
   return (
     <div className="app-shell animate-fade-in" style={{ paddingBottom: 120 }}>
       <div className="app-header" style={{ background: 'transparent', border: 'none' }}>
-        <button onClick={() => step > 0 ? setStep(step - 1) : navigate('/customer')} className="btn-icon glass" style={{ borderRadius: 14 }}>
+        <button onClick={() => step > 0 ? setStep(step - 1) : navigate(-1)} className="btn-icon glass" style={{ borderRadius: 14 }}>
           <ArrowLeft size={20} />
         </button>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em' }}>Secure Booking</span>

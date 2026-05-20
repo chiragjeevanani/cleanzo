@@ -12,7 +12,16 @@ export default function CustomerHome() {
     loading: dataLoading 
   } = useCustomerData()
 
-  const activeSub = (subscriptions || []).find(s => s.status === 'Active') || null
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const activeSub = (subscriptions || []).find(s => {
+    if (s.status !== 'Active') return false;
+    const endDate = new Date(s.endDate);
+    endDate.setHours(0, 0, 0, 0);
+    return today.getTime() <= endDate.getTime();
+  }) || null;
+
   const expiredTrial = (subscriptions || []).find(s => s.status === 'Expired' && s.isTrial)
   const hasRemainingDays = activeSub && (activeSub.totalDays - (activeSub.completedDays || 0) - (activeSub.skippedDays || 0)) > 0
   const unreadCount = (notifications || []).filter(n => !n.read).length
@@ -26,7 +35,7 @@ export default function CustomerHome() {
   
   if (loading) return (
     <div className="app-shell">
-      <div className="app-header" style={{ padding: '24px var(--margin-side)', background: 'transparent' }}>
+      <div className="app-header" style={{ padding: '24px var(--margin-side)' }}>
         <div>
           <div className="skeleton" style={{ width: 80, height: 12, borderRadius: 6, marginBottom: 10 }} />
           <div className="skeleton" style={{ width: 150, height: 28, borderRadius: 8 }} />
@@ -70,7 +79,7 @@ export default function CustomerHome() {
   return (
     <div className="app-shell animate-fade-in">
       {/* Header */}
-      <div className="app-header" style={{ padding: '24px var(--margin-side)', background: 'transparent' }}>
+      <div className="app-header" style={{ padding: '24px var(--margin-side)' }}>
         <div>
           <div className="text-body-sm text-secondary font-medium">{greeting},</div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', marginTop: 2 }}>
@@ -121,22 +130,34 @@ export default function CustomerHome() {
             </div>
           </Link>
         ) : (
-          <div className="glass animate-fade-in-up" style={{ padding: 40, marginBottom: 32, textAlign: 'center', borderRadius: 32, border: expiredTrial ? '1px solid rgba(var(--bg-accent-rgb), 0.3)' : '1px solid var(--border-glass)' }}>
-            <div style={{ width: 64, height: 64, background: 'rgba(var(--bg-accent-rgb), 0.1)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-              <Calendar size={32} color="var(--text-accent)" />
+          <div className="glass animate-fade-in-up overflow-hidden relative" style={{ marginBottom: 32, borderRadius: 32, border: expiredTrial ? '1px solid rgba(var(--bg-accent-rgb), 0.3)' : '1px solid var(--border-glass)' }}>
+            <div style={{ position: 'absolute', top: -50, right: -50, width: 150, height: 150, background: expiredTrial ? 'var(--error)' : 'var(--bg-accent)', opacity: 0.1, borderRadius: '50%', filter: 'blur(40px)' }} />
+            <div style={{ position: 'absolute', bottom: -50, left: -50, width: 150, height: 150, background: 'var(--primary-blue)', opacity: 0.1, borderRadius: '50%', filter: 'blur(40px)' }} />
+            
+            <div style={{ padding: '40px 24px', position: 'relative', zIndex: 1, textAlign: 'center' }}>
+              <div style={{ width: 72, height: 72, borderRadius: 24, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                {expiredTrial ? <Clock size={32} color="#ff5555" /> : <Car size={32} color="var(--text-accent)" />}
+              </div>
+              
+              <div className="text-label mb-8" style={{ color: expiredTrial ? '#ff5555' : 'var(--text-accent)', letterSpacing: '0.05em' }}>
+                {expiredTrial ? 'TRIAL EXPIRED' : 'NO ACTIVE PLAN'}
+              </div>
+              
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, marginBottom: 12 }}>
+                {expiredTrial ? 'Keep the Shine Going' : 'Your Garage is Waiting'}
+              </h2>
+              
+              <p className="text-secondary text-body-sm mb-32 leading-relaxed" style={{ maxWidth: 300, margin: '0 auto 32px' }}>
+                {expiredTrial 
+                  ? 'Your trial service has ended. Subscribe now to ensure your vehicle stays in showroom condition every single day.'
+                  : 'Unlock daily premium exterior cleaning and regular interior detailing. Let our experts keep your car in showroom condition.'}
+              </p>
+              
+              <Link to="/customer/packages" className="btn btn-primary w-full shadow-lg" style={{ borderRadius: 16, padding: '18px 20px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                <span>{expiredTrial ? 'Renew Subscription' : 'Explore Premium Plans'}</span>
+                <ChevronRight size={18} />
+              </Link>
             </div>
-            {expiredTrial ? (
-              <>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Trial period expired</h3>
-                <p className="text-secondary text-body-sm mb-24">Your trial service has ended. Purchase another subscription to continue enjoying our services.</p>
-              </>
-            ) : (
-              <>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Ready for a clean car?</h3>
-                <p className="text-secondary text-body-sm mb-24">Subscribe to a plan and keep your vehicle shiny every day.</p>
-              </>
-            )}
-            <Link to="/customer/packages" className="btn btn-primary w-full" style={{ borderRadius: 16, padding: 18 }}>Explore Packages</Link>
           </div>
         )}
 

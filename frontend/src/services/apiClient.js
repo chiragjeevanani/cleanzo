@@ -16,7 +16,7 @@ const apiClient = {
   post: (url, data) => request(url, { method: 'POST', body: JSON.stringify(data) }),
   put: (url, data) => request(url, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (url) => request(url, { method: 'DELETE' }),
-  uploadForm: (url, formData) => request(url, { method: 'POST', body: formData, _multipart: true }),
+  uploadForm: (url, formData, method = 'POST') => request(url, { method, body: formData, _multipart: true }),
 };
 
 const inflightRequests = new Map();

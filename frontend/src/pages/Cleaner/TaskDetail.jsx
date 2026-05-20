@@ -51,7 +51,7 @@ export default function TaskDetail() {
       setStatus(nextStatus)
       if (nextStatus === 'completed') {
         showToast('Task completed!')
-        setTimeout(() => navigate('/cleaner/tasks'), 1500)
+        setTimeout(() => navigate(-1), 1500)
       } else {
         showToast('Cleaning started!')
         // Refresh task to ensure photos are up to date
@@ -78,7 +78,7 @@ export default function TaskDetail() {
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
-        <Link to="/cleaner/tasks" className="flex items-center gap-8"><ArrowLeft size={20} /></Link>
+        <button onClick={() => navigate(-1)}  className="flex items-center gap-8" style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}><ArrowLeft size={20} /></button>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Task Detail</span>
         <div style={{ width: 20 }} />
       </div>

@@ -1,12 +1,13 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Check, ArrowRight, ChevronRight } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft, Check, ArrowRight, ChevronRight, Car } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
 
 export default function PackageSelect() {
-  const { packages, subscriptions, loading: dataLoading } = useCustomerData()
+  const { packages, subscriptions, vehicles, loading: dataLoading } = useCustomerData()
+  const navigate = useNavigate()
   const activeSub = (subscriptions || []).find(s => s.status === 'Active') || null
 
   const loading = dataLoading.packages || dataLoading.subscriptions
@@ -43,11 +44,33 @@ export default function PackageSelect() {
       </div>
     </div>
   )
+  
   if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
+
+  // Filter packages based on user's active vehicles
+  const displayPackages = packages.filter(pkg => {
+    // If the package has no restrictions, it applies to all vehicles.
+    if (!pkg.applicableModels || pkg.applicableModels.length === 0) return true;
+    
+    // If the user has no vehicles, show none (they must add a vehicle first)
+    if (!vehicles || vehicles.length === 0) return false;
+    
+    // Check if the package applies to ANY of the user's vehicles
+    return vehicles.some(v => {
+      const brandConfig = pkg.applicableModels.find(app => app.brand === v.brand);
+      if (!brandConfig) return false;
+      // If the brand is found, check if models array is empty (all models covered) or includes the vehicle's model
+      if (!brandConfig.models || brandConfig.models.length === 0) return true;
+      return brandConfig.models.includes(v.model);
+    });
+  });
+
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
-        <Link to="/customer" className="flex items-center gap-8"><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Subscription Plans</span></Link>
+        <button onClick={() => navigate(-1)} className="flex items-center gap-8 bg-transparent border-none text-[color:var(--text-primary)] cursor-pointer p-0">
+          <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Subscription Plans</span>
+        </button>
       </div>
 
       <div className="flex flex-col gap-12" style={{ paddingBottom: 100 }}>
@@ -63,10 +86,25 @@ export default function PackageSelect() {
         )}
 
         <div style={{ marginTop: 8, marginBottom: 16 }}>
-          <h3 className="text-label text-secondary">All Available Plans</h3>
+          <h3 className="text-label text-secondary">
+            {displayPackages.length > 0 ? 'Plans for your vehicles' : 'No plans available'}
+          </h3>
         </div>
         
-        {packages.map(pkg => {
+        {displayPackages.length === 0 && (
+          <div className="glass flex flex-col items-center justify-center gap-12" style={{ padding: '40px 20px', textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Car size={28} className="text-secondary" />
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Add a Vehicle</div>
+              <p className="text-body-sm text-secondary">Please add a vehicle to your garage to see available subscription plans.</p>
+            </div>
+            <Link to="/customer/profile" className="btn btn-primary mt-8">Go to Profile</Link>
+          </div>
+        )}
+
+        {displayPackages.map(pkg => {
           const isElite = pkg.name.toLowerCase() === 'elite';
           
           return (
