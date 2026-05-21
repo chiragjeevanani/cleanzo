@@ -7,6 +7,9 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import { getISTMidnight } from '../utils/dateHelper.js';
 import { syncCleanerStats } from '../utils/cleanerStats.js';
+import Customer from '../models/Customer.js';
+import Admin from '../models/Admin.js';
+import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.service.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -21,6 +24,26 @@ export const updateProfile = asyncHandler(async (req, res) => {
   const cleaner = await Cleaner.findByIdAndUpdate(req.user._id, { name, email, assignedArea }, { new: true, runValidators: true });
   res.json({ success: true, user: cleaner });
 });
+
+export const saveFcmToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw new ApiError(400, 'FCM token is required');
+  const cleaner = await Cleaner.findById(req.user._id);
+  if (!cleaner.fcmTokens.includes(token)) {
+    cleaner.fcmTokens.push(token);
+    if (cleaner.fcmTokens.length > 10) cleaner.fcmTokens = cleaner.fcmTokens.slice(-10);
+    await cleaner.save({ validateModifiedOnly: true });
+  }
+  res.json({ success: true, message: 'FCM token saved' });
+});
+
+export const removeFcmToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw new ApiError(400, 'FCM token is required');
+  await Cleaner.findByIdAndUpdate(req.user._id, { $pull: { fcmTokens: token } });
+  res.json({ success: true, message: 'FCM token removed' });
+});
+
 
 export const toggleAvailability = asyncHandler(async (req, res) => {
   const cleaner = await Cleaner.findById(req.user._id);
@@ -149,6 +172,21 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
     { upsert: true }
   );
 
+  // ── Push Notification: task completed → notify customer ──
+  if (status === 'completed' && updatedTask) {
+    try {
+      const cleanerName = req.user.name || 'Your cleaner';
+      const customerDoc = await Customer.findById(task.customer).select('fcmTokens');
+      if (customerDoc?.fcmTokens?.length) {
+        sendPushNotification(customerDoc.fcmTokens, {
+          title: '✅ Car Wash Complete!',
+          body: `${cleanerName} has finished washing your car.`,
+          data: { type: 'task_completed', link: NOTIFICATION_LINKS.task_completed },
+        }).catch(() => {});
+      }
+    } catch { /* non-fatal */ }
+  }
+
   res.json({ success: true, task: updatedTask });
 });
 
@@ -246,6 +284,20 @@ export const submitKyc = asyncHandler(async (req, res) => {
     { new: true }
   ).select('kycStatus kyc avatar name');
 
+  // ── Push Notification to Admin: KYC submitted ──
+  try {
+    const admins = await Admin.find({ fcmTokens: { $exists: true, $ne: [] } }).select('fcmTokens');
+    const adminTokens = admins.flatMap(a => a.fcmTokens || []);
+    if (adminTokens.length) {
+      sendPushNotification(adminTokens, {
+        title: '📋 New KYC Submitted',
+        body: `${cleaner.name || 'A cleaner'} has submitted KYC for review.`,
+        data: { type: 'kyc_submitted', link: NOTIFICATION_LINKS.kyc_submitted },
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('Failed to send KYC submission push notification:', err.message);
+  }
 
   res.json({
     success: true,

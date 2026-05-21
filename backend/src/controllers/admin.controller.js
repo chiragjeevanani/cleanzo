@@ -23,6 +23,10 @@ import Testimonial from '../models/Testimonial.js';
 import FAQ from '../models/FAQ.js';
 import Brand from '../models/Brand.js';
 import Grievance from '../models/Grievance.js';
+import Admin from '../models/Admin.js';
+import PartnerSociety from '../models/PartnerSociety.js';
+import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.service.js';
+
 
 // Helper to log activities
 export const logActivity = async ({ type, message, performer, metadata }) => {
@@ -644,16 +648,17 @@ export const getAdminNotifications = asyncHandler(async (req, res) => {
 
 // ─── NOTIFICATIONS BROADCAST ─────────────────────
 export const broadcastNotification = asyncHandler(async (req, res) => {
-  const { title, message, type, target } = req.body; // target: 'all' | 'customers' | 'cleaners'
+  const { title, message, type, target } = req.body; // target: 'all' | 'customers' | 'cleaners' | 'society'
   if (!title || !message) throw new ApiError(400, 'Title and message required');
-  if (!target || !['all', 'customers', 'cleaners'].includes(target)) {
-    throw new ApiError(400, "target must be one of: 'all', 'customers', 'cleaners'");
+  if (!target || !['all', 'customers', 'cleaners', 'society'].includes(target)) {
+    throw new ApiError(400, "target must be one of: 'all', 'customers', 'cleaners', 'society'");
   }
 
   const BATCH_SIZE = 500;
   let totalSent = 0;
+  const allFcmTokens = [];
 
-  // Stream recipients via cursor and insert in batches — avoids loading all IDs into memory
+  // Stream recipients via cursor — insert in-app records + collect FCM tokens
   const flushBatch = async (batch) => {
     if (batch.length === 0) return;
     await Notification.insertMany(batch, { ordered: false });
@@ -664,6 +669,8 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
     let batch = [];
     for await (const doc of cursor) {
       batch.push({ recipient: doc._id, recipientModel, type: type || 'system', title, message });
+      // Collect FCM tokens for push delivery
+      if (doc.fcmTokens?.length) allFcmTokens.push(...doc.fcmTokens);
       if (batch.length >= BATCH_SIZE) {
         await flushBatch(batch);
         batch = [];
@@ -673,21 +680,37 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
   };
 
   if (target === 'all' || target === 'customers') {
-    await processCursor(Customer.find({ isActive: true }).select('_id').cursor(), 'Customer');
+    await processCursor(Customer.find({ isActive: true }).select('_id fcmTokens').cursor(), 'Customer');
   }
   if (target === 'all' || target === 'cleaners') {
-    await processCursor(Cleaner.find({ isActive: true }).select('_id').cursor(), 'Cleaner');
+    await processCursor(Cleaner.find({ isActive: true }).select('_id fcmTokens').cursor(), 'Cleaner');
+  }
+  if (target === 'all' || target === 'society') {
+    await processCursor(PartnerSociety.find({ isActive: true }).select('_id fcmTokens').cursor(), 'PartnerSociety');
+  }
+
+  // Fire FCM push to all collected tokens (non-fatal)
+  if (allFcmTokens.length > 0) {
+    // Split into batches of 500 (FCM multicast limit)
+    const tokenBatches = [];
+    for (let i = 0; i < allFcmTokens.length; i += 500) {
+      tokenBatches.push(allFcmTokens.slice(i, i + 500));
+    }
+    await Promise.allSettled(tokenBatches.map(tokens =>
+      sendPushNotification(tokens, { title, body: message, data: { type: type || 'system', link: '/' } })
+    ));
   }
 
   await logActivity({
     type: 'system',
     message: `Admin broadcasted "${title}" to ${target}`,
     performer: req.user._id,
-    metadata: { title, target, recipients: totalSent }
+    metadata: { title, target, recipients: totalSent, pushTokens: allFcmTokens.length }
   });
 
-  res.json({ success: true, message: `Sent to ${totalSent} recipients` });
+  res.json({ success: true, message: `Sent to ${totalSent} recipients (${allFcmTokens.length} push devices)` });
 });
+
 
 // ─── SOCIETIES ───────────────────────────────────
 export const getSocieties = asyncHandler(async (req, res) => {
@@ -922,6 +945,21 @@ export const reviewCleanerKyc = asyncHandler(async (req, res) => {
     metadata: { cleanerId: cleaner._id }
   });
 
+  // ── Push Notification → Cleaner ──
+  const freshCleaner = await Cleaner.findById(req.params.id).select('fcmTokens name');
+  if (freshCleaner?.fcmTokens?.length) {
+    sendPushNotification(freshCleaner.fcmTokens, {
+      title: status === 'approved' ? '✅ KYC Approved!' : '❌ KYC Rejected',
+      body: status === 'approved'
+        ? 'Your account is now verified and fully active.'
+        : `KYC rejected: ${rejectionNote}. Please resubmit.`,
+      data: {
+        type: status === 'approved' ? 'kyc_approved' : 'kyc_rejected',
+        link: status === 'approved' ? NOTIFICATION_LINKS.kyc_approved : NOTIFICATION_LINKS.kyc_rejected,
+      },
+    }).catch(() => {});
+  }
+
   res.json({ success: true, cleaner });
 });
 
@@ -1137,6 +1175,20 @@ export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
     message: `Cleaner ${cleaner.name} assigned to subscription for ${subscription.customer}`,
     metadata: { subscriptionId, cleanerId }
   });
+
+  // ── Push Notification: task assigned ──
+  try {
+    if (cleaner.fcmTokens?.length) {
+      const locName = subscription.society?.name || 'assigned area';
+      sendPushNotification(cleaner.fcmTokens, {
+        title: '🧹 New Task Assigned!',
+        body: `You have a wash job at ${locName} today.`,
+        data: { type: 'task_assigned', link: NOTIFICATION_LINKS.task_assigned },
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('Failed to send task assigned push notification:', err.message);
+  }
 
   res.json({ success: true, message: 'Cleaner assigned successfully and task generated', subscription });
 });
@@ -1499,3 +1551,25 @@ export const processPayoutRequest = asyncHandler(async (req, res) => {
 
   res.json({ success: true, request, message: `Payout request ${action === 'approve' ? 'approved' : 'rejected'} successfully` });
 });
+
+// ─── FCM TOKEN ───────────────────────────────────
+
+export const saveFcmToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw new ApiError(400, 'FCM token is required');
+  const admin = await Admin.findById(req.user._id);
+  if (!admin.fcmTokens.includes(token)) {
+    admin.fcmTokens.push(token);
+    if (admin.fcmTokens.length > 10) admin.fcmTokens = admin.fcmTokens.slice(-10);
+    await admin.save({ validateModifiedOnly: true });
+  }
+  res.json({ success: true, message: 'FCM token saved' });
+});
+
+export const removeFcmToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw new ApiError(400, 'FCM token is required');
+  await Admin.findByIdAndUpdate(req.user._id, { $pull: { fcmTokens: token } });
+  res.json({ success: true, message: 'FCM token removed' });
+});
+

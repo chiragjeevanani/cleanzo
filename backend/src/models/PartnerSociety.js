@@ -14,6 +14,7 @@ const partnerSocietySchema = new Schema({
   pendingBalance: { type: Number, default: 0 },   // balance not yet paid out
   role:           { type: String, default: 'society', enum: ['society'] },
   lastLogin:      { type: Date },
+  fcmTokens:      { type: [String], default: [] },
   bankDetails: {
     accountName:   { type: String, trim: true },
     accountNumber: { type: String, trim: true },

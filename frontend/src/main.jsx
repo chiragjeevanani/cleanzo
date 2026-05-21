@@ -7,11 +7,14 @@ import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
 
-// Unregister service workers to avoid stale PWA cache during development/testing
+// Unregister stale PWA service workers — but KEEP the Firebase messaging SW
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     for (const registration of registrations) {
-      registration.unregister();
+      const scriptURL = registration.active?.scriptURL || '';
+      if (!scriptURL.includes('firebase-messaging-sw')) {
+        registration.unregister();
+      }
     }
   });
 }
@@ -31,3 +34,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </React.StrictMode>
 )
+

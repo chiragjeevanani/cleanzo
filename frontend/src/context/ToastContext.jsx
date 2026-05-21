@@ -6,9 +6,9 @@ export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
   const idRef = useRef(0)
 
-  const showToast = useCallback((message, type = 'success', duration = 3500) => {
+  const showToast = useCallback((message, type = 'success', duration = 3500, onClick = null) => {
     const id = ++idRef.current
-    setToasts(prev => [...prev, { id, message, type }])
+    setToasts(prev => [...prev, { id, message, type, onClick }])
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration)
   }, [])
 
@@ -42,7 +42,12 @@ function ToastStack({ toasts, onDismiss }) {
     <div role="status" aria-live="polite" aria-atomic="false" style={{ position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, pointerEvents: 'none' }}>
       {toasts.map(t => (
         <div key={t.id}
-          onClick={() => onDismiss(t.id)}
+          onClick={() => {
+            if (t.onClick) {
+              t.onClick();
+            }
+            onDismiss(t.id);
+          }}
           style={{
             ...typeStyles[t.type] || typeStyles.info,
             padding: '12px 20px',

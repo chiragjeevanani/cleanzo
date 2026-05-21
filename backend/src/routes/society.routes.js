@@ -15,4 +15,7 @@ router.get('/profile', ctrl.getProfile);
 router.put('/profile', ctrl.updateProfile);
 router.put('/profile/change-password', ctrl.changePassword);
 
+router.post('/fcm-token', ctrl.saveFcmToken);
+router.delete('/fcm-token', ctrl.removeFcmToken);
+
 export default router;

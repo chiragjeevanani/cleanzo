@@ -11,6 +11,9 @@ router.get('/profile', ctrl.getProfile);
 router.put('/profile', ctrl.updateProfile);
 router.put('/availability', ctrl.toggleAvailability);
 
+router.post('/fcm-token', ctrl.saveFcmToken);
+router.delete('/fcm-token', ctrl.removeFcmToken);
+
 router.get('/tasks', ctrl.getTodayTasks);
 router.get('/tasks/today', ctrl.getTodayTasks);
 router.get('/tasks/:id', ctrl.getTaskById);

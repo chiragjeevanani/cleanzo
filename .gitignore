@@ -74,3 +74,23 @@ pnpm-debug.log*
 *.tmp
 .mcp.json
 .opencode.json
+
+# Firebase & Credentials / Secrets
+cleanzo-2c7aa-firebase-adminsdk-fbsvc-e6ed5b3b59.json
+*firebase-adminsdk*.json
+*service-account*.json
+*service_account*.json
+*serviceAccount*.json
+*fcm*.json
+*privatekey*.json
+*private_key*.json
+client_secret*.json
+gcp-key*.json
+gcp_key*.json
+secrets*.json
+secret*.json
+credentials*.json
+*.pem
+*.pfx
+*.p12
+*.key

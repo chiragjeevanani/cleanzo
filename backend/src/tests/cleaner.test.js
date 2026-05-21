@@ -13,7 +13,7 @@ async function pendingTask(cleanerId, customerId, vehicleId, subId) {
     customer: customerId,
     cleaner: cleanerId,
     vehicle: vehicleId,
-    date: new Date(),
+    date: getISTMidnight(),
     status: 'pending',
     packageName: 'Basic',
   });

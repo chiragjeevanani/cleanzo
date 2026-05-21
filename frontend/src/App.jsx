@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { SocietyAuthProvider } from './context/SocietyAuthContext'
+import { PushNotificationProvider } from './context/PushNotificationContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import LandingPage from './pages/Landing/LandingPage'
 import CustomerApp from './pages/Customer/CustomerApp'
@@ -19,68 +20,64 @@ import SocietyApp from './pages/Society/SocietyApp'
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<CustomerAuth />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/terms" element={<LegalTerms />} />
-        <Route path="/privacy" element={<LegalPrivacy />} />
-        <Route path="/help" element={<HelpSupport />} />
-        <Route path="/join-crew" element={<JoinAsCleaner />} />
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/admin/login" element={<AdminLogin />} />
+      <SocietyAuthProvider>
+        <PushNotificationProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<CustomerAuth />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/terms" element={<LegalTerms />} />
+            <Route path="/privacy" element={<LegalPrivacy />} />
+            <Route path="/help" element={<HelpSupport />} />
+            <Route path="/join-crew" element={<JoinAsCleaner />} />
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
 
-        {/* Protected: Customer Portal */}
-        <Route
-          path="/customer/*"
-          element={
-            <ProtectedRoute role="customer" redirectTo="/login">
-              <CustomerApp />
-            </ProtectedRoute>
-          }
-        />
+            {/* Protected: Customer Portal */}
+            <Route
+              path="/customer/*"
+              element={
+                <ProtectedRoute role="customer" redirectTo="/login">
+                  <CustomerApp />
+                </ProtectedRoute>
+              }
+            />
 
-        {/* Protected: Cleaner Portal */}
-        <Route
-          path="/cleaner/*"
-          element={
-            <ProtectedRoute role="cleaner" redirectTo="/login">
-              <CleanerApp />
-            </ProtectedRoute>
-          }
-        />
+            {/* Protected: Cleaner Portal */}
+            <Route
+              path="/cleaner/*"
+              element={
+                <ProtectedRoute role="cleaner" redirectTo="/login">
+                  <CleanerApp />
+                </ProtectedRoute>
+              }
+            />
 
-        {/* Protected: Admin Panel */}
-        <Route
-          path="/admin/*"
-          element={
-            <ProtectedRoute role={['admin', 'superadmin']} redirectTo="/admin/login">
-              <AdminPanel />
-            </ProtectedRoute>
-          }
-        />
+            {/* Protected: Admin Panel */}
+            <Route
+              path="/admin/*"
+              element={
+                <ProtectedRoute role={['admin', 'superadmin']} redirectTo="/admin/login">
+                  <AdminPanel />
+                </ProtectedRoute>
+              }
+            />
 
-        {/* Protected: Society Partner Portal */}
-        <Route
-          path="/society/login"
-          element={
-            <SocietyAuthProvider>
-              <SocietyLogin />
-            </SocietyAuthProvider>
-          }
-        />
-        <Route
-          path="/society/*"
-          element={
-            <SocietyAuthProvider>
-              <SocietyApp />
-            </SocietyAuthProvider>
-          }
-        />
+            {/* Protected: Society Partner Portal */}
+            <Route
+              path="/society/login"
+              element={<SocietyLogin />}
+            />
+            <Route
+              path="/society/*"
+              element={<SocietyApp />}
+            />
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </PushNotificationProvider>
+      </SocietyAuthProvider>
     </AuthProvider>
   )
 }

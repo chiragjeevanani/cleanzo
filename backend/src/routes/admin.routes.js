@@ -39,6 +39,9 @@ router.get('/revenue', ctrl.getRevenue);
 router.get('/notifications', ctrl.getAdminNotifications);
 router.post('/notifications/broadcast', ctrl.broadcastNotification);
 
+router.post('/fcm-token', ctrl.saveFcmToken);
+router.delete('/fcm-token', ctrl.removeFcmToken);
+
 // Societies
 router.get('/societies', ctrl.getSocieties);
 router.post('/societies', ctrl.createSociety);

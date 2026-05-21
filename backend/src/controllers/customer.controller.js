@@ -21,6 +21,9 @@ import { clearCache } from '../middleware/cache.js';
 import { getISTMidnight } from '../utils/dateHelper.js';
 import PartnerSociety from '../models/PartnerSociety.js';
 import SocietyCommission from '../models/SocietyCommission.js';
+import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.service.js';
+import Admin from '../models/Admin.js';
+
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -40,6 +43,26 @@ export const updateProfile = asyncHandler(async (req, res) => {
   await clearCache(`cache:${req.user._id}:*`);
   res.json({ success: true, user: customer });
 });
+
+export const saveFcmToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw new ApiError(400, 'FCM token is required');
+  const customer = await Customer.findById(req.user._id);
+  if (!customer.fcmTokens.includes(token)) {
+    customer.fcmTokens.push(token);
+    if (customer.fcmTokens.length > 10) customer.fcmTokens = customer.fcmTokens.slice(-10);
+    await customer.save({ validateModifiedOnly: true });
+  }
+  res.json({ success: true, message: 'FCM token saved' });
+});
+
+export const removeFcmToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw new ApiError(400, 'FCM token is required');
+  await Customer.findByIdAndUpdate(req.user._id, { $pull: { fcmTokens: token } });
+  res.json({ success: true, message: 'FCM token removed' });
+});
+
 
 // ─── VEHICLES ────────────────────────────────────
 export const getVehicles = asyncHandler(async (req, res) => {
@@ -414,6 +437,7 @@ export const createSubscription = asyncHandler(async (req, res) => {
   }
 
   // Create Society Commission if partner society
+  let partnerForPush = null;
   if (!isTrial) {
     try {
       const partner = await PartnerSociety.findOne({ society: societyId, isActive: true });
@@ -433,6 +457,7 @@ export const createSubscription = asyncHandler(async (req, res) => {
         partner.totalEarned += commissionAmount;
         partner.pendingBalance += commissionAmount;
         await partner.save();
+        partnerForPush = { tokens: partner.fcmTokens, amount: commissionAmount, customerName: `${req.user.firstName} ${req.user.lastName}` };
       }
     } catch (err) {
       console.error('Failed to create society commission:', err);
@@ -445,9 +470,32 @@ export const createSubscription = asyncHandler(async (req, res) => {
     metadata: { subscriptionId: sub._id, customerId: req.user._id }
   });
 
+  // ── Push Notifications ──
+  // 1. Customer: subscription activated
+  const customer = await Customer.findById(req.user._id).select('fcmTokens firstName');
+  if (customer?.fcmTokens?.length) {
+    const dateStr = finalStartDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    sendPushNotification(customer.fcmTokens, {
+      title: '🚗 Subscription Activated!',
+      body: `Your ${isTrial ? 'trial' : 'car wash'} plan starts on ${dateStr}.`,
+      data: { type: 'subscription_created', link: NOTIFICATION_LINKS.subscription_created },
+    }).catch(() => {});
+  }
+
+  // 2. Society partner: commission earned
+  if (partnerForPush?.tokens?.length) {
+    sendPushNotification(partnerForPush.tokens, {
+      title: '💰 Commission Earned!',
+      body: `₹${partnerForPush.amount.toFixed(0)} commission added from ${partnerForPush.customerName}'s subscription.`,
+      data: { type: 'commission_earned', link: NOTIFICATION_LINKS.commission_earned },
+    }).catch(() => {});
+  }
+
   await clearCache(`cache:${req.user._id}:*`);
   res.status(201).json({ success: true, subscription: sub });
 });
+
+
 
 
 export const skipService = asyncHandler(async (req, res) => {
@@ -546,6 +594,21 @@ export const skipService = asyncHandler(async (req, res) => {
   sub.nextWash = await calculateDynamicNextWash(sub._id);
   
   await sub.save({ validateModifiedOnly: true });
+
+  // ── Push Notification: service skipped ──
+  try {
+    const customer = await Customer.findById(req.user._id).select('fcmTokens');
+    if (customer?.fcmTokens?.length) {
+      const formattedDates = parsedDates.map(d => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })).join(', ');
+      sendPushNotification(customer.fcmTokens, {
+        title: '📅 Service Skipped!',
+        body: `Your wash for ${formattedDates} has been skipped and subscription extended.`,
+        data: { type: 'service_skipped', link: NOTIFICATION_LINKS.service_skipped },
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('Failed to send service skipped push notification:', err.message);
+  }
 
   await clearCache(`cache:${req.user._id}:*`);
   
@@ -705,6 +768,21 @@ export const addGrievance = asyncHandler(async (req, res) => {
     issue,
     attachment
   });
+
+  // ── Push Notification to Admin: new grievance filed ──
+  try {
+    const admins = await Admin.find({ fcmTokens: { $exists: true, $ne: [] } }).select('fcmTokens');
+    const adminTokens = admins.flatMap(a => a.fcmTokens || []);
+    if (adminTokens.length) {
+      sendPushNotification(adminTokens, {
+        title: '⚠️ New Grievance Filed',
+        body: `${req.user.firstName || 'A customer'} has filed a new grievance: "${subject}".`,
+        data: { type: 'grievance_filed', link: NOTIFICATION_LINKS.grievance_filed },
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('Failed to send grievance push notification:', err.message);
+  }
 
   res.status(201).json({
     success: true,

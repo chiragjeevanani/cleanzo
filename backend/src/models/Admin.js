@@ -11,6 +11,7 @@ const adminSchema = new Schema({
   avatar:   { type: String, default: null },
   isActive: { type: Boolean, default: true },
   lastLogin:{ type: Date },
+  fcmTokens:{ type: [String], default: [] },
 }, { timestamps: true });
 
 // Hash password before save

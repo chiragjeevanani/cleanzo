@@ -38,7 +38,7 @@ const customerSchema = new Schema({
     society:   { type: Schema.Types.ObjectId, ref: 'Society' },
     isDefault: { type: Boolean, default: false }
   }],
-  fcmToken:   { type: String, default: null },
+  fcmTokens:  { type: [String], default: [] },
   isActive:   { type: Boolean, default: true },
   lastLogin:  { type: Date },
 }, { timestamps: true });

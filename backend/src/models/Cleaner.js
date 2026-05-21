@@ -20,7 +20,7 @@ const cleanerSchema = new Schema({
   isActive:        { type: Boolean, default: true },
   dailyRate:       { type: Number, default: 500 },
   joiningDate:     { type: Date, default: Date.now },
-  fcmToken:        { type: String, default: null },
+  fcmTokens:       { type: [String], default: [] },
   lastLogin:       { type: Date },
   // KYC & Personal Info
   age:              { type: Number },

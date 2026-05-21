@@ -175,3 +175,24 @@ export const changePassword = asyncHandler(async (req, res) => {
   await ps.save({ validateModifiedOnly: true });
   res.json({ success: true, message: 'Password changed successfully' });
 });
+
+// ─── FCM TOKEN ───────────────────────────────────────────────
+export const saveFcmToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw new ApiError(400, 'FCM token is required');
+  const ps = await PartnerSociety.findById(req.user._id);
+  if (!ps.fcmTokens.includes(token)) {
+    ps.fcmTokens.push(token);
+    if (ps.fcmTokens.length > 10) ps.fcmTokens = ps.fcmTokens.slice(-10);
+    await ps.save({ validateModifiedOnly: true });
+  }
+  res.json({ success: true, message: 'FCM token saved' });
+});
+
+export const removeFcmToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw new ApiError(400, 'FCM token is required');
+  await PartnerSociety.findByIdAndUpdate(req.user._id, { $pull: { fcmTokens: token } });
+  res.json({ success: true, message: 'FCM token removed' });
+});
+

@@ -28,6 +28,9 @@ router.post('/tasks/:id/rate', ctrl.rateTask);
 router.get('/notifications', cacheMiddleware(120, true), ctrl.getNotifications);
 router.put('/notifications/:id/read', ctrl.markNotificationRead);
 
+router.post('/fcm-token', ctrl.saveFcmToken);
+router.delete('/fcm-token', ctrl.removeFcmToken);
+
 router.get('/addresses', cacheMiddleware(600, true), ctrl.getAddresses);
 router.post('/addresses', ctrl.addAddress);
 router.put('/addresses/:id', ctrl.updateAddress);
