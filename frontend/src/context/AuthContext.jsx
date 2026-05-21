@@ -39,6 +39,31 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
+  // Sync auth state across tabs
+  useEffect(() => {
+    const handleStorageChange = async (e) => {
+      if (e.key === 'token') {
+        const token = e.newValue;
+        if (!token) {
+          setUser(null);
+          setLoading(false);
+        } else {
+          try {
+            const res = await apiClient.get('/auth/me');
+            setUser(res.user);
+          } catch {
+            setUser(null);
+          } finally {
+            setLoading(false);
+          }
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+
   const login = async (phone, otp, role, extra = {}) => {
     try {
       const res = await apiClient.post('/auth/verify-otp', {

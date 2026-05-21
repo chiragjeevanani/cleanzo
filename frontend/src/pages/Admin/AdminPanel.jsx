@@ -56,7 +56,16 @@ export default function AdminPanel() {
   const [globalSearch, setGlobalSearch] = useState('')
 
   useEffect(() => {
+    if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
+      return
+    }
+
     const fetchStats = async () => {
+      const currentRole = localStorage.getItem('userRole')
+      if (currentRole !== 'admin' && currentRole !== 'superadmin') {
+        return
+      }
+
       try {
         const res = await apiClient.get('/admin/badges')
         if (res.success) {
@@ -66,10 +75,11 @@ export default function AdminPanel() {
         console.error('Failed to fetch admin stats', err)
       }
     }
+
     fetchStats()
     const interval = setInterval(fetchStats, 60000) // Refresh every minute
     return () => clearInterval(interval)
-  }, [])
+  }, [user])
 
   useEffect(() => {
     const handler = () => {
