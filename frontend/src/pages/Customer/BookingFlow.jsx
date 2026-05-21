@@ -45,6 +45,7 @@ export default function BookingFlow() {
   
   const queryParams = new URLSearchParams(location.search)
   const initialPackageId = queryParams.get('packageId')
+  const initialVehicleId = queryParams.get('vehicleId')
   
   const { 
     vehicles, packages, societies, subscriptions: activeSubscriptions, settings,
@@ -112,7 +113,19 @@ export default function BookingFlow() {
     }
     
     if (vehicles.length > 0 && !selectedVehicle) {
-      if (initialPackageId) {
+      if (initialVehicleId) {
+        const matchingVehicle = vehicles.find(v => v._id === initialVehicleId)
+        if (matchingVehicle) {
+          setSelectedVehicle(matchingVehicle)
+        } else if (initialPackageId) {
+          const pkg = packages.find(p => p._id === initialPackageId)
+          const eligible = vehicles.find(v => isVehicleEligibleForPackage(v, pkg))
+          if (eligible) setSelectedVehicle(eligible)
+          else setSelectedVehicle(vehicles[0])
+        } else {
+          setSelectedVehicle(vehicles[0])
+        }
+      } else if (initialPackageId) {
         const pkg = packages.find(p => p._id === initialPackageId)
         const eligible = vehicles.find(v => isVehicleEligibleForPackage(v, pkg))
         if (eligible) setSelectedVehicle(eligible)
@@ -121,7 +134,7 @@ export default function BookingFlow() {
         setSelectedVehicle(vehicles[0])
       }
     }
-  }, [dataLoading, societies, packages, vehicles, initialPackageId, selectedSociety, selectedPkg, selectedVehicle])
+  }, [dataLoading, societies, packages, vehicles, initialPackageId, initialVehicleId, selectedSociety, selectedPkg, selectedVehicle])
 
 
     // Load Razorpay script — only enable Pay button after onload fires

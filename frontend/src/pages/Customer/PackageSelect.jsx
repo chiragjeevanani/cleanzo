@@ -10,8 +10,21 @@ export default function PackageSelect() {
   const navigate = useNavigate()
   const activeSub = (subscriptions || []).find(s => s.status === 'Active') || null
 
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null)
+
   const loading = dataLoading.packages || dataLoading.subscriptions
   const error = '' // Handled by global context if needed
+
+  useEffect(() => {
+    if (vehicles && vehicles.length > 0) {
+      const exists = vehicles.some(v => v._id === selectedVehicleId)
+      if (!exists) {
+        setSelectedVehicleId(vehicles[0]._id)
+      }
+    } else {
+      setSelectedVehicleId(null)
+    }
+  }, [vehicles, selectedVehicleId])
 
   if (loading) return (
     <div className="app-shell">
@@ -47,23 +60,28 @@ export default function PackageSelect() {
   
   if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
 
-  // Filter packages based on user's active vehicles
-  const displayPackages = packages.filter(pkg => {
+  const selectedVehicle = vehicles?.find(v => v._id === selectedVehicleId) || null
+
+  const isVehicleEligibleForPackage = (vehicle, pkg) => {
+    if (!vehicle || !pkg) return false;
     // If the package has no restrictions, it applies to all vehicles.
     if (!pkg.applicableModels || pkg.applicableModels.length === 0) return true;
-    
-    // If the user has no vehicles, show none (they must add a vehicle first)
-    if (!vehicles || vehicles.length === 0) return false;
-    
-    // Check if the package applies to ANY of the user's vehicles
-    return vehicles.some(v => {
-      const brandConfig = pkg.applicableModels.find(app => app.brand === v.brand);
-      if (!brandConfig) return false;
-      // If the brand is found, check if models array is empty (all models covered) or includes the vehicle's model
-      if (!brandConfig.models || brandConfig.models.length === 0) return true;
-      return brandConfig.models.includes(v.model);
-    });
-  });
+
+    const brandConfig = pkg.applicableModels.find(
+      app => app.brand.toLowerCase() === vehicle.brand.toLowerCase()
+    );
+    if (!brandConfig) return false;
+    // If the brand is found, check if models array is empty (all models covered) or includes the vehicle's model
+    if (!brandConfig.models || brandConfig.models.length === 0) return true;
+    return brandConfig.models.some(
+      m => m.toLowerCase() === vehicle.model.toLowerCase()
+    );
+  };
+
+  // Filter packages based on the selected vehicle
+  const displayPackages = selectedVehicle
+    ? packages.filter(pkg => isVehicleEligibleForPackage(selectedVehicle, pkg))
+    : [];
 
   return (
     <div style={{ padding: '0 20px' }}>
@@ -85,13 +103,79 @@ export default function PackageSelect() {
           </Link>
         )}
 
-        <div style={{ marginTop: 8, marginBottom: 16 }}>
+        {/* Vehicle Selection Header & Horizontal List */}
+        {vehicles && vehicles.length > 0 && (
+          <div style={{ marginTop: 8, marginBottom: 16 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Select Vehicle
+            </div>
+            <div 
+              style={{ 
+                display: 'flex', 
+                gap: 12, 
+                overflowX: 'auto', 
+                paddingBottom: 12,
+                scrollSnapType: 'x mandatory',
+                WebkitOverflowScrolling: 'touch'
+              }}
+              className="no-scrollbar"
+            >
+              {vehicles.map(v => {
+                const isSelected = v._id === selectedVehicleId;
+                return (
+                  <button
+                    key={v._id}
+                    onClick={() => setSelectedVehicleId(v._id)}
+                    style={{
+                      flex: '0 0 auto',
+                      width: 150,
+                      padding: '12px 14px',
+                      borderRadius: 16,
+                      border: isSelected ? '1.5px solid var(--accent-lime)' : '1px solid var(--border-glass)',
+                      background: isSelected ? 'rgba(var(--bg-accent-rgb), 0.08)' : 'var(--bg-glass)',
+                      boxShadow: isSelected ? 'var(--shadow-glow-lime)' : 'var(--shadow-sm)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      color: 'var(--text-primary)',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                      <Car size={16} className={isSelected ? 'text-lime' : 'text-secondary'} />
+                      {isSelected && (
+                        <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--accent-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Check size={10} color="black" strokeWidth={4} />
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, marginTop: 4, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%' }}>
+                      {v.brand} {v.model}
+                    </div>
+                    <div className="text-secondary" style={{ fontSize: 10, letterSpacing: '0.3px' }}>
+                      {v.number}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginTop: 4, marginBottom: 8 }}>
           <h3 className="text-label text-secondary">
-            {displayPackages.length > 0 ? 'Plans for your vehicles' : 'No plans available'}
+            {(!vehicles || vehicles.length === 0) 
+              ? 'No vehicles available' 
+              : displayPackages.length > 0 
+                ? `Plans compatible with ${selectedVehicle?.brand} ${selectedVehicle?.model}` 
+                : 'No compatible plans available'
+            }
           </h3>
         </div>
         
-        {displayPackages.length === 0 && (
+        {(!vehicles || vehicles.length === 0) && (
           <div className="glass flex flex-col items-center justify-center gap-12" style={{ padding: '40px 20px', textAlign: 'center' }}>
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Car size={28} className="text-secondary" />
@@ -104,13 +188,25 @@ export default function PackageSelect() {
           </div>
         )}
 
+        {vehicles && vehicles.length > 0 && displayPackages.length === 0 && (
+          <div className="glass flex flex-col items-center justify-center gap-12" style={{ padding: '40px 20px', textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Car size={28} className="text-secondary" />
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, marginBottom: 8 }}>No Compatible Plans</div>
+              <p className="text-body-sm text-secondary">There are no active packages matching your selected vehicle ({selectedVehicle?.brand} {selectedVehicle?.model}).</p>
+            </div>
+          </div>
+        )}
+
         {displayPackages.map(pkg => {
           const isElite = pkg.name.toLowerCase() === 'elite';
           
           return (
             <Link 
               key={pkg._id} 
-              to={`/customer/plan/${pkg._id}`} 
+              to={`/customer/plan/${pkg._id}?vehicleId=${selectedVehicleId}`} 
               className="glass animate-fade-in"
               style={{ 
                 padding: 24, 
