@@ -409,99 +409,107 @@ export const createSubscription = asyncHandler(async (req, res) => {
 
 
 export const skipService = asyncHandler(async (req, res) => {
-  const { date } = req.body;
-  if (!date) throw new ApiError(400, 'Date is required to skip service');
+  const { date, dates } = req.body;
+  
+  // Normalize to an array of dates
+  let datesArray = [];
+  if (Array.isArray(dates)) {
+    datesArray = dates;
+  } else if (date) {
+    datesArray = [date];
+  } else {
+    throw new ApiError(400, 'Date is required to skip service');
+  }
 
-  // Validate date is a proper ISO date string (YYYY-MM-DD or ISO 8601)
-  const parsedDate = new Date(date);
-  if (isNaN(parsedDate.getTime())) throw new ApiError(400, 'Invalid date format. Use YYYY-MM-DD.');
-  const skipDate = getISTMidnight(parsedDate);
+  if (datesArray.length === 0) {
+    throw new ApiError(400, 'At least one date is required to skip service');
+  }
+
+  // Check limit (max 3 days in a frequency)
+  if (datesArray.length > 3) {
+    throw new ApiError(400, 'Maximum of 3 skip days allowed per subscription period');
+  }
 
   const sub = await Subscription.findOne({ _id: req.params.id, customer: req.user._id });
   if (!sub) throw new ApiError(404, 'Subscription not found');
   if (sub.status !== 'Active') throw new ApiError(400, 'Only active subscriptions can be skipped');
   if (sub.isTrial) throw new ApiError(400, 'Trial subscriptions cannot be skipped');
+
+  // Check if they have already skipped this subscription (one time in one month)
+  if (sub.skippedDays > 0) {
+    throw new ApiError(400, 'You can only skip service once per subscription period');
+  }
+
   const tomorrow = getISTMidnight();
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  if (skipDate < tomorrow) {
-    throw new ApiError(400, 'Skip must be requested at least 1 day in advance');
-  }
+  // Validate dates: ISO format, in future (>= tomorrow)
+  const parsedDates = datesArray.map(d => {
+    const pDate = new Date(d);
+    if (isNaN(pDate.getTime())) {
+      throw new ApiError(400, 'Invalid date format. Use YYYY-MM-DD.');
+    }
+    const skipDate = getISTMidnight(pDate);
+    if (skipDate < tomorrow) {
+      throw new ApiError(400, 'Skip must be requested at least 1 day in advance');
+    }
+    return skipDate;
+  });
 
-  // BRD §10.1 — Max 5 skip days per subscription period
-  if (sub.skippedDays >= 5) {
-    throw new ApiError(400, 'Maximum of 5 skip days allowed per subscription period');
-  }
+  // Sort dates to check for consecutiveness
+  parsedDates.sort((a, b) => a.getTime() - b.getTime());
 
-  // BRD §10.1 — Only one continuous skip sequence allowed
-  // Check if there's already a skip on a non-adjacent day
-  const existingSkips = await Task.find({
-    subscription: sub._id,
-    status: 'skipped',
-    skipReason: 'Customer skip',
-  }).sort('date');
-
-  if (existingSkips.length > 0) {
-    // Build the existing continuous skip range
-    const sortedDates = existingSkips.map(t => new Date(t.date).toDateString());
-    const firstSkip = new Date(existingSkips[0].date);
-    const lastSkip = new Date(existingSkips[existingSkips.length - 1].date);
-
-    // New skip must be adjacent (day before firstSkip or day after lastSkip)
-    const dayBefore = new Date(firstSkip);
-    dayBefore.setDate(dayBefore.getDate() - 1);
-    const dayAfter = new Date(lastSkip);
-    dayAfter.setDate(dayAfter.getDate() + 1);
-
-    const isAdjacent =
-      skipDate.toDateString() === dayBefore.toDateString() ||
-      skipDate.toDateString() === dayAfter.toDateString() ||
-      sortedDates.includes(skipDate.toDateString()); // already in sequence
-
-    if (!isAdjacent) {
-      throw new ApiError(
-        400,
-        'Only one continuous skip sequence is allowed. Your new skip date must be adjacent to your existing skip days.'
-      );
+  // Check consecutiveness
+  for (let i = 0; i < parsedDates.length - 1; i++) {
+    const diffTime = parsedDates[i+1].getTime() - parsedDates[i].getTime();
+    const diffDays = Math.round(diffTime / (24 * 60 * 60 * 1000));
+    if (diffDays !== 1) {
+      throw new ApiError(400, 'Skipped dates must be consecutive');
     }
   }
 
-  // Check if this date is already skipped
-  const alreadySkipped = await Task.findOne({
-    subscription: sub._id,
-    date: skipDate,
-    status: 'skipped',
-    skipReason: 'Customer skip',
-  });
-  if (alreadySkipped) {
-    throw new ApiError(400, 'This date is already marked as skipped');
+  // Check if any of these dates is already skipped
+  for (const skipDate of parsedDates) {
+    const alreadySkipped = await Task.findOne({
+      subscription: sub._id,
+      date: skipDate,
+      status: 'skipped',
+      skipReason: 'Customer skip',
+    });
+    if (alreadySkipped) {
+      throw new ApiError(400, 'This date is already marked as skipped');
+    }
   }
 
-  // Create the skipped task
-  await Task.create({
-    subscription: sub._id,
-    customer: req.user._id,
-    vehicle: sub.vehicle,
-    date: skipDate,
-    status: 'skipped',
-    skipReason: 'Customer skip',
-    creditBack: false,
-    packageName: 'N/A',
-  });
+  // Perform updates
+  for (const skipDate of parsedDates) {
+    // Create the skipped task
+    await Task.create({
+      subscription: sub._id,
+      customer: req.user._id,
+      vehicle: sub.vehicle,
+      date: skipDate,
+      status: 'skipped',
+      skipReason: 'Customer skip',
+      creditBack: false,
+      packageName: 'N/A',
+    });
+  }
 
-  // BRD §10.2 — Auto-extend subscription endDate by 1 day per skip
-  sub.skippedDays += 1;
-  sub.endDate = new Date(sub.endDate.getTime() + 24 * 60 * 60 * 1000);
+  // Extend subscription
+  sub.skippedDays += parsedDates.length;
+  sub.endDate = new Date(sub.endDate.getTime() + parsedDates.length * 24 * 60 * 60 * 1000);
   
-  // Calculate the newly adjusted nextWash date
+  // Calculate next wash
   sub.nextWash = await calculateDynamicNextWash(sub._id);
   
   await sub.save({ validateModifiedOnly: true });
 
   await clearCache(`cache:${req.user._id}:*`);
+  
   res.json({
     success: true,
-    message: 'Service skipped. Subscription extended by 1 day.',
+    message: `Service skipped. Subscription extended by ${parsedDates.length} day(s).`,
     skippedDays: sub.skippedDays,
     newEndDate: sub.endDate,
     nextWash: sub.nextWash,

@@ -9,6 +9,7 @@ export default function SkipService() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const today = new Date()
+  const [subscription, setSubscription] = useState(null)
   const [subscriptionId, setSubscriptionId] = useState(null)
   const [selectedDates, setSelectedDates] = useState([])
   const [showConfirm, setShowConfirm] = useState(false)
@@ -26,8 +27,15 @@ export default function SkipService() {
       try {
         const res = await apiClient.get('/customer/subscriptions')
         const active = (res.subscriptions || []).find(s => s.status === 'Active')
-        if (active) setSubscriptionId(active._id)
-        else setError('No active subscription found.')
+        if (active) {
+          setSubscription(active)
+          setSubscriptionId(active._id)
+          if (active.skippedDays > 0) {
+            setError('You have already skipped service this month. Skips are limited to once per subscription period.')
+          }
+        } else {
+          setError('No active subscription found.')
+        }
       } catch (err) {
         setError('Failed to load subscription.')
       } finally {
@@ -38,9 +46,53 @@ export default function SkipService() {
   }, [])
 
   const toggleDate = (day) => {
+    if (subscription && subscription.skippedDays > 0) {
+      showToast('You can only skip service once per subscription period.', 'error')
+      return
+    }
+
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    if (day <= today.getDate()) return
-    setSelectedDates(prev => prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr])
+    
+    const clickedDate = new Date(year, month, day)
+    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+    if (clickedDate < tomorrow) return
+
+    setSelectedDates(prev => {
+      if (prev.includes(dateStr)) {
+        const remaining = prev.filter(d => d !== dateStr)
+        if (remaining.length <= 1) return remaining
+        
+        const sorted = [...remaining].sort()
+        const d1 = new Date(sorted[0])
+        const d2 = new Date(sorted[1])
+        const diff = Math.round((d2 - d1) / (24 * 60 * 60 * 1000))
+        if (diff === 1) return sorted
+        return []
+      }
+
+      const newSelection = [...prev, dateStr].sort()
+      if (newSelection.length > 3) {
+        showToast('Maximum of 3 consecutive days can be skipped at once.', 'error')
+        return [dateStr]
+      }
+
+      let consecutive = true
+      for (let i = 0; i < newSelection.length - 1; i++) {
+        const d1 = new Date(newSelection[i])
+        const d2 = new Date(newSelection[i+1])
+        const diff = Math.round((d2 - d1) / (24 * 60 * 60 * 1000))
+        if (diff !== 1) {
+          consecutive = false
+          break
+        }
+      }
+
+      if (consecutive) {
+        return newSelection
+      } else {
+        return [dateStr]
+      }
+    })
   }
 
   const handleSkipConfirm = async () => {
@@ -48,16 +100,12 @@ export default function SkipService() {
     setLoading(true)
     setError('')
     try {
-      await Promise.all(
-        selectedDates.map(date =>
-          apiClient.post(`/customer/subscriptions/${subscriptionId}/skip`, { date })
-        )
-      )
+      await apiClient.post(`/customer/subscriptions/${subscriptionId}/skip`, { dates: selectedDates })
       setShowConfirm(false)
       showToast(`${selectedDates.length} day${selectedDates.length > 1 ? 's' : ''} skipped successfully`)
       navigate(-1)
     } catch (err) {
-      setError(err.message || 'Failed to skip days. Check the 1-day advance notice and 5-day limit rules.')
+      setError(err.message || 'Failed to skip days. Check the 1-day advance notice and max 3-day consecutive skip rule.')
       setShowConfirm(false)
     } finally {
       setLoading(false)
@@ -91,7 +139,7 @@ export default function SkipService() {
 
       <div className="glass" style={{ padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
         <Info size={16} style={{ color: 'var(--primary-blue)', flexShrink: 0 }} />
-        <span className="text-body-sm text-secondary">Skipped days will be added to the end of your subscription. Max 5 skips, 1-day notice required.</span>
+        <span className="text-body-sm text-secondary">Skipped days will be added to the end of your subscription. Max 3 consecutive days in a frequency, once per subscription period. 1-day notice required.</span>
       </div>
 
       {subscriptionId && (
@@ -108,14 +156,16 @@ export default function SkipService() {
                 const day = i + 1
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
                 const isPast = day <= today.getDate()
+                const isDisabled = isPast || (subscription?.skippedDays > 0)
                 const isSelected = selectedDates.includes(dateStr)
                 return (
-                  <button key={day} onClick={() => toggleDate(day)}
+                  <button key={day} onClick={() => toggleDate(day)} disabled={isDisabled}
                     style={{
                       padding: 8, borderRadius: 'var(--radius)', fontSize: 14, fontWeight: isSelected ? 700 : 400,
                       background: isSelected ? 'var(--accent-lime)' : 'transparent',
-                      color: isSelected ? '#0A0A0A' : isPast ? 'var(--text-tertiary)' : 'var(--text-primary)',
-                      cursor: isPast ? 'default' : 'pointer', fontFamily: 'var(--font-display)'
+                      color: isSelected ? '#0A0A0A' : isDisabled ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                      cursor: isDisabled ? 'default' : 'pointer', fontFamily: 'var(--font-display)',
+                      opacity: isDisabled && !isPast ? 0.5 : 1
                     }}>
                     {day}
                   </button>

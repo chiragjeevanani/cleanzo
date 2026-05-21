@@ -283,20 +283,29 @@ describe('CUST-11..14 | Skip service', () => {
     });
   }
 
-  it('CUST-11: valid future skip extends endDate by 1 day', async () => {
+  it('CUST-11: valid future skip extends endDate by up to 3 days', async () => {
     const { customer, token } = await createCustomer();
     const vehicle = await createVehicle(customer._id);
     const society = await createSociety();
     const sub = await activeSubscription(customer._id, vehicle._id, society._id);
     const originalEnd = new Date(sub.endDate);
 
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 2);
-    const skipDate = tomorrow.toISOString().split('T')[0];
+    const d1 = new Date();
+    d1.setDate(d1.getDate() + 2);
+    const d2 = new Date();
+    d2.setDate(d2.getDate() + 3);
+    const d3 = new Date();
+    d3.setDate(d3.getDate() + 4);
 
-    const res = await api.post(`/api/customer/subscriptions/${sub._id}/skip`).set(authHeader(token)).send({ date: skipDate });
+    const dates = [
+      d1.toISOString().split('T')[0],
+      d2.toISOString().split('T')[0],
+      d3.toISOString().split('T')[0],
+    ];
+
+    const res = await api.post(`/api/customer/subscriptions/${sub._id}/skip`).set(authHeader(token)).send({ dates });
     expect(res.status).toBe(200);
-    expect(res.body.skippedDays).toBe(1);
+    expect(res.body.skippedDays).toBe(3);
     expect(new Date(res.body.newEndDate).getTime()).toBeGreaterThan(originalEnd.getTime());
   });
 
@@ -312,18 +321,53 @@ describe('CUST-11..14 | Skip service', () => {
     expect(res.body.message).toMatch(/at least 1 day in advance/i);
   });
 
-  it('CUST-13: 6th skip returns 400 (max 5)', async () => {
+  it('CUST-13: second skip request returns 400', async () => {
     const { customer, token } = await createCustomer();
     const vehicle = await createVehicle(customer._id);
     const society = await createSociety();
     const sub = await activeSubscription(customer._id, vehicle._id, society._id);
-    await Subscription.findByIdAndUpdate(sub._id, { skippedDays: 5 });
+    await Subscription.findByIdAndUpdate(sub._id, { skippedDays: 1 });
 
     const future = new Date();
     future.setDate(future.getDate() + 2);
     const res = await api.post(`/api/customer/subscriptions/${sub._id}/skip`).set(authHeader(token)).send({ date: future.toISOString().split('T')[0] });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/maximum of 5 skip days/i);
+    expect(res.body.message).toMatch(/once per subscription period/i);
+  });
+
+  it('CUST-14: non-consecutive skips or > 3 days returns 400', async () => {
+    const { customer, token } = await createCustomer();
+    const vehicle = await createVehicle(customer._id);
+    const society = await createSociety();
+    const sub = await activeSubscription(customer._id, vehicle._id, society._id);
+
+    const d1 = new Date();
+    d1.setDate(d1.getDate() + 2);
+    const d3 = new Date();
+    d3.setDate(d3.getDate() + 4);
+
+    // Non-consecutive
+    const res1 = await api.post(`/api/customer/subscriptions/${sub._id}/skip`)
+      .set(authHeader(token))
+      .send({ dates: [d1.toISOString().split('T')[0], d3.toISOString().split('T')[0]] });
+    expect(res1.status).toBe(400);
+    expect(res1.body.message).toMatch(/must be consecutive/i);
+
+    // > 3 days
+    const d2 = new Date();
+    d2.setDate(d2.getDate() + 3);
+    const d4 = new Date();
+    d4.setDate(d4.getDate() + 5);
+    const res2 = await api.post(`/api/customer/subscriptions/${sub._id}/skip`)
+      .set(authHeader(token))
+      .send({ dates: [
+        d1.toISOString().split('T')[0],
+        d2.toISOString().split('T')[0],
+        d3.toISOString().split('T')[0],
+        d4.toISOString().split('T')[0],
+      ] });
+    expect(res2.status).toBe(400);
+    expect(res2.body.message).toMatch(/maximum of 3/i);
   });
 });
 
