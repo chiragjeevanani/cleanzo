@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { handleSendOtp, handleVerifyOtp, handlePasswordLogin, handleAdminLogin, handleRefreshToken, handleLogout, handleForgotPassword, handleResetPassword, getMe, updateMe } from '../controllers/auth.controller.js';
+import { handleSendOtp, handleVerifyOtp, handlePasswordLogin, handleAdminLogin, handleSocietyLogin, handleRefreshToken, handleLogout, handleForgotPassword, handleResetPassword, getMe, updateMe } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/auth.js';
 import { otpLimiter, authLimiter, adminLimiter } from '../middleware/rateLimiter.js';
 import { validate } from '../middleware/validate.js';
@@ -11,6 +11,7 @@ router.post('/send-otp', otpLimiter, validate(sendOtpSchema), handleSendOtp);
 router.post('/verify-otp', authLimiter, validate(verifyOtpSchema), handleVerifyOtp);
 router.post('/login-password', authLimiter, validate(passwordLoginSchema), handlePasswordLogin);
 router.post('/admin-login', adminLimiter, handleAdminLogin);
+router.post('/society-login', adminLimiter, handleSocietyLogin);
 router.post('/refresh-token', handleRefreshToken);
 router.post('/logout', handleLogout);
 router.post('/forgot-password', otpLimiter, handleForgotPassword);

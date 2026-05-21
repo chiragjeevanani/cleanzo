@@ -6,6 +6,7 @@ import packageRoutes from './package.routes.js';
 import adminRoutes from './admin.routes.js';
 import paymentRoutes from './payment.routes.js';
 import publicRoutes from './public.routes.js';
+import societyRoutes from './society.routes.js';
 
 const router = Router();
 
@@ -16,5 +17,7 @@ router.use('/packages', packageRoutes);
 router.use('/admin', adminRoutes);
 router.use('/payment', paymentRoutes);
 router.use('/public', publicRoutes);
+router.use('/society', societyRoutes);
 
 export default router;
+

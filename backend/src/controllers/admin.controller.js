@@ -1364,3 +1364,138 @@ export const updateGrievance = asyncHandler(async (req, res) => {
   res.json({ success: true, grievance });
 });
 
+
+// ─── PARTNER SOCIETIES ────────────────────────────────────────
+
+export const getPartnerSocieties = asyncHandler(async (req, res) => {
+  const { default: PartnerSociety } = await import('../models/PartnerSociety.js');
+  const partners = await PartnerSociety.find()
+    .populate('society', 'name city area')
+    .select('-password')
+    .sort('-createdAt')
+    .lean();
+  res.json({ success: true, partners });
+});
+
+export const createPartnerSociety = asyncHandler(async (req, res) => {
+  const { default: PartnerSociety } = await import('../models/PartnerSociety.js');
+  const { societyId, contactName, email, password, phone, commissionRate } = req.body;
+  if (!societyId || !contactName || !email || !password) {
+    throw new ApiError(400, 'Society, contact name, email, and password are required');
+  }
+
+  const existing = await PartnerSociety.findOne({ society: societyId });
+  if (existing) throw new ApiError(400, 'This society is already enrolled as a partner');
+
+  const partner = await PartnerSociety.create({
+    society: societyId, contactName, email, password, phone,
+    commissionRate: commissionRate ?? 5,
+  });
+
+  const populated = await PartnerSociety.findById(partner._id)
+    .populate('society', 'name city area')
+    .select('-password');
+
+  res.status(201).json({ success: true, partner: populated });
+});
+
+export const updatePartnerSociety = asyncHandler(async (req, res) => {
+  const { default: PartnerSociety } = await import('../models/PartnerSociety.js');
+  const { contactName, phone, commissionRate, isActive, newPassword } = req.body;
+
+  const partner = await PartnerSociety.findById(req.params.id);
+  if (!partner) throw new ApiError(404, 'Partner society not found');
+
+  if (contactName !== undefined) partner.contactName = contactName;
+  if (phone !== undefined) partner.phone = phone;
+  if (commissionRate !== undefined) partner.commissionRate = commissionRate;
+  if (isActive !== undefined) partner.isActive = isActive;
+  if (newPassword) partner.password = newPassword; // pre-save hook hashes it
+
+  await partner.save({ validateModifiedOnly: true });
+
+  const updated = await PartnerSociety.findById(partner._id)
+    .populate('society', 'name city area')
+    .select('-password');
+
+  res.json({ success: true, partner: updated });
+});
+
+export const deletePartnerSociety = asyncHandler(async (req, res) => {
+  const { default: PartnerSociety } = await import('../models/PartnerSociety.js');
+  const partner = await PartnerSociety.findByIdAndDelete(req.params.id);
+  if (!partner) throw new ApiError(404, 'Partner society not found');
+  res.json({ success: true, message: 'Partner society removed' });
+});
+
+export const getPartnerSocietyCommissions = asyncHandler(async (req, res) => {
+  const { default: SocietyCommission } = await import('../models/SocietyCommission.js');
+  const page = parseInt(req.query.page) || 1;
+  const limit = 20;
+  const skip = (page - 1) * limit;
+
+  const [commissions, total] = await Promise.all([
+    SocietyCommission.find({ partnerSociety: req.params.id })
+      .populate('customer', 'firstName lastName phone')
+      .populate('subscription', 'amount startDate')
+      .sort('-createdAt').skip(skip).limit(limit).lean(),
+    SocietyCommission.countDocuments({ partnerSociety: req.params.id }),
+  ]);
+
+  res.json({ success: true, commissions, page, totalPages: Math.ceil(total / limit), total });
+});
+
+// ─── PAYOUT REQUESTS (ADMIN) ─────────────────────────────────
+
+export const getPayoutRequests = asyncHandler(async (req, res) => {
+  const { default: SocietyPayoutRequest } = await import('../models/SocietyPayoutRequest.js');
+  const status = req.query.status || 'pending';
+  const requests = await SocietyPayoutRequest.find(status !== 'all' ? { status } : {})
+    .populate('partnerSociety', 'contactName email society')
+    .sort('-createdAt')
+    .lean();
+  res.json({ success: true, requests });
+});
+
+export const processPayoutRequest = asyncHandler(async (req, res) => {
+  const { default: SocietyPayoutRequest } = await import('../models/SocietyPayoutRequest.js');
+  const { default: SocietyCommission } = await import('../models/SocietyCommission.js');
+  const { default: PartnerSociety } = await import('../models/PartnerSociety.js');
+  const { action, adminRemark } = req.body; // action: 'approve' | 'reject'
+
+  if (!['approve', 'reject'].includes(action)) throw new ApiError(400, 'Action must be approve or reject');
+
+  const request = await SocietyPayoutRequest.findById(req.params.id);
+  if (!request) throw new ApiError(404, 'Payout request not found');
+  if (request.status !== 'pending') throw new ApiError(400, 'Request already processed');
+
+  request.status = action === 'approve' ? 'approved' : 'rejected';
+  request.adminRemark = adminRemark || '';
+  request.processedAt = new Date();
+  request.processedBy = req.user._id;
+  await request.save();
+
+  if (action === 'approve') {
+    // Mark pending commissions as paid up to the requested amount
+    const pendingCommissions = await SocietyCommission.find({
+      partnerSociety: request.partnerSociety,
+      status: 'pending',
+    }).sort('createdAt');
+
+    let remaining = request.amount;
+    const toMark = [];
+    for (const c of pendingCommissions) {
+      if (remaining <= 0) break;
+      toMark.push(c._id);
+      remaining -= c.commissionAmount;
+    }
+    await SocietyCommission.updateMany({ _id: { $in: toMark } }, { status: 'paid' });
+
+    // Update pendingBalance on PartnerSociety
+    await PartnerSociety.findByIdAndUpdate(request.partnerSociety, {
+      $inc: { pendingBalance: -request.amount },
+    });
+  }
+
+  res.json({ success: true, request, message: `Payout request ${action === 'approve' ? 'approved' : 'rejected'} successfully` });
+});

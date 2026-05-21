@@ -3,6 +3,7 @@ import { ApiError } from '../utils/ApiError.js';
 import Customer from '../models/Customer.js';
 import Cleaner from '../models/Cleaner.js';
 import Admin from '../models/Admin.js';
+import PartnerSociety from '../models/PartnerSociety.js';
 
 /**
  * JWT authentication middleware.
@@ -17,12 +18,10 @@ export const protect = async (req, res, next) => {
       token = req.cookies.token;
     }
 
-    if (!token) {
-      throw new ApiError(401, 'Not authorized — no token provided');
-    }
+    if (!token) throw new ApiError(401, 'Not authorized — no token provided');
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     let user;
     switch (decoded.role) {
       case 'customer':
@@ -35,24 +34,23 @@ export const protect = async (req, res, next) => {
       case 'superadmin':
         user = await Admin.findById(decoded.id).select('-password -__v');
         break;
+      case 'society':
+        user = await PartnerSociety.findById(decoded.id)
+          .select('-password -__v')
+          .populate('society', 'name city area');
+        break;
       default:
         throw new ApiError(401, 'Invalid token role');
     }
 
-    if (!user || !user.isActive) {
-      throw new ApiError(401, 'User not found or deactivated');
-    }
+    if (!user || !user.isActive) throw new ApiError(401, 'User not found or deactivated');
 
     req.user = user;
     req.userRole = decoded.role;
     next();
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return next(new ApiError(401, 'Invalid token'));
-    }
-    if (error.name === 'TokenExpiredError') {
-      return next(new ApiError(401, 'Token expired'));
-    }
+    if (error.name === 'JsonWebTokenError') return next(new ApiError(401, 'Invalid token'));
+    if (error.name === 'TokenExpiredError') return next(new ApiError(401, 'Token expired'));
     next(error);
   }
 };
@@ -61,11 +59,9 @@ export const protect = async (req, res, next) => {
  * Role-based access guard. Use after protect().
  * Usage: authorize('admin', 'superadmin')
  */
-export const authorize = (...roles) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.userRole)) {
-      return next(new ApiError(403, `Role '${req.userRole}' is not authorized`));
-    }
-    next();
-  };
+export const authorize = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.userRole)) {
+    return next(new ApiError(403, `Role '${req.userRole}' is not authorized`));
+  }
+  next();
 };

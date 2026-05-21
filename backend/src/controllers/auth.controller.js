@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import Customer from '../models/Customer.js';
 import Cleaner from '../models/Cleaner.js';
 import Admin from '../models/Admin.js';
+import PartnerSociety from '../models/PartnerSociety.js';
 import Settings from '../models/Settings.js';
 import RefreshToken from '../models/RefreshToken.js';
 import { sendOtp, verifyOtp } from '../services/otp.service.js';
@@ -429,3 +430,56 @@ export const updateMe = asyncHandler(async (req, res) => {
     user: userResponse(user, role)
   });
 });
+
+// ─── SOCIETY PARTNER LOGIN ─────────────────────────
+/**
+ * POST /api/auth/society-login
+ * Body: { email, password }
+ */
+export const handleSocietyLogin = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) throw new ApiError(400, 'Email and password are required');
+
+  const society = await PartnerSociety.findOne({ email: email.toLowerCase() })
+    .select('+password')
+    .populate('society', 'name city area');
+
+  if (!society || !(await society.comparePassword(password))) {
+    throw new ApiError(401, 'Invalid email or password');
+  }
+  if (!society.isActive) throw new ApiError(403, 'This partner account has been deactivated. Contact admin.');
+
+  society.lastLogin = new Date();
+  await society.save({ validateModifiedOnly: true });
+
+  const token = generateToken(society._id, 'society');
+  const refreshToken = generateRefreshToken(society._id, 'society');
+  await storeRefreshToken(refreshToken, society._id, 'society');
+
+  const cookieOptions = {
+    httpOnly: true,
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  };
+  res.cookie('token', token, cookieOptions);
+  res.cookie('refreshToken', refreshToken, { ...cookieOptions, expires: new Date(Date.now() + REFRESH_EXPIRES_MS()) });
+
+  return res.json({
+    success: true,
+    token,
+    refreshToken,
+    user: {
+      _id: society._id,
+      contactName: society.contactName,
+      email: society.email,
+      phone: society.phone,
+      commissionRate: society.commissionRate,
+      totalEarned: society.totalEarned,
+      pendingBalance: society.pendingBalance,
+      role: 'society',
+      society: society.society,
+    },
+  });
+});
+

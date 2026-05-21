@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { SocietyAuthProvider } from './context/SocietyAuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import LandingPage from './pages/Landing/LandingPage'
 import CustomerApp from './pages/Customer/CustomerApp'
@@ -12,6 +13,8 @@ import HelpSupport from './pages/Customer/Profile/HelpSupport'
 import CustomerAuth from './pages/Customer/CustomerAuth'
 import ForgotPassword from './pages/Customer/ForgotPassword'
 import JoinAsCleaner from './pages/Landing/JoinAsCleaner'
+import SocietyLogin from './pages/Society/SocietyLogin'
+import SocietyApp from './pages/Society/SocietyApp'
 
 export default function App() {
   return (
@@ -54,6 +57,24 @@ export default function App() {
             <ProtectedRoute role={['admin', 'superadmin']} redirectTo="/admin/login">
               <AdminPanel />
             </ProtectedRoute>
+          }
+        />
+
+        {/* Protected: Society Partner Portal */}
+        <Route
+          path="/society/login"
+          element={
+            <SocietyAuthProvider>
+              <SocietyLogin />
+            </SocietyAuthProvider>
+          }
+        />
+        <Route
+          path="/society/*"
+          element={
+            <SocietyAuthProvider>
+              <SocietyApp />
+            </SocietyAuthProvider>
           }
         />
 

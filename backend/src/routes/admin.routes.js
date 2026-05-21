@@ -108,6 +108,18 @@ router.delete('/brands/:id', ctrl.deleteBrand);
 router.get('/grievances', ctrl.getGrievances);
 router.put('/grievances/:id', ctrl.updateGrievance);
 
+// Partner Societies
+router.get('/partner-societies', ctrl.getPartnerSocieties);
+router.post('/partner-societies', ctrl.createPartnerSociety);
+router.put('/partner-societies/:id', ctrl.updatePartnerSociety);
+router.delete('/partner-societies/:id', ctrl.deletePartnerSociety);
+router.get('/partner-societies/:id/commissions', ctrl.getPartnerSocietyCommissions);
+
+// Payout Requests (Admin manages society payout requests)
+router.get('/payout-requests', ctrl.getPayoutRequests);
+router.put('/payout-requests/:id', ctrl.processPayoutRequest);
+
 export default router;
+
 
 

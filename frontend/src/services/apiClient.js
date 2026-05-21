@@ -88,11 +88,16 @@ async function request(url, options = {}) {
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('userRole');
         const path = window.location.pathname;
-        const isPublicPage = path === '/' || path === '/login' || path === '/admin/login';
+        const isPublicPage = path === '/' || path === '/login' || path === '/admin/login' || path === '/society/login';
         if (!isPublicPage) {
           window.dispatchEvent(new CustomEvent('auth:session-expired'));
           setTimeout(() => {
-            const target = path.startsWith('/admin') ? '/admin/login' : '/login';
+            let target = '/login';
+            if (path.startsWith('/admin')) {
+              target = '/admin/login';
+            } else if (path.startsWith('/society')) {
+              target = '/society/login';
+            }
             window.location.href = target;
           }, 1500);
         }

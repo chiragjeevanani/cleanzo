@@ -19,6 +19,8 @@ import { logActivity } from './admin.controller.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import { clearCache } from '../middleware/cache.js';
 import { getISTMidnight } from '../utils/dateHelper.js';
+import PartnerSociety from '../models/PartnerSociety.js';
+import SocietyCommission from '../models/SocietyCommission.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -345,6 +347,32 @@ export const createSubscription = asyncHandler(async (req, res) => {
         'referralDiscount.expiresAt': new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
+  }
+
+  // Create Society Commission if partner society
+  if (!isTrial) {
+    try {
+      const partner = await PartnerSociety.findOne({ society: societyId, isActive: true });
+      if (partner) {
+        const commissionAmount = (sub.amount * partner.commissionRate) / 100;
+        await SocietyCommission.create({
+          partnerSociety: partner._id,
+          subscription: sub._id,
+          customer: req.user._id,
+          subscriptionAmount: sub.amount,
+          commissionRate: partner.commissionRate,
+          commissionAmount,
+          status: 'pending'
+        });
+        
+        // Update partner society balance
+        partner.totalEarned += commissionAmount;
+        partner.pendingBalance += commissionAmount;
+        await partner.save();
+      }
+    } catch (err) {
+      console.error('Failed to create society commission:', err);
+    }
   }
 
   await logActivity({
