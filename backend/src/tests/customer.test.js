@@ -263,6 +263,35 @@ describe('CUST-5..10 | Subscription creation', () => {
     expect(resThree.status).toBe(400);
     expect(resThree.body.message).toMatch(/trial date must be either tomorrow or the day after tomorrow/i);
   });
+
+  it('CUST-10e: resolves dynamic vehicle-specific trial price from basic package', async () => {
+    const { customer, token } = await createCustomer();
+    const vehicle = await createVehicle(customer._id, { brand: 'Maruti', model: 'Swift' });
+    const society = await createSociety();
+    const payment = await verifiedPayment(customer._id);
+
+    const PackageModel = mongoose.model('Package');
+    await PackageModel.create({
+      name: 'Swift Basic Plan',
+      tier: 'BASIC',
+      price: 399,
+      trialPrice: 45,
+      isActive: true,
+      applicableModels: [
+        { brand: 'Maruti', models: ['Swift'] }
+      ]
+    });
+
+    const res = await api.post('/api/customer/subscriptions').set(authHeader(token)).send({
+      vehicleId: vehicle._id,
+      societyId: society._id,
+      slotId: '06_07_AM',
+      isTrial: true,
+      paymentId: payment.paymentId,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.subscription.amount).toBe(45);
+  });
 });
 
 // ─── SKIP SERVICE ─────────────────────────────────────────────────────────────

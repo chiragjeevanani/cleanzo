@@ -18,6 +18,7 @@ export default function AdminPackages() {
     name: '',
     tier: 'BASIC',
     price: '',
+    trialPrice: '',
     features: '',
     popular: false
   })
@@ -59,7 +60,7 @@ export default function AdminPackages() {
   const closeModal = () => {
     setShowAddModal(false)
     setEditPkg(null)
-    setFormData({ name: '', tier: 'BASIC', price: '', features: '', popular: false })
+    setFormData({ name: '', tier: 'BASIC', price: '', trialPrice: '', features: '', popular: false })
     setSelectedModels({})
     setError('')
   }
@@ -70,6 +71,7 @@ export default function AdminPackages() {
       name: pkg.name,
       tier: pkg.tier || 'BASIC',
       price: String(pkg.price),
+      trialPrice: pkg.trialPrice !== undefined && pkg.trialPrice !== null ? String(pkg.trialPrice) : '',
       features: (pkg.features || []).join(', '),
       popular: pkg.popular || false,
     })
@@ -218,6 +220,7 @@ export default function AdminPackages() {
       const payload = {
         ...formData,
         price: Number(formData.price),
+        trialPrice: formData.trialPrice ? Number(formData.trialPrice) : null,
         features: formData.features.split(',').map(f => f.trim()).filter(f => f),
         applicableModels
       }
@@ -348,10 +351,17 @@ export default function AdminPackages() {
                     {pkg.popular && <span className="chip chip-lime" style={{ fontSize: 10, boxShadow: '0 4px 12px rgba(223,255,0,0.2)' }}>POPULAR</span>}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 24 }}>
-                    <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-secondary)' }}>₹</span>
-                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 40, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-1px' }}>{pkg.price}</span>
-                    <span className="text-body-sm text-tertiary" style={{ marginLeft: 4 }}>/ month</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                      <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-secondary)' }}>₹</span>
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 40, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-1px' }}>{pkg.price}</span>
+                      <span className="text-body-sm text-tertiary" style={{ marginLeft: 4 }}>/ month</span>
+                    </div>
+                    {pkg.trialPrice !== undefined && pkg.trialPrice !== null && (
+                      <span className="chip chip-lime" style={{ fontSize: 11, padding: '6px 12px', borderRadius: 10 }}>
+                        Trial: ₹{pkg.trialPrice}
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32, borderTop: '1px solid var(--divider)', paddingTop: 20 }}>
@@ -462,11 +472,18 @@ export default function AdminPackages() {
                     value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} placeholder="e.g. 599" />
                 </div>
                 <div className="flex flex-col gap-8">
-                  <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>PACKAGE NAME</label>
-                  <input required className="input-field" 
+                  <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>TRIAL PRICE (₹)</label>
+                  <input type="number" className="input-field" 
                     style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
-                    value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Basic Sedan Care" />
+                    value={formData.trialPrice} onChange={e => setFormData({...formData, trialPrice: e.target.value})} placeholder="e.g. 30 (Optional)" />
                 </div>
+              </div>
+
+              <div className="flex flex-col gap-8">
+                <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>PACKAGE NAME</label>
+                <input required className="input-field" 
+                  style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
+                  value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Basic Sedan Care" />
               </div>
 
               {/* Brands and Models Picker */}

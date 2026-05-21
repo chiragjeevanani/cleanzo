@@ -5,6 +5,7 @@ const packageSchema = new Schema({
   name:      { type: String, required: true },
   tier:      { type: String, required: true },
   price:     { type: Number, required: true },
+  trialPrice: { type: Number },
   duration:  { type: String, default: 'Monthly' },
   perDay:    { type: Number },
   features:  [{ type: String }],

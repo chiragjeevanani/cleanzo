@@ -51,7 +51,39 @@ export default function BookingFlow() {
     loading: dataLoading, refreshAll 
   } = useCustomerData()
   
-  const trialPrice = settings.trialPrice || 30
+  // Dynamic Trial Price lookup based on selectedVehicle
+  const getDynamicTrialPrice = () => {
+    if (!selectedVehicle || packages.length === 0) {
+      return settings.trialPrice || 30
+    }
+    
+    // Find packages that are active and match the selected vehicle
+    const matchedPackages = packages.filter(pkg => 
+      pkg.isActive !== false && isVehicleEligibleForPackage(selectedVehicle, pkg)
+    )
+    
+    // 1. Prioritize BASIC tier package matching the vehicle with a trialPrice
+    const basicPkg = matchedPackages.find(
+      pkg => (pkg.tier || 'BASIC').toUpperCase() === 'BASIC' && pkg.trialPrice !== undefined && pkg.trialPrice !== null
+    )
+    
+    if (basicPkg) {
+      return basicPkg.trialPrice
+    }
+    
+    // 2. Fallback to any matched package with a trialPrice
+    const anyPkgWithTrial = matchedPackages.find(
+      pkg => pkg.trialPrice !== undefined && pkg.trialPrice !== null
+    )
+    if (anyPkgWithTrial) {
+      return anyPkgWithTrial.trialPrice
+    }
+    
+    // 3. Global fallback
+    return settings.trialPrice || 30
+  }
+  
+  const trialPrice = getDynamicTrialPrice()
   const prioritySlotFee = settings.prioritySlotFee || 99
   
   const [step, setStep] = useState(0)
@@ -108,7 +140,7 @@ export default function BookingFlow() {
     }, [refreshAll])
 
   // Calculate pricing
-  const basePrice = selectedPkg?.price || 0
+  const basePrice = selectedPkg ? (selectedPkg.isTrial ? trialPrice : selectedPkg.price) : 0
   const isSlotFull = selectedSlot ? (selectedSlot.currentCount >= selectedSlot.maxVehicles) : false
   const priorityFee = (isSlotFull && !selectedPkg?.isTrial) ? prioritySlotFee : 0
   let subtotal = basePrice + priorityFee

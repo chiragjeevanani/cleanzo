@@ -267,8 +267,50 @@ export const createSubscription = asyncHandler(async (req, res) => {
     Settings.findOne({ key: 'trialPrice' }),
     Settings.findOne({ key: 'prioritySlotFee' }),
   ]);
-  const trialPrice = trialSetting?.value ?? 30;
+  let trialPrice = trialSetting?.value ?? 30;
   const prioritySlotFee = prioritySetting?.value ?? 99;
+
+  let resolvedPackageId = packageId;
+
+  if (isTrial) {
+    // Look up active packages to find a dynamic trial price matching this vehicle
+    const activePackages = await Package.find({ isActive: true });
+    const isVehicleMatch = (v, p) => {
+      if (!p.applicableModels || p.applicableModels.length === 0) {
+        return v.category?.toLowerCase() === p.category?.toLowerCase();
+      }
+      const brandMatch = p.applicableModels.find(
+        app => app.brand.toLowerCase() === v.brand.toLowerCase()
+      );
+      if (!brandMatch) return false;
+      if (!brandMatch.models || brandMatch.models.length === 0) return true;
+      return brandMatch.models.some(
+        m => m.toLowerCase() === v.model.toLowerCase()
+      );
+    };
+
+    const matchedPackages = activePackages.filter(p => isVehicleMatch(vehicle, p));
+
+    // 1. Prioritize BASIC tier package matching the vehicle with a trialPrice
+    const basicPkg = matchedPackages.find(
+      p => (p.tier || 'BASIC').toUpperCase() === 'BASIC' && p.trialPrice !== undefined && p.trialPrice !== null
+    );
+
+    if (basicPkg) {
+      trialPrice = basicPkg.trialPrice;
+      resolvedPackageId = basicPkg._id;
+    } else {
+      // 2. Fallback to any matched package with a trialPrice
+      const anyPkgWithTrial = matchedPackages.find(
+        p => p.trialPrice !== undefined && p.trialPrice !== null
+      );
+      if (anyPkgWithTrial) {
+        trialPrice = anyPkgWithTrial.trialPrice;
+        resolvedPackageId = anyPkgWithTrial._id;
+      }
+    }
+  }
+
 
   // Verify vehicle eligibility for the package
   if (!isTrial && pkg.applicableModels && pkg.applicableModels.length > 0) {
@@ -345,7 +387,7 @@ export const createSubscription = asyncHandler(async (req, res) => {
   const sub = await Subscription.create({
     customer: req.user._id,
     vehicle: vehicleId,
-    package: packageId,
+    package: resolvedPackageId,
     society: societyId,
     slot: slotId,
     isTrial: isTrial || false,
