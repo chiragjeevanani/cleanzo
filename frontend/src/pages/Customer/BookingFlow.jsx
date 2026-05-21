@@ -30,6 +30,14 @@ const isVehicleEligibleForPackage = (vehicle, pkg) => {
   );
 };
 
+const getLocalDateString = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+
 export default function BookingFlow() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -53,6 +61,7 @@ export default function BookingFlow() {
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [selectedVehicle, setSelectedVehicle] = useState(null)
   const [selectedPkg, setSelectedPkg] = useState(null) 
+  const [selectedTrialDate, setSelectedTrialDate] = useState(null)
   const [specialInstructions, setSpecialInstructions] = useState('')
   
   const [razorpayReady, setRazorpayReady] = useState(false)
@@ -153,7 +162,8 @@ export default function BookingFlow() {
               societyId: selectedSociety._id,
               slotId: selectedSlot.slotId,
               specialInstructions,
-              paymentId: response.razorpay_payment_id
+              paymentId: response.razorpay_payment_id,
+              startDate: selectedPkg.isTrial ? selectedTrialDate : undefined
             })
 
             refreshAll() // Refresh global data to reflect new subscription
@@ -463,7 +473,14 @@ export default function BookingFlow() {
 
               <div className="divider" style={{ margin: '8px 0' }} />
               
-              <button className="glass" onClick={() => setSelectedPkg({ isTrial: true, name: '1-Day Trial Wash', price: trialPrice, _id: null })}
+              <button className="glass" onClick={() => {
+                const trialPkg = { isTrial: true, name: '1-Day Trial Wash', price: trialPrice, _id: null }
+                setSelectedPkg(trialPkg)
+                // Pre-select tomorrow's date
+                const tomorrow = new Date()
+                tomorrow.setDate(tomorrow.getDate() + 1)
+                setSelectedTrialDate(getLocalDateString(tomorrow))
+              }}
                 style={{ 
                   padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
                   borderRadius: 20, borderColor: selectedPkg?.isTrial ? 'var(--accent-lime)' : 'var(--border-glass)',
@@ -480,11 +497,74 @@ export default function BookingFlow() {
                 </div>
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>₹{trialPrice}</span>
               </button>
+
+              {selectedPkg?.isTrial && (
+                <div className="animate-slide-up" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700 }}>SELECT TRIAL WASH DATE</label>
+                  <div className="flex gap-12">
+                    {(() => {
+                      const today = new Date()
+                      
+                      const tomorrow = new Date()
+                      tomorrow.setDate(today.getDate() + 1)
+                      const tomorrowVal = getLocalDateString(tomorrow)
+                      const tomorrowStr = tomorrow.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+                      
+                      const dayAfter = new Date()
+                      dayAfter.setDate(today.getDate() + 2)
+                      const dayAfterVal = getLocalDateString(dayAfter)
+                      const dayAfterStr = dayAfter.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+                      
+                      return [
+                        { label: 'Tomorrow', dateStr: tomorrowStr, value: tomorrowVal },
+                        { label: 'Day After', dateStr: dayAfterStr, value: dayAfterVal }
+                      ].map((opt) => {
+                        const isDateSelected = selectedTrialDate === opt.value
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setSelectedTrialDate(opt.value)}
+                            className="glass animate-fade-in"
+                            style={{
+                              flex: 1,
+                              padding: '16px',
+                              borderRadius: 16,
+                              textAlign: 'center',
+                              borderColor: isDateSelected ? 'var(--accent-lime)' : 'var(--border-glass)',
+                              background: isDateSelected ? 'rgba(223, 255, 0, 0.08)' : 'var(--bg-glass)',
+                              boxShadow: isDateSelected ? 'var(--shadow-glow-lime)' : 'none',
+                              transition: 'all 0.3s'
+                            }}
+                          >
+                            <div style={{ fontWeight: 800, fontSize: 14, color: isDateSelected ? 'var(--accent-lime)' : 'var(--text-primary)' }}>{opt.label}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{opt.dateStr}</div>
+                          </button>
+                        )
+                      })
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {selectedPkg?.isTrial && selectedSlot && (selectedSlot.currentCount >= selectedSlot.maxVehicles) && (
+              <div className="glass animate-slide-up" style={{ padding: '16px 20px', borderRadius: 16, border: '1px solid rgba(255,50,50,0.2)', background: 'rgba(255,50,50,0.05)', color: '#ff5555', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Info size={16} />
+                <span style={{ fontWeight: 500 }}>Trial plan is only available in active/available slots. Please go back and choose an available slot.</span>
+              </div>
+            )}
 
             <div className="flex gap-12 mt-4">
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 16 }} onClick={() => setStep(1)}>Back</button>
-              <button disabled={!selectedPkg} className="btn btn-primary" style={{ flex: 2, borderRadius: 18, fontWeight: 800 }} onClick={() => setStep(3)}>Final Confirmation</button>
+              <button 
+                disabled={!selectedPkg || (selectedPkg.isTrial && selectedSlot && selectedSlot.currentCount >= selectedSlot.maxVehicles)} 
+                className="btn btn-primary" 
+                style={{ flex: 2, borderRadius: 18, fontWeight: 800 }} 
+                onClick={() => setStep(3)}
+              >
+                Final Confirmation
+              </button>
             </div>
           </div>
         )}
@@ -514,12 +594,26 @@ export default function BookingFlow() {
                 
                 <div className="divider" style={{ opacity: 0.3 }} />
                 
-                <div>
-                  <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 4, fontSize: 10 }}>LOCATION & SLOT</div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{selectedSociety?.name}</div>
-                  <div className="text-body-sm text-secondary flex items-center gap-6 mt-4">
-                    <Clock size={12} /> {selectedSlot?.timeWindow}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 4, fontSize: 10 }}>LOCATION & SLOT</div>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{selectedSociety?.name}</div>
+                    <div className="text-body-sm text-secondary flex items-center gap-6 mt-4">
+                      <Clock size={12} /> {selectedSlot?.timeWindow}
+                    </div>
                   </div>
+                  {selectedPkg?.isTrial && selectedTrialDate && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 4, fontSize: 10 }}>TRIAL DATE</div>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--accent-lime)' }}>
+                        {(() => {
+                          const [year, month, day] = selectedTrialDate.split('-')
+                          const d = new Date(year, month - 1, day)
+                          return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="divider" style={{ opacity: 0.3 }} />

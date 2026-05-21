@@ -88,6 +88,7 @@ const createDailyTasks = async () => {
     const newDocs = [];
     for (const sub of activeSubs) {
       if (alreadyCreated.has(sub._id.toString())) continue;
+      if (sub.startDate && today < getISTMidnight(sub.startDate)) continue;
 
       let scheduledTime = '07:00 AM';
       if (sub.society && sub.slot) {

@@ -11,7 +11,7 @@ const leadSchema = new Schema({
   pincode: { type: String, trim: true },
   status: { 
     type: String, 
-    enum: ['pending', 'contacted', 'converted'], 
+    enum: ['pending', 'contacted', 'converted', 'rejected'], 
     default: 'pending' 
   },
   notes: { type: String },

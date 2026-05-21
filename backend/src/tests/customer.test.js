@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { api, createCustomer, createVehicle, createSociety, createPackage, seedSettings, authHeader } from './helpers.js';
+import { getISTMidnight } from '../utils/dateHelper.js';
 import Payment from '../models/Payment.js';
 import Subscription from '../models/Subscription.js';
 import Customer from '../models/Customer.js';
@@ -171,6 +172,96 @@ describe('CUST-5..10 | Subscription creation', () => {
 
     const updated = await Customer.findById(newUser._id);
     expect(updated.referralDiscount.isActive).toBe(false);
+  });
+
+  it('CUST-10b: trial with valid custom startDate (tomorrow) succeeds and schedules correctly', async () => {
+    const { customer, token } = await createCustomer();
+    const vehicle = await createVehicle(customer._id);
+    const society = await createSociety();
+    const payment = await verifiedPayment(customer._id);
+
+    const tomorrow = new Date(getISTMidnight());
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const res = await api.post('/api/customer/subscriptions').set(authHeader(token)).send({
+      vehicleId: vehicle._id,
+      societyId: society._id,
+      slotId: '06_07_AM',
+      isTrial: true,
+      paymentId: payment.paymentId,
+      startDate: tomorrow.toISOString(),
+    });
+
+    expect(res.status).toBe(201);
+    const sub = res.body.subscription;
+    expect(new Date(sub.startDate).getTime()).toBe(tomorrow.getTime());
+    expect(new Date(sub.nextWash).getTime()).toBe(tomorrow.getTime());
+    
+    const expectedEnd = new Date(tomorrow);
+    expectedEnd.setDate(expectedEnd.getDate() + 1);
+    expect(new Date(sub.endDate).getTime()).toBe(expectedEnd.getTime());
+  });
+
+  it('CUST-10c: trial with valid custom startDate (day after tomorrow) succeeds and schedules correctly', async () => {
+    const { customer, token } = await createCustomer();
+    const vehicle = await createVehicle(customer._id);
+    const society = await createSociety();
+    const payment = await verifiedPayment(customer._id);
+
+    const dayAfter = new Date(getISTMidnight());
+    dayAfter.setDate(dayAfter.getDate() + 2);
+
+    const res = await api.post('/api/customer/subscriptions').set(authHeader(token)).send({
+      vehicleId: vehicle._id,
+      societyId: society._id,
+      slotId: '06_07_AM',
+      isTrial: true,
+      paymentId: payment.paymentId,
+      startDate: dayAfter.toISOString(),
+    });
+
+    expect(res.status).toBe(201);
+    const sub = res.body.subscription;
+    expect(new Date(sub.startDate).getTime()).toBe(dayAfter.getTime());
+    expect(new Date(sub.nextWash).getTime()).toBe(dayAfter.getTime());
+    
+    const expectedEnd = new Date(dayAfter);
+    expectedEnd.setDate(expectedEnd.getDate() + 1);
+    expect(new Date(sub.endDate).getTime()).toBe(expectedEnd.getTime());
+  });
+
+  it('CUST-10d: rejects custom trial startDate that is not tomorrow or day after tomorrow with 400', async () => {
+    const { customer, token } = await createCustomer();
+    const vehicle = await createVehicle(customer._id);
+    const society = await createSociety();
+    const payment = await verifiedPayment(customer._id);
+
+    // Test 1: Today
+    const today = new Date(getISTMidnight());
+    const resToday = await api.post('/api/customer/subscriptions').set(authHeader(token)).send({
+      vehicleId: vehicle._id,
+      societyId: society._id,
+      slotId: '06_07_AM',
+      isTrial: true,
+      paymentId: payment.paymentId,
+      startDate: today.toISOString(),
+    });
+    expect(resToday.status).toBe(400);
+    expect(resToday.body.message).toMatch(/trial date must be either tomorrow or the day after tomorrow/i);
+
+    // Test 2: 3 Days Later
+    const threeDaysLater = new Date(getISTMidnight());
+    threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+    const resThree = await api.post('/api/customer/subscriptions').set(authHeader(token)).send({
+      vehicleId: vehicle._id,
+      societyId: society._id,
+      slotId: '06_07_AM',
+      isTrial: true,
+      paymentId: payment.paymentId,
+      startDate: threeDaysLater.toISOString(),
+    });
+    expect(resThree.status).toBe(400);
+    expect(resThree.body.message).toMatch(/trial date must be either tomorrow or the day after tomorrow/i);
   });
 });
 

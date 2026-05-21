@@ -158,7 +158,15 @@ export const getSubscriptions = asyncHandler(async (req, res) => {
 
 // Helper to calculate dynamic next wash
 const calculateDynamicNextWash = async (subId) => {
+  const sub = await Subscription.findById(subId).lean();
+  if (!sub) return null;
+
   const today = getISTMidnight();
+  let startCheck = getISTMidnight(sub.startDate);
+  if (startCheck < today) {
+    startCheck = today;
+  }
+
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   
@@ -167,7 +175,7 @@ const calculateDynamicNextWash = async (subId) => {
     date: { $gte: today, $lt: tomorrow },
   }).lean();
 
-  let startDate = new Date(today);
+  let startDate = new Date(startCheck);
   if (todaysTask && (todaysTask.status === 'completed' || todaysTask.status === 'missed')) {
     startDate.setDate(startDate.getDate() + 1);
   }
@@ -211,7 +219,7 @@ export const getSocieties = asyncHandler(async (req, res) => {
 });
 
 export const createSubscription = asyncHandler(async (req, res) => {
-  const { vehicleId, packageId, paymentId, societyId, slotId, specialInstructions, isTrial } = req.body;
+  const { vehicleId, packageId, paymentId, societyId, slotId, specialInstructions, isTrial, startDate } = req.body;
   if (!vehicleId || !societyId || !slotId) {
     throw new ApiError(400, 'Vehicle, society, and slot are required');
   }
@@ -316,9 +324,23 @@ export const createSubscription = asyncHandler(async (req, res) => {
     }
   }
 
-  const startDate = new Date();
-  const endDate = new Date();
-  endDate.setDate(endDate.getDate() + (isTrial ? 1 : 30));
+  let finalStartDate = getISTMidnight();
+  let nextWashVal = new Date(finalStartDate.getTime() + 24 * 60 * 60 * 1000);
+  
+  if (isTrial && startDate) {
+    finalStartDate = getISTMidnight(startDate);
+    const todayMidnight = getISTMidnight();
+    const diffTime = finalStartDate.getTime() - todayMidnight.getTime();
+    const diffDays = Math.round(diffTime / (24 * 60 * 60 * 1000));
+    
+    if (diffDays < 1 || diffDays > 2) {
+      throw new ApiError(400, 'Trial date must be either tomorrow or the day after tomorrow');
+    }
+    nextWashVal = finalStartDate;
+  }
+  
+  const finalEndDate = new Date(finalStartDate);
+  finalEndDate.setDate(finalEndDate.getDate() + (isTrial ? 1 : 30));
 
   const sub = await Subscription.create({
     customer: req.user._id,
@@ -327,11 +349,11 @@ export const createSubscription = asyncHandler(async (req, res) => {
     society: societyId,
     slot: slotId,
     isTrial: isTrial || false,
-    startDate,
-    endDate,
+    startDate: finalStartDate,
+    endDate: finalEndDate,
     totalDays: isTrial ? 1 : 30,
     remainingDays: isTrial ? 1 : 30,
-    nextWash: new Date(startDate.getTime() + 24 * 60 * 60 * 1000),
+    nextWash: nextWashVal,
     amount: finalAmount,
     priorityFee,
     specialInstructions,
