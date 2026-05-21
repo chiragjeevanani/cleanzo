@@ -31,7 +31,7 @@ const navItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { path: '/admin/users', icon: Users, label: 'Users' },
   { path: '/admin/cleaners', icon: UserCog, label: 'Cleaners' },
-  { path: '/admin/applications', icon: FileText, label: 'Applications' },
+  { path: '/admin/applications', icon: FileText, label: 'Cleaner KYC' },
   { path: '/admin/societies', icon: MapPin, label: 'Societies' },
   { path: '/admin/leads', icon: Users, label: 'Leads' },
   { path: '/admin/grievances', icon: LifeBuoy, label: 'Grievances' },
@@ -111,7 +111,7 @@ export default function AdminPanel() {
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
                 <item.icon size={20} />
                 <span>{item.label}</span>
-                {item.label === 'Applications' && pendingCount > 0 && (
+                {item.label === 'Cleaner KYC' && pendingCount > 0 && (
                   <span className="pending-badge">
                     {pendingCount}
                   </span>

@@ -55,7 +55,8 @@ const userResponse = (user, role) => ({
   ...(role === 'cleaner' && { 
     kycRejectionNote: user.kycRejectionNote,
     completionRate: user.completionRate,
-    totalCompleted: user.totalCompleted
+    totalCompleted: user.totalCompleted,
+    rating: user.rating
   }),
 });
 

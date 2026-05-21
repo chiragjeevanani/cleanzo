@@ -9,6 +9,15 @@ export default function CleanerProfile() {
   const { user, logout } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
+  const getRatingColor = (rating) => {
+    if (rating === undefined || rating === null || isNaN(rating) || rating <= 0) return 'var(--text-secondary)'
+    const r = Math.min(5, Math.max(1, rating))
+    const percent = (r - 1) / 4
+    const red = Math.round(255 * (1 - percent))
+    const green = Math.round(255 * percent)
+    return `rgb(${red}, ${green}, 0)`
+  }
+
   const handleLogout = () => {
     setIsLoggingOut(true)
     logout()
@@ -44,17 +53,31 @@ export default function CleanerProfile() {
 
       <div className="flex flex-col gap-8" style={{ marginBottom: 20 }}>
         {[
-          { icon: Star, label: 'Rating', value: user?.rating ? `${user.rating.toFixed(1)} ★` : 'N/A' },
+          { icon: Star, label: 'Rating', value: user?.rating ? `${user.rating.toFixed(1)} ★` : 'N/A', isRating: true },
           { icon: MapPin, label: 'Area', value: user?.assignedArea || 'Not assigned' },
-        ].map((r, i) => (
-          <div key={i} className="glass" style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className="flex items-center gap-12">
-              <r.icon size={18} style={{ color: 'var(--text-secondary)' }} />
-              <span>{r.label}</span>
+        ].map((r, i) => {
+          const ratingVal = user?.rating
+          const hasRating = r.isRating && ratingVal !== undefined && ratingVal !== null && !isNaN(ratingVal) && ratingVal > 0
+          const color = hasRating ? getRatingColor(ratingVal) : 'var(--text-secondary)'
+          const textColor = hasRating ? color : 'inherit'
+          
+          return (
+            <div key={i} className="glass" style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="flex items-center gap-12">
+                <r.icon size={18} style={{ color: color }} />
+                <span>{r.label}</span>
+              </div>
+              <span style={{ 
+                fontWeight: hasRating ? 700 : 500, 
+                fontSize: 14, 
+                color: textColor,
+                textShadow: hasRating ? `0 0 8px rgba(${Math.round(255 * (1 - (Math.min(5, Math.max(1, ratingVal)) - 1) / 4))}, ${Math.round(255 * ((Math.min(5, Math.max(1, ratingVal)) - 1) / 4))}, 0, 0.25)` : 'none'
+              }}>
+                {r.value}
+              </span>
             </div>
-            <span style={{ fontWeight: 500, fontSize: 14 }}>{r.value}</span>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Theme toggle */}

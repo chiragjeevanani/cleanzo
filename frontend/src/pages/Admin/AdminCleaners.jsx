@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { Star, MapPin, MoreVertical, Plus, X, Trash2, UserX, UserCheck, Filter, Search, KeyRound, Eye, EyeOff } from 'lucide-react'
+import { Star, MapPin, MoreVertical, Plus, X, Trash2, UserX, UserCheck, Filter, Search, KeyRound, Eye, EyeOff, Download } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
+import { exportToExcel } from '../../utils/excelExporter'
 
 const STATUSES = ['all', 'active', 'inactive']
 
@@ -25,11 +26,54 @@ export default function AdminCleaners() {
   const [saving, setSaving] = useState(false)
   const menuRef = useRef(null)
 
-  const [formData, setFormData] = useState({ 
-    name: '', phone: '', email: '', age: '', city: '', assignedArea: '',
-    fatherName: '', currentAddress: '', permanentAddress: '',
-    referenceName: '', referencePhone: ''
-  })
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async () => {
+    setExporting(true)
+    setError('')
+    try {
+      const res = await apiClient.get('/admin/cleaners?limit=all')
+      const allCleaners = res.cleaners || []
+      
+      const filteredExport = allCleaners.filter(c => {
+        const matchesSearch = !search || (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
+          (c.phone && c.phone.includes(search))
+        const matchesStatus = filterStatus === 'all' ||
+          (filterStatus === 'active' && c.isActive) ||
+          (filterStatus === 'inactive' && !c.isActive)
+        const matchesArea = !filterArea || c.assignedArea === filterArea
+        return matchesSearch && matchesStatus && matchesArea
+      })
+
+      exportToExcel({
+        data: filteredExport,
+        filename: 'Cleaners_Export',
+        columns: [
+          { label: 'Full Name', key: 'name' },
+          { label: 'Phone Number', key: 'phone' },
+          { label: 'Email Address', key: 'email' },
+          { label: 'Age', key: 'age' },
+          { label: 'City', key: 'city' },
+          { label: 'Assigned Area', key: 'assignedArea' },
+          { label: 'Father\'s Name', key: 'fatherName' },
+          { label: 'Current Address', key: 'currentAddress' },
+          { label: 'Permanent Address', key: 'permanentAddress' },
+          { label: 'Reference Name', key: 'referenceName' },
+          { label: 'Reference Phone', key: 'referencePhone' },
+          { label: 'Rating (Out of 5)', key: 'rating' },
+          { label: 'Completion Rate', key: (c) => `${c.completionRate || 0}%` },
+          { label: 'Total Completed Tasks', key: 'totalCompleted' },
+          { label: 'KYC Status', key: 'kycStatus' },
+          { label: 'Account Status', key: (c) => c.isActive ? 'Active' : 'Inactive' },
+          { label: 'Registered Date', key: (c) => c.createdAt ? new Date(c.createdAt).toLocaleString() : 'N/A' }
+        ]
+      })
+    } catch (err) {
+      setError('Failed to export cleaner records. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const fetchCleaners = async () => {
     try {
@@ -160,9 +204,19 @@ export default function AdminCleaners() {
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>
           Cleaners <span className="text-secondary" style={{ fontSize: 16, fontWeight: 400 }}>({cleaners.length})</span>
         </h1>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
-          <Plus size={16} /> Add Cleaner
-        </button>
+        <div className="flex gap-8">
+          <button 
+            disabled={exporting}
+            className="btn btn-glass btn-sm text-success" 
+            onClick={handleExport}
+            style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
+            <Plus size={16} /> Add Cleaner
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-12" style={{ marginBottom: 16 }}>

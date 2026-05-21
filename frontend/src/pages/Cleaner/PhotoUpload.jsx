@@ -12,6 +12,7 @@ export default function PhotoUpload() {
 
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
+  const [notes, setNotes] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef(null)
@@ -35,6 +36,7 @@ export default function PhotoUpload() {
       const formData = new FormData()
       formData.append('photo', optimizedFile)
       formData.append('type', uploadType)
+      if (notes.trim()) formData.append('notes', notes.trim())
 
       await apiClient.uploadForm(`/cleaner/tasks/${taskId}/photo`, formData)
       navigate(`/cleaner/tasks/${taskId}`)
@@ -80,8 +82,15 @@ export default function PhotoUpload() {
       </div>
 
       <div className="glass" style={{ padding: 16, marginBottom: 20 }}>
-        <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 8 }}>Notes (Optional)</label>
-        <textarea className="input-field" rows={3} placeholder="Any observations or notes..." style={{ resize: 'vertical' }} />
+        <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 8 }}>Cleaner Notes <span style={{ fontSize: 11, opacity: 0.6 }}>(visible to customer)</span></label>
+        <textarea 
+          className="input-field" 
+          rows={3} 
+          placeholder="Describe condition of vehicle, any observations, or service notes..." 
+          style={{ resize: 'vertical' }} 
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </div>
 
       {uploadError && (

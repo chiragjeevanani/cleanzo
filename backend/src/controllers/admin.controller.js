@@ -67,6 +67,13 @@ export const getDashboard = asyncHandler(async (req, res) => {
     cleanersLastMonth,
     pendingOrdersCount,
     marketplaceRevenue,
+    trialNotSubscribedCountRaw,
+    inactiveSubscriptionsCount,
+    trialToPaidRaw,
+    engagementRaw,
+    statusDistributionRaw,
+    monthlyCreatedRaw,
+    monthlyExpiredRaw,
   ] = await Promise.all([
     Customer.countDocuments({ isActive: true }),
     Subscription.countDocuments({ status: 'Active' }),
@@ -86,6 +93,62 @@ export const getDashboard = asyncHandler(async (req, res) => {
     Cleaner.countDocuments({ isActive: true, createdAt: { $gte: lastMonthStart, $lt: lastMonthEnd } }),
     Order.countDocuments({ status: { $in: ['Placed', 'Confirmed'] } }),
     Order.aggregate([{ $match: { status: { $ne: 'Cancelled' } } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }]),
+    Subscription.aggregate([
+      {
+        $group: {
+          _id: '$customer',
+          hasTrial: { $max: { $cond: [{ $eq: ['$isTrial', true] }, 1, 0] } },
+          hasStandard: { $max: { $cond: [{ $eq: ['$isTrial', false] }, 1, 0] } }
+        }
+      },
+      { $match: { hasTrial: 1, hasStandard: 0 } },
+      { $count: 'count' }
+    ]),
+    Subscription.countDocuments({ status: { $ne: 'Active' } }),
+    Subscription.aggregate([
+      {
+        $group: {
+          _id: '$customer',
+          hasTrial: { $max: { $cond: [{ $eq: ['$isTrial', true] }, 1, 0] } },
+          hasPaid: { $max: { $cond: [{ $eq: ['$isTrial', false] }, 1, 0] } }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalTrials: { $sum: '$hasTrial' },
+          totalConverted: { $sum: { $cond: [{ $and: [{ $eq: ['$hasTrial', 1] }, { $eq: ['$hasPaid', 1] }] }, 1, 0] } }
+        }
+      }
+    ]),
+    Subscription.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalCompleted: { $sum: '$completedDays' },
+          totalSkipped: { $sum: '$skippedDays' },
+          totalCredited: { $sum: '$creditedDays' },
+          totalDays: { $sum: '$totalDays' },
+          avgCompleted: { $avg: '$completedDays' },
+          avgSkipped: { $avg: '$skippedDays' },
+          avgCredited: { $avg: '$creditedDays' },
+          avgAmount: { $avg: '$amount' }
+        }
+      }
+    ]),
+    Subscription.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]),
+    Subscription.aggregate([
+      { $match: { createdAt: { $gte: new Date(new Date().setMonth(new Date().getMonth() - 7)) } } },
+      { $group: { _id: { month: { $month: '$createdAt' }, year: { $year: '$createdAt' } }, count: { $sum: 1 } } },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]),
+    Subscription.aggregate([
+      { $match: { status: 'Expired', endDate: { $gte: new Date(new Date().setMonth(new Date().getMonth() - 7)) } } },
+      { $group: { _id: { month: { $month: '$endDate' }, year: { $year: '$endDate' } }, count: { $sum: 1 } } },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]),
   ]);
 
   const calcGrowth = (current, previous) => {
@@ -124,6 +187,29 @@ export const getDashboard = asyncHandler(async (req, res) => {
     revenue: r.revenue
   }));
 
+  // Customer Trend Data (Last 7 months)
+  const customerDataRaw = await Customer.aggregate([
+    { $match: { isActive: true, createdAt: { $gte: new Date(new Date().setMonth(new Date().getMonth() - 7)) } } },
+    { $group: { _id: { month: { $month: '$createdAt' }, year: { $year: '$createdAt' } }, count: { $sum: 1 } } },
+    { $sort: { '_id.year': 1, '_id.month': 1 } },
+  ]);
+  const customerData = customerDataRaw.map(c => ({
+    month: months[c._id.month],
+    users: c.count
+  }));
+
+  // Time Slot Distribution
+  const slotDistributionRaw = await Subscription.aggregate([
+    { $match: { status: 'Active', slot: { $exists: true, $ne: null, $ne: '' } } },
+    { $group: { _id: '$slot', count: { $sum: 1 } } },
+    { $sort: { count: -1 } }
+  ]);
+  const slotDistribution = slotDistributionRaw.map(s => ({
+    slot: s._id,
+    count: s.count
+  }));
+  const mostUsedSlot = slotDistribution[0]?.slot || 'N/A';
+
   // Fetch Recent Activities from Activity model
   const recentActivitiesRaw = await Activity.find()
     .sort('-createdAt')
@@ -133,7 +219,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
   const activity = recentActivitiesRaw.map(a => ({
     type: a.type,
     text: a.message,
-    time: timeAgo(a.createdAt)
+    time: a.createdAt ? a.createdAt.toISOString() : null
   }));
 
   const { default: CleanerApplication } = await import('../models/CleanerApplication.js');
@@ -142,7 +228,43 @@ export const getDashboard = asyncHandler(async (req, res) => {
     Cleaner.countDocuments({ kycStatus: 'pending' })
   ]);
 
-  const totalRevVal = (totalRevenue[0]?.total || 0) + (marketplaceRevenue[0]?.total || 0);
+  const subscriptionRevenue = totalRevenue[0]?.total || 0;
+  const marketRevenue = marketplaceRevenue[0]?.total || 0;
+  const totalRevVal = subscriptionRevenue + marketRevenue;
+  const trialNotSubscribedCount = trialNotSubscribedCountRaw[0]?.count || 0;
+
+  // Subscription Flow Metrics Processing
+  const conversionData = trialToPaidRaw[0] || { totalTrials: 0, totalConverted: 0 };
+  const trialConversionRate = conversionData.totalTrials > 0 
+    ? Math.round((conversionData.totalConverted / conversionData.totalTrials) * 100) 
+    : 0;
+
+  const engagement = engagementRaw[0] || { totalCompleted: 0, totalSkipped: 0, totalCredited: 0, totalDays: 0, avgCompleted: 0, avgSkipped: 0, avgCredited: 0, avgAmount: 0 };
+  const skipRatio = engagement.totalDays > 0 
+    ? parseFloat(((engagement.totalSkipped / engagement.totalDays) * 100).toFixed(1)) 
+    : 0;
+  
+  const statusCounts = statusDistributionRaw.reduce((acc, curr) => {
+    acc[curr._id] = curr.count;
+    return acc;
+  }, { Active: 0, Paused: 0, Expired: 0, Cancelled: 0 });
+
+  // Combine monthlyCreated and monthlyExpired into a single flow data array
+  const flowMap = {};
+  monthlyCreatedRaw.forEach(c => {
+    const key = `${c._id.year}-${c._id.month}`;
+    flowMap[key] = { month: months[c._id.month], created: c.count, expired: 0 };
+  });
+  monthlyExpiredRaw.forEach(e => {
+    const key = `${e._id.year}-${e._id.month}`;
+    if (flowMap[key]) {
+      flowMap[key].expired = e.count;
+    } else {
+      flowMap[key] = { month: months[e._id.month], created: 0, expired: e.count };
+    }
+  });
+
+  const monthlyFlow = Object.values(flowMap);
 
   res.json({
     success: true,
@@ -152,6 +274,13 @@ export const getDashboard = asyncHandler(async (req, res) => {
     pendingApplicationsCount: pendingApps + pendingKyc,
     pendingOrdersCount,
     revenue: totalRevVal,
+    subscriptionRevenue,
+    marketplaceRevenue: marketRevenue,
+    trialNotSubscribedCount,
+    inactiveSubscriptionsCount,
+    customerData: customerData.length > 0 ? customerData : [{ month: 'N/A', users: 0 }],
+    slotDistribution: slotDistribution.length > 0 ? slotDistribution : [{ slot: 'N/A', count: 0 }],
+    mostUsedSlot,
     kpiData: [
       { label: 'Total Users', value: totalUsers, growth: calcGrowth(usersThisMonth, usersLastMonth), icon: 'Users', color: 'var(--primary-blue)' },
       { label: 'Subscriptions', value: activeSubscriptions, growth: calcGrowth(subsThisMonth, subsLastMonth), icon: 'CreditCard', color: 'var(--accent-lime)' },
@@ -160,7 +289,19 @@ export const getDashboard = asyncHandler(async (req, res) => {
     ],
     pieData: pieData.length > 0 ? pieData : [{ name: 'No Data', value: 1, color: 'var(--divider)' }],
     revenueData: revenueData.length > 0 ? revenueData : [{ month: 'N/A', revenue: 0 }],
-    recentActivity: activity
+    recentActivity: activity,
+    subscriptionFlow: {
+      trialConversionRate,
+      skipRatio,
+      statusCounts,
+      averageMetrics: {
+        avgCompleted: Math.round(engagement.avgCompleted || 0),
+        avgSkipped: Math.round(engagement.avgSkipped || 0),
+        avgCredited: Math.round(engagement.avgCredited || 0),
+        avgAmount: Math.round(engagement.avgAmount || 0),
+      },
+      monthlyFlow: monthlyFlow.length > 0 ? monthlyFlow : [{ month: 'N/A', created: 0, expired: 0 }]
+    }
   });
 });
 
@@ -182,8 +323,9 @@ export const getAdminBadges = asyncHandler(async (req, res) => {
 // ─── USERS ───────────────────────────────────────
 export const getUsers = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const skip = (page - 1) * limit;
+  const limitQuery = req.query.limit;
+  const limit = limitQuery === 'all' ? 1000000 : Math.min(parseInt(limitQuery) || 20, 100);
+  const skip = limitQuery === 'all' ? 0 : (page - 1) * limit;
   const search = req.query.search || '';
 
   const escaped = search ? search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
@@ -241,17 +383,17 @@ export const updateUser = asyncHandler(async (req, res) => {
 });
 
 export const deleteUser = asyncHandler(async (req, res) => {
-  const user = await Customer.findByIdAndDelete(req.params.id);
+  const user = await Customer.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
   if (!user) throw new ApiError(404, 'User not found');
 
   await logActivity({
     type: 'user_deleted',
-    message: `Admin deleted user: ${user.firstName} ${user.lastName}`,
+    message: `Admin deactivated user: ${user.firstName} ${user.lastName}`,
     performer: req.user._id,
     metadata: { userId: user._id }
   });
 
-  res.json({ success: true, message: 'User deleted successfully from database' });
+  res.json({ success: true, message: 'User deactivated successfully' });
 });
 
 export const getCleanerById = asyncHandler(async (req, res) => {
@@ -273,8 +415,9 @@ export const getCleanerById = asyncHandler(async (req, res) => {
 // ─── CLEANERS ────────────────────────────────────
 export const getCleaners = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const skip = (page - 1) * limit;
+  const limitQuery = req.query.limit;
+  const limit = limitQuery === 'all' ? 1000000 : Math.min(parseInt(limitQuery) || 20, 100);
+  const skip = limitQuery === 'all' ? 0 : (page - 1) * limit;
 
   const [cleaners, total] = await Promise.all([
     Cleaner.find().sort('-createdAt').skip(skip).limit(limit),
@@ -345,17 +488,17 @@ export const updateCleaner = asyncHandler(async (req, res) => {
 });
 
 export const deleteCleaner = asyncHandler(async (req, res) => {
-  const cleaner = await Cleaner.findByIdAndDelete(req.params.id);
+  const cleaner = await Cleaner.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
 
   await logActivity({
     type: 'cleaner_deleted',
-    message: `Admin deleted cleaner: ${cleaner.name}`,
+    message: `Admin deactivated cleaner: ${cleaner.name}`,
     performer: req.user._id,
     metadata: { cleanerId: cleaner._id }
   });
 
-  res.json({ success: true, message: 'Cleaner deleted successfully from database' });
+  res.json({ success: true, message: 'Cleaner deactivated successfully' });
 });
 
 export const setCleanerPassword = asyncHandler(async (req, res) => {
@@ -414,8 +557,9 @@ export const deletePackage = asyncHandler(async (req, res) => {
 // ─── SUBSCRIPTIONS ───────────────────────────────
 export const getAllSubscriptions = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const skip = (page - 1) * limit;
+  const limitQuery = req.query.limit;
+  const limit = limitQuery === 'all' ? 1000000 : Math.min(parseInt(limitQuery) || 20, 100);
+  const skip = limitQuery === 'all' ? 0 : (page - 1) * limit;
   const status = req.query.status;
 
   const filter = status ? { status } : {};
@@ -587,17 +731,17 @@ export const updateSociety = asyncHandler(async (req, res) => {
 
 export const deleteSociety = asyncHandler(async (req, res) => {
   const { default: Society } = await import('../models/Society.js');
-  const society = await Society.findByIdAndDelete(req.params.id);
+  const society = await Society.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
   if (!society) throw new ApiError(404, 'Society not found');
 
   await logActivity({
     type: 'system',
-    message: `Admin deleted society: ${society.name}`,
+    message: `Admin deactivated society: ${society.name}`,
     performer: req.user._id,
     metadata: { societyId: society._id }
   });
 
-  res.json({ success: true, message: 'Society deleted' });
+  res.json({ success: true, message: 'Society deactivated' });
 });
 
 // ─── LEADS ───────────────────────────────────────

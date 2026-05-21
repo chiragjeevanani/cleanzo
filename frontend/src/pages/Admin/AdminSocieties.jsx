@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, X, Search, Filter, MapPin, Building2, MoreVertical, Trash2, Edit2, Globe } from 'lucide-react'
+import { Plus, X, Search, Filter, MapPin, Building2, MoreVertical, Trash2, Edit2, Globe, Download } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { exportToExcel } from '../../utils/excelExporter'
 
 const STATUSES = ['all', 'active', 'inactive']
 
@@ -19,6 +20,46 @@ export default function AdminSocieties() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [saving, setSaving] = useState(false)
   const menuRef = useRef(null)
+
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = () => {
+    setExporting(true)
+    setError('')
+    try {
+      const filteredExport = societies.filter(s => {
+        const matchesSearch = !search || 
+          (s.name || '').toLowerCase().includes(search.toLowerCase()) ||
+          (s.area || '').toLowerCase().includes(search.toLowerCase()) ||
+          (s.pincode || '').includes(search)
+        const matchesStatus = filterStatus === 'all' ||
+          (filterStatus === 'active' && s.isActive) ||
+          (filterStatus === 'inactive' && !s.isActive)
+        const matchesCity = !filterCity || s.city === filterCity
+        return matchesSearch && matchesStatus && matchesCity
+      })
+
+      exportToExcel({
+        data: filteredExport,
+        filename: 'Societies_Export',
+        columns: [
+          { label: 'Society Name', key: 'name' },
+          { label: 'City', key: 'city' },
+          { label: 'Area', key: 'area' },
+          { label: 'Pincode', key: 'pincode' },
+          { label: 'Full Address', key: 'address' },
+          { label: 'Active Slots', key: (s) => (s.slots || []).map(slot => slot.timeWindow || slot.slotId).join(', ') },
+          { label: 'Cleaners Assigned', key: (s) => (s.cleaners || []).map(c => typeof c === 'object' ? c.name : c).filter(Boolean).join(', ') },
+          { label: 'Status', key: (s) => s.isActive ? 'Active' : 'Inactive' },
+          { label: 'Created Date', key: (s) => s.createdAt ? new Date(s.createdAt).toLocaleString() : 'N/A' }
+        ]
+      })
+    } catch (err) {
+      setError('Failed to export society records. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const [formData, setFormData] = useState({
     name: '',
@@ -148,9 +189,19 @@ export default function AdminSocieties() {
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>
           Societies <span className="text-secondary" style={{ fontSize: 16, fontWeight: 400 }}>({societies.length})</span>
         </h1>
-        <button className="btn btn-primary btn-sm" onClick={() => { resetForm(); setShowModal(true) }}>
-          <Plus size={16} /> Add Society
-        </button>
+        <div className="flex gap-8">
+          <button 
+            disabled={exporting}
+            className="btn btn-glass btn-sm text-success" 
+            onClick={handleExport}
+            style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => { resetForm(); setShowModal(true) }}>
+            <Plus size={16} /> Add Society
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-12" style={{ marginBottom: 16 }}>

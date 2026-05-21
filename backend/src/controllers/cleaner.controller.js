@@ -154,7 +154,7 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
 
 
 export const uploadTaskPhotos = asyncHandler(async (req, res) => {
-  const { type } = req.body; // 'before' or 'after'
+  const { type, notes } = req.body; // 'before' or 'after'
   if (!req.file && (!req.files || req.files.length === 0)) throw new ApiError(400, 'No files uploaded');
 
   let urls = [];
@@ -170,13 +170,19 @@ export const uploadTaskPhotos = asyncHandler(async (req, res) => {
 
   const updateField = type === 'before' ? 'photos.before' : 'photos.after';
 
+  // Build the update object — always push photos, optionally save notes
+  const updateObj = { $push: { [updateField]: { $each: urls } } };
+  if (notes && notes.trim()) {
+    updateObj.$set = { notes: notes.trim() };
+  }
+
   const task = await Task.findOneAndUpdate(
     { _id: req.params.id, cleaner: req.user._id },
-    { $push: { [updateField]: { $each: urls } } },
+    updateObj,
     { new: true }
   );
   if (!task) throw new ApiError(404, 'Task not found');
-  res.json({ success: true, photos: task.photos });
+  res.json({ success: true, photos: task.photos, notes: task.notes });
 });
 
 // ─── HISTORY ─────────────────────────────────────

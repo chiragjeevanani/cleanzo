@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { UserPlus, CheckCircle, Clock, ShieldCheck, User } from 'lucide-react'
+import { UserPlus, CheckCircle, Clock, ShieldCheck, User, Download } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
+import { exportToExcel } from '../../utils/excelExporter'
 
 export default function AdminSubscriptions() {
   const [filter, setFilter] = useState('all')
@@ -11,6 +12,45 @@ export default function AdminSubscriptions() {
 
   const [cleaners, setCleaners] = useState([])
   const { showToast } = useToast()
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async () => {
+    setExporting(true)
+    setError('')
+    try {
+      const res = await apiClient.get('/admin/subscriptions?limit=all')
+      const allSubs = res.subscriptions || []
+      
+      const filteredExport = filter === 'all'
+        ? allSubs
+        : allSubs.filter(s => getDisplayStatus(s).toLowerCase() === filter.toLowerCase())
+
+      exportToExcel({
+        data: filteredExport,
+        filename: 'Subscriptions_Export',
+        columns: [
+          { label: 'Customer Name', key: (s) => s.customer ? `${s.customer.firstName || ''} ${s.customer.lastName || ''}`.trim() : 'N/A' },
+          { label: 'Customer Phone', key: (s) => s.customer?.phone || 'N/A' },
+          { label: 'Cleaner Assigned', key: (s) => s.assignedCleaner?.name || 'Unassigned' },
+          { label: 'Society Name', key: (s) => s.society?.name || 'N/A' },
+          { label: 'Vehicle Model', key: (s) => s.vehicle?.model || 'N/A' },
+          { label: 'Package Name', key: (s) => s.package?.name || (s.isTrial ? 'Trial' : 'Basic') },
+          { label: 'Time Slot', key: (s) => s.slot || 'N/A' },
+          { label: 'Start Date', key: (s) => s.startDate ? new Date(s.startDate).toLocaleDateString() : 'N/A' },
+          { label: 'End Date', key: (s) => s.endDate ? new Date(s.endDate).toLocaleDateString() : 'N/A' },
+          { label: 'Completed Washes', key: (s) => s.completedDays || 0 },
+          { label: 'Skipped Washes', key: (s) => s.skippedDays || 0 },
+          { label: 'Total Days', key: (s) => s.totalDays || 30 },
+          { label: 'Amount Paid', key: (s) => s.amountPaid || s.amount || 0 },
+          { label: 'Status', key: (s) => getDisplayStatus(s) }
+        ]
+      })
+    } catch (err) {
+      setError('Failed to export subscription records. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -68,7 +108,17 @@ export default function AdminSubscriptions() {
 
   return (
     <div>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, marginBottom: 24 }}>Subscriptions</h1>
+      <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Subscriptions</h1>
+        <button 
+          disabled={exporting}
+          className="btn btn-glass btn-sm text-success" 
+          onClick={handleExport}
+          style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
+        </button>
+      </div>
 
       {error && (
         <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 16, fontSize: 14 }}>

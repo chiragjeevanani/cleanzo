@@ -5,6 +5,7 @@ import Cleaner from '../models/Cleaner.js';
 import Attendance from '../models/Attendance.js';
 import Subscription from '../models/Subscription.js';
 import mongoose from 'mongoose';
+import { getISTMidnight } from '../utils/dateHelper.js';
 
 async function pendingTask(cleanerId, customerId, vehicleId, subId) {
   return Task.create({
@@ -45,7 +46,7 @@ describe('CLEAN-1..3 | updateTaskStatus', () => {
     expect(res.body.task.status).toBe('in-progress');
 
     // Attendance must be created (the P0 crash fix)
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = getISTMidnight();
     const att = await Attendance.findOne({ cleaner: cleaner._id, date: today });
     expect(att).not.toBeNull();
     expect(att.status).toBe('present');
@@ -64,7 +65,7 @@ describe('CLEAN-1..3 | updateTaskStatus', () => {
     const updatedCleaner = await Cleaner.findById(cleaner._id);
     expect(updatedCleaner.totalCompleted).toBe(1);
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = getISTMidnight();
     const att = await Attendance.findOne({ cleaner: cleaner._id, date: today });
     expect(att.tasksCompleted).toBe(1);
   });

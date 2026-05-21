@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { Search, Filter, MoreVertical, Plus, X, Trash2, UserX, UserCheck, ChevronDown, Eye } from 'lucide-react'
+import { Search, Filter, MoreVertical, Plus, X, Trash2, UserX, UserCheck, ChevronDown, Eye, Download } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { exportToExcel } from '../../utils/excelExporter'
 
 const STATUSES = ['all', 'active', 'inactive']
 const PLANS = ['all', 'None', 'Basic', 'Standard', 'Premium', 'Elite']
@@ -22,6 +23,57 @@ export default function AdminUsers() {
   const menuRef = useRef(null)
 
   const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', email: '', city: '' })
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async () => {
+    setExporting(true)
+    setError('')
+    try {
+      const res = await apiClient.get('/admin/users?limit=all')
+      const allUsers = res.users || []
+      
+      const filteredExport = allUsers.filter(u => {
+        const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase()
+        const matchesSearch = fullName.includes(search.toLowerCase()) ||
+          (u.phone && u.phone.includes(search)) ||
+          (u.email && u.email.toLowerCase().includes(search.toLowerCase()))
+        const matchesStatus = filterStatus === 'all' ||
+          (filterStatus === 'active' && u.isActive !== false) ||
+          (filterStatus === 'inactive' && u.isActive === false)
+        const matchesPlan = filterPlan === 'all' ||
+          (filterPlan === 'None' && !u.activePlan) ||
+          (u.activePlan && u.activePlan.toLowerCase().includes(filterPlan.toLowerCase()))
+        return matchesSearch && matchesStatus && matchesPlan
+      })
+
+      exportToExcel({
+        data: filteredExport,
+        filename: 'Users_Export',
+        columns: [
+          { label: 'First Name', key: 'firstName' },
+          { label: 'Last Name', key: 'lastName' },
+          { label: 'Phone Number', key: 'phone' },
+          { label: 'Email Address', key: 'email' },
+          { label: 'City', key: 'city' },
+          { label: 'Role', key: 'role' },
+          { label: 'Referral Code', key: 'referralCode' },
+          { label: 'Referred By ID', key: 'referredBy' },
+          { label: 'Referral Discount Active', key: (u) => u.referralDiscount?.isActive ? 'Yes' : 'No' },
+          { label: 'Referral Discount %', key: (u) => u.referralDiscount?.percentage || 0 },
+          { label: 'Addresses List', key: (u) => (u.addresses || []).map((addr, idx) => `${addr.label || `Addr #${idx+1}`}: ${addr.flat || ''} ${addr.tower || ''}, ${addr.societyName || addr.line1 || ''}, ${addr.city || ''} (${addr.pincode || ''})`).join(' | ') || 'No Addresses Saved' },
+          { label: 'Vehicles Count', key: 'vehiclesCount' },
+          { label: 'Active Subscription Plan', key: 'activePlan' },
+          { label: 'Account Status', key: (u) => u.isActive !== false ? 'Active' : 'Inactive' },
+          { label: 'Joined Date', key: (u) => u.createdAt ? new Date(u.createdAt).toLocaleString() : 'N/A' },
+          { label: 'Last Login Time', key: (u) => u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'N/A' }
+        ]
+      })
+    } catch (err) {
+      setError('Failed to export user records. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const fetchUsers = async () => {
     try {
@@ -124,9 +176,19 @@ export default function AdminUsers() {
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>
           Users <span className="text-secondary" style={{ fontSize: 16, fontWeight: 400 }}>({users.length})</span>
         </h1>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
-          <Plus size={16} /> Add User
-        </button>
+        <div className="flex gap-8">
+          <button 
+            disabled={exporting}
+            className="btn btn-glass btn-sm text-success" 
+            onClick={handleExport}
+            style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
+            <Plus size={16} /> Add User
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-12" style={{ marginBottom: 16 }}>

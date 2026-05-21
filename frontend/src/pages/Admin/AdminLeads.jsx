@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Search, Filter, Phone, Mail, Calendar, MapPin, Trash2, CheckCircle2, MessageSquare } from 'lucide-react'
+import { Search, Filter, Phone, Mail, Calendar, MapPin, Trash2, CheckCircle2, MessageSquare, Download } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { timeAgo } from '../../utils/helpers'
+import { exportToExcel } from '../../utils/excelExporter'
 
 const STATUSES = ['all', 'pending', 'contacted', 'converted']
 
@@ -12,6 +13,43 @@ export default function AdminLeads() {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [processingId, setProcessingId] = useState(null)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = () => {
+    setExporting(true)
+    setError('')
+    try {
+      const filteredExport = leads.filter(l => {
+        const matchesSearch = !search || 
+          (l.name || '').toLowerCase().includes(search.toLowerCase()) ||
+          (l.requestedSociety || '').toLowerCase().includes(search.toLowerCase()) ||
+          (l.phone || '').includes(search)
+        const matchesStatus = filterStatus === 'all' || l.status === filterStatus
+        return matchesSearch && matchesStatus
+      })
+
+      exportToExcel({
+        data: filteredExport,
+        filename: 'Leads_Export',
+        columns: [
+          { label: 'Lead Name', key: 'name' },
+          { label: 'Phone', key: 'phone' },
+          { label: 'Email', key: 'email' },
+          { label: 'Requested Society', key: 'requestedSociety' },
+          { label: 'Requested Area', key: 'requestedArea' },
+          { label: 'City', key: 'city' },
+          { label: 'Pincode', key: 'pincode' },
+          { label: 'Car Type', key: 'carType' },
+          { label: 'Status', key: 'status' },
+          { label: 'Received Date', key: (l) => l.createdAt ? new Date(l.createdAt).toLocaleString() : 'N/A' }
+        ]
+      })
+    } catch (err) {
+      setError('Failed to export leads. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const fetchLeads = async () => {
     try {
@@ -67,7 +105,19 @@ export default function AdminLeads() {
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>
           Interest Leads <span className="text-secondary" style={{ fontSize: 16, fontWeight: 400 }}>({leads.length})</span>
         </h1>
-        <div className="text-body-sm text-secondary">Capture demand from unserviceable areas</div>
+        <div className="flex items-center gap-12">
+          <button 
+            disabled={exporting}
+            className="btn btn-glass btn-sm text-success" 
+            onClick={handleExport}
+            style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
+          </button>
+          <div className="text-body-sm text-secondary" style={{ display: 'none', '@media (min-width: 768px)': { display: 'block' } } /* or keep standard styling */}>
+            Capture demand
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-12" style={{ marginBottom: 16 }}>

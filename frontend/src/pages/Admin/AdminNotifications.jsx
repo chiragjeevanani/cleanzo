@@ -1,7 +1,8 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
-import { Bell, Send, Users, UserCog, Globe, X, ChevronDown } from 'lucide-react'
+import { Bell, Send, Users, UserCog, Globe, X, ChevronDown, Download } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { exportToExcel } from '../../utils/excelExporter'
 
 const TYPE_OPTIONS = ['system', 'promo', 'reminder', 'alert']
 const TARGET_OPTIONS = [
@@ -19,6 +20,36 @@ export default function AdminNotifications() {
   const [error, setError] = useState('')
 
   const [form, setForm] = useState({ title: '', message: '', type: 'system', target: 'all' })
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = () => {
+    setExporting(true)
+    setError('')
+    try {
+      exportToExcel({
+        data: notifications,
+        filename: 'Notifications_Export',
+        columns: [
+          { label: 'Notification Title', key: 'title' },
+          { label: 'Message', key: 'message' },
+          { label: 'Type', key: 'type' },
+          { label: 'Target / Recipient', key: (n) => {
+            if (n.recipient) {
+              return n.recipient.firstName
+                ? `${n.recipient.firstName} ${n.recipient.lastName || ''}`.trim()
+                : n.recipient.name || n.recipient.phone || 'Individual User'
+            }
+            return n.target || 'All'
+          }},
+          { label: 'Sent Date', key: (n) => n.createdAt ? new Date(n.createdAt).toLocaleString() : 'N/A' }
+        ]
+      })
+    } catch (err) {
+      setError('Failed to export notification records. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const fetchNotifications = async () => {
     try {
@@ -65,9 +96,19 @@ export default function AdminNotifications() {
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Notifications</h1>
           <p className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>Broadcast messages and view notification history</p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => { setShowBroadcast(true); setBroadcastResult('') }}>
-          <Send size={15} /> Broadcast
-        </button>
+        <div className="flex gap-8">
+          <button 
+            disabled={exporting}
+            className="btn btn-glass btn-sm text-success" 
+            onClick={handleExport}
+            style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => { setShowBroadcast(true); setBroadcastResult('') }}>
+            <Send size={15} /> Broadcast
+          </button>
+        </div>
       </div>
 
       {error && (

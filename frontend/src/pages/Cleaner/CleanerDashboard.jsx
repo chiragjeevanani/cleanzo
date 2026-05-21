@@ -10,6 +10,15 @@ export default function CleanerDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const getRatingColor = (rating) => {
+    if (rating === undefined || rating === null || isNaN(rating) || rating <= 0) return 'var(--text-secondary)'
+    const r = Math.min(5, Math.max(1, rating))
+    const percent = (r - 1) / 4
+    const red = Math.round(255 * (1 - percent))
+    const green = Math.round(255 * percent)
+    return `rgb(${red}, ${green}, 0)`
+  }
+
   useEffect(() => {
     const fetchTasks = async () => {
       try {
@@ -308,7 +317,15 @@ export default function CleanerDashboard() {
         </div>
         <div className="progress-track"><div className="progress-fill" style={{ width: `${tasks.length > 0 ? (completed/tasks.length)*100 : 0}%`, background: 'var(--success)' }} /></div>
         <div className="flex justify-between text-body-sm text-secondary" style={{ marginTop: 14 }}>
-          <span>Rating: ★ {user?.rating?.toFixed(1) || 'N/A'}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            Rating: <span style={{ 
+              color: getRatingColor(user?.rating), 
+              fontWeight: 700,
+              textShadow: user?.rating ? `0 0 8px rgba(${Math.round(255 * (1 - (Math.min(5, Math.max(1, user.rating)) - 1) / 4))}, ${Math.round(255 * ((Math.min(5, Math.max(1, user.rating)) - 1) / 4))}, 0, 0.25)` : 'none'
+            }}>
+              ★ {user?.rating ? user.rating.toFixed(1) : 'N/A'}
+            </span>
+          </span>
           <span>{completed} total completed</span>
         </div>
       </div>

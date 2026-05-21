@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Search, Calendar, Phone, Mail, FileText, AlertCircle, CheckCircle2, ChevronRight, X, ExternalLink, MessageSquare } from 'lucide-react'
+import { Search, Calendar, Phone, Mail, FileText, AlertCircle, CheckCircle2, ChevronRight, X, ExternalLink, MessageSquare, Download } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { timeAgo } from '../../utils/helpers'
+import { exportToExcel } from '../../utils/excelExporter'
 
 const STATUSES = ['All', 'Open', 'In Progress', 'Resolved', 'Closed']
 
@@ -17,6 +18,43 @@ export default function AdminGrievances() {
   const [adminNotes, setAdminNotes] = useState('')
   const [ticketStatus, setTicketStatus] = useState('')
   const [updating, setUpdating] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = () => {
+    setExporting(true)
+    setError('')
+    try {
+      const filteredExport = grievances.filter(g => {
+        const matchesSearch = !search || 
+          (g.name || '').toLowerCase().includes(search.toLowerCase()) ||
+          (g.email || '').toLowerCase().includes(search.toLowerCase()) ||
+          (g.phone || '').includes(search) ||
+          (g.subject || '').toLowerCase().includes(search.toLowerCase())
+          
+        const matchesStatus = filterStatus === 'All' || g.status === filterStatus
+        return matchesSearch && matchesStatus
+      })
+
+      exportToExcel({
+        data: filteredExport,
+        filename: 'Grievances_Export',
+        columns: [
+          { label: 'Customer Name', key: 'name' },
+          { label: 'Customer Phone', key: 'phone' },
+          { label: 'Customer Email', key: 'email' },
+          { label: 'Subject', key: 'subject' },
+          { label: 'Issue Description', key: 'issue' },
+          { label: 'Status', key: 'status' },
+          { label: 'Internal Notes', key: 'adminNotes' },
+          { label: 'Created Date', key: (g) => g.createdAt ? new Date(g.createdAt).toLocaleString() : 'N/A' }
+        ]
+      })
+    } catch (err) {
+      setError('Failed to export grievances. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const fetchGrievances = async () => {
     try {
@@ -86,7 +124,17 @@ export default function AdminGrievances() {
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>
           Customer Grievances <span className="text-secondary" style={{ fontSize: 16, fontWeight: 400 }}>({grievances.length})</span>
         </h1>
-        <div className="text-body-sm text-secondary">Manage customer complaints and inquiries</div>
+        <div className="flex items-center gap-12">
+          <button 
+            disabled={exporting}
+            className="btn btn-glass btn-sm text-success" 
+            onClick={handleExport}
+            style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
+          </button>
+          <div className="text-body-sm text-secondary">Manage complaints</div>
+        </div>
       </div>
 
       <div className="flex gap-12" style={{ marginBottom: 16 }}>

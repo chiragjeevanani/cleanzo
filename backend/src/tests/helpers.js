@@ -70,6 +70,8 @@ export async function createSociety(overrides = {}) {
   return Society.create({
     name: 'Test Society',
     city: 'Mumbai',
+    area: 'Test Area',
+    pincode: '110001',
     address: '123 Test St',
     isActive: true,
     slots: [

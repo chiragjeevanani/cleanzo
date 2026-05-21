@@ -158,7 +158,7 @@ describe('CUST-5..10 | Subscription creation', () => {
     });
     const vehicle = await createVehicle(newUser._id);
     const society = await createSociety();
-    const pkg = await createPackage({ price: 400 });
+    const pkg = await createPackage({ price: 449 });
     const payment = await verifiedPayment(newUser._id);
 
     const res = await api.post('/api/customer/subscriptions').set(authHeader(token)).send({

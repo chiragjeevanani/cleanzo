@@ -3,12 +3,39 @@ import { Download } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
+import { exportToExcel } from '../../utils/excelExporter'
 
 export default function AdminRevenue() {
   const { showToast } = useToast()
   const [revenueStats, setRevenueStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = () => {
+    setExporting(true)
+    setError('')
+    try {
+      const currentChartData = revenueStats?.chartData || []
+      const currentTopCustomers = revenueStats?.topCustomers || []
+
+      // Export monthly revenue trend data
+      exportToExcel({
+        data: currentChartData,
+        filename: 'Revenue_Monthly_Trend',
+        columns: [
+          { label: 'Month', key: 'month' },
+          { label: 'Total Revenue (₹)', key: 'revenue' },
+          { label: 'Subscription Income (₹)', key: 'subscriptions' },
+          { label: 'Marketplace Income (₹)', key: (r) => (r.revenue || 0) - (r.subscriptions || 0) }
+        ]
+      })
+    } catch (err) {
+      setError('Failed to export revenue records. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     const fetchRevenue = async () => {
@@ -74,7 +101,14 @@ export default function AdminRevenue() {
       )}
       <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Revenue</h1>
-        <button className="btn btn-ghost btn-sm" onClick={() => showToast('CSV export coming soon', 'info')}><Download size={14} /> Export CSV</button>
+        <button 
+          disabled={exporting}
+          className="btn btn-glass btn-sm text-success" 
+          onClick={handleExport}
+          style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
+        </button>
       </div>
 
       {/* Summary cards */}

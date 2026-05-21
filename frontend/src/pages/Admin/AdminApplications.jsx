@@ -110,7 +110,7 @@ export default function AdminApplications() {
 
       <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Recruitments</h1>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Cleaner KYC</h1>
           <p className="text-secondary" style={{ fontSize: 14 }}>Review and approve new cleaner applications</p>
         </div>
         <div className="flex gap-12">
