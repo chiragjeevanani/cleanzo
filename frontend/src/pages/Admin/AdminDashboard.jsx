@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, CreditCard, TrendingUp, UserCog, ArrowUpRight, ArrowDownRight, FileText, CheckCircle, XCircle, PlusCircle, Trash2, Calendar, UserMinus, AlertCircle, Clock, Sparkles, Layers, RotateCcw } from 'lucide-react'
+import { Users, CreditCard, TrendingUp, UserCog, ArrowUpRight, ArrowDownRight, FileText, CheckCircle, XCircle, PlusCircle, Trash2, Calendar, UserMinus, AlertCircle, Clock, Sparkles, Layers, RotateCcw, ShoppingCart, LifeBuoy } from 'lucide-react'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import apiClient from '../../services/apiClient'
 
@@ -258,35 +258,177 @@ export default function AdminDashboard() {
         </button>
       </div>
       
-      {stats?.pendingApplicationsCount > 0 && (
-        <div 
-          onClick={() => navigate('/admin/applications')}
-          className="glass animate-fade-in" 
-          style={{ 
-            padding: '16px 24px', 
-            borderRadius: 20, 
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.03) 100%)', 
-            border: '1px solid rgba(245, 158, 11, 0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 24,
-            cursor: 'pointer'
-          }}
-        >
-          <div className="flex items-center gap-14">
-            <div style={{ 
-              width: 42, height: 42, borderRadius: 12, background: 'rgba(245, 158, 11, 0.15)', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' 
-            }}>
-              <Users size={22} />
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>Recruitment Pipeline</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>You have <strong>{stats.pendingApplicationsCount}</strong> pending cleaner applications and KYC requests.</div>
-            </div>
+      <style>{`
+        @keyframes dotPulse {
+          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); transform: scale(1); }
+          70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); transform: scale(1.1); }
+          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); transform: scale(1); }
+        }
+      `}</style>
+
+      {/* Action Required / Pending Requests Grid */}
+      {stats && (stats.pendingApplicationsCount > 0 || stats.pendingLeavesCount > 0 || stats.pendingOrdersCount > 0 || stats.pendingGrievancesCount > 0 || stats.pendingLeadsCount > 0) && (
+        <div style={{ marginBottom: 28 }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 16, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', animation: 'dotPulse 2s infinite' }} />
+            Action Required
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+            {stats.pendingApplicationsCount > 0 && (
+              <div 
+                onClick={() => navigate('/admin/applications')}
+                className="glass hover-glow animate-scale-in"
+                style={{ 
+                  padding: 20, 
+                  borderRadius: 20, 
+                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%)',
+                  border: '1px solid rgba(59, 130, 246, 0.15)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: 130
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
+                    <UserCog size={18} />
+                  </div>
+                  <span style={{ fontSize: 18, fontWeight: 900, color: '#3B82F6', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 8px', borderRadius: 8 }}>
+                    {stats.pendingApplicationsCount}
+                  </span>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <h4 style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Cleaner KYC</h4>
+                  <p className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>Pending applications/KYC approvals</p>
+                </div>
+              </div>
+            )}
+
+            {stats.pendingLeavesCount > 0 && (
+              <div 
+                onClick={() => navigate('/admin/leaves')}
+                className="glass hover-glow animate-scale-in"
+                style={{ 
+                  padding: 20, 
+                  borderRadius: 20, 
+                  background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.08) 0%, rgba(236, 72, 153, 0.02) 100%)',
+                  border: '1px solid rgba(236, 72, 153, 0.15)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: 130
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(236, 72, 153, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EC4899' }}>
+                    <Calendar size={18} />
+                  </div>
+                  <span style={{ fontSize: 18, fontWeight: 900, color: '#EC4899', background: 'rgba(236, 72, 153, 0.1)', padding: '2px 8px', borderRadius: 8 }}>
+                    {stats.pendingLeavesCount}
+                  </span>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <h4 style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Leave Requests</h4>
+                  <p className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>Pending leave approval requests</p>
+                </div>
+              </div>
+            )}
+
+            {stats.pendingOrdersCount > 0 && (
+              <div 
+                onClick={() => navigate('/admin/marketplace')}
+                className="glass hover-glow animate-scale-in"
+                style={{ 
+                  padding: 20, 
+                  borderRadius: 20, 
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%)',
+                  border: '1px solid rgba(245, 158, 11, 0.15)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: 130
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' }}>
+                    <ShoppingCart size={18} />
+                  </div>
+                  <span style={{ fontSize: 18, fontWeight: 900, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.1)', padding: '2px 8px', borderRadius: 8 }}>
+                    {stats.pendingOrdersCount}
+                  </span>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <h4 style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Marketplace Orders</h4>
+                  <p className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>Placed/Confirmed orders to process</p>
+                </div>
+              </div>
+            )}
+
+            {stats.pendingGrievancesCount > 0 && (
+              <div 
+                onClick={() => navigate('/admin/grievances')}
+                className="glass hover-glow animate-scale-in"
+                style={{ 
+                  padding: 20, 
+                  borderRadius: 20, 
+                  background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(168, 85, 247, 0.02) 100%)',
+                  border: '1px solid rgba(168, 85, 247, 0.15)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: 130
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(168, 85, 247, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#A855F7' }}>
+                    <LifeBuoy size={18} />
+                  </div>
+                  <span style={{ fontSize: 18, fontWeight: 900, color: '#A855F7', background: 'rgba(168, 85, 247, 0.1)', padding: '2px 8px', borderRadius: 8 }}>
+                    {stats.pendingGrievancesCount}
+                  </span>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <h4 style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Grievances</h4>
+                  <p className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>Open/In Progress support tickets</p>
+                </div>
+              </div>
+            )}
+
+            {stats.pendingLeadsCount > 0 && (
+              <div 
+                onClick={() => navigate('/admin/leads')}
+                className="glass hover-glow animate-scale-in"
+                style={{ 
+                  padding: 20, 
+                  borderRadius: 20, 
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
+                  border: '1px solid rgba(16, 185, 129, 0.15)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: 130
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
+                    <Users size={18} />
+                  </div>
+                  <span style={{ fontSize: 18, fontWeight: 900, color: '#10B981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: 8 }}>
+                    {stats.pendingLeadsCount}
+                  </span>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <h4 style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Leads</h4>
+                  <p className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>Pending societal lead requests</p>
+                </div>
+              </div>
+            )}
           </div>
-          <div style={{ padding: '8px 16px', borderRadius: 12, background: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', fontSize: 12, fontWeight: 700 }}>Review Now</div>
         </div>
       )}
 

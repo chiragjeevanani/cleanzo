@@ -56,7 +56,13 @@ export default function AdminPanel() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
-  const [pendingCount, setPendingCount] = useState(0)
+  const [badges, setBadges] = useState({
+    pendingApplicationsCount: 0,
+    pendingOrdersCount: 0,
+    pendingLeavesCount: 0,
+    pendingGrievancesCount: 0,
+    pendingLeadsCount: 0
+  })
   const [globalSearch, setGlobalSearch] = useState('')
 
   useEffect(() => {
@@ -73,7 +79,13 @@ export default function AdminPanel() {
       try {
         const res = await apiClient.get('/admin/badges')
         if (res.success) {
-          setPendingCount(res.pendingApplicationsCount || 0)
+          setBadges({
+            pendingApplicationsCount: res.pendingApplicationsCount || 0,
+            pendingOrdersCount: res.pendingOrdersCount || 0,
+            pendingLeavesCount: res.pendingLeavesCount || 0,
+            pendingGrievancesCount: res.pendingGrievancesCount || 0,
+            pendingLeadsCount: res.pendingLeadsCount || 0
+          })
         }
       } catch (err) {
         console.error('Failed to fetch admin stats', err)
@@ -125,10 +137,20 @@ export default function AdminPanel() {
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
                 <item.icon size={20} />
                 <span>{item.label}</span>
-                {item.label === 'Cleaner KYC' && pendingCount > 0 && (
-                  <span className="pending-badge">
-                    {pendingCount}
-                  </span>
+                {item.label === 'Cleaner KYC' && badges.pendingApplicationsCount > 0 && (
+                  <span className="pending-dot-indicator" title={`${badges.pendingApplicationsCount} pending`} />
+                )}
+                {item.label === 'Leaves' && badges.pendingLeavesCount > 0 && (
+                  <span className="pending-dot-indicator" title={`${badges.pendingLeavesCount} pending`} />
+                )}
+                {item.label === 'Marketplace' && badges.pendingOrdersCount > 0 && (
+                  <span className="pending-dot-indicator" title={`${badges.pendingOrdersCount} pending`} />
+                )}
+                {item.label === 'Grievances' && badges.pendingGrievancesCount > 0 && (
+                  <span className="pending-dot-indicator" title={`${badges.pendingGrievancesCount} pending`} />
+                )}
+                {item.label === 'Leads' && badges.pendingLeadsCount > 0 && (
+                  <span className="pending-dot-indicator" title={`${badges.pendingLeadsCount} pending`} />
                 )}
               </div>
             </NavLink>
@@ -165,10 +187,24 @@ export default function AdminPanel() {
           box-shadow: 0 0 12px rgba(255, 50, 50, 0.4);
           animation: badgePulse 2s infinite;
         }
+        .pending-dot-indicator {
+          margin-left: auto;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--error);
+          box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+          animation: dotPulse 2s infinite;
+        }
         @keyframes badgePulse {
           0% { box-shadow: 0 0 0 0 rgba(255, 50, 50, 0.7); transform: scale(1); }
           70% { box-shadow: 0 0 0 6px rgba(255, 50, 50, 0); transform: scale(1.05); }
           100% { box-shadow: 0 0 0 0 rgba(255, 50, 50, 0); transform: scale(1); }
+        }
+        @keyframes dotPulse {
+          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); transform: scale(1); }
+          70% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); transform: scale(1.15); }
+          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); transform: scale(1); }
         }
       `}</style>
 

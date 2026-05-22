@@ -230,9 +230,13 @@ export const getDashboard = asyncHandler(async (req, res) => {
   }));
 
   const { default: CleanerApplication } = await import('../models/CleanerApplication.js');
-  const [pendingApps, pendingKyc] = await Promise.all([
+  const { default: Lead } = await import('../models/Lead.js');
+  const [pendingApps, pendingKyc, pendingLeavesCount, pendingGrievancesCount, pendingLeadsCount] = await Promise.all([
     CleanerApplication.countDocuments({ status: 'pending' }),
-    Cleaner.countDocuments({ kycStatus: 'pending' })
+    Cleaner.countDocuments({ kycStatus: 'pending' }),
+    LeaveRequest.countDocuments({ status: 'pending' }),
+    Grievance.countDocuments({ status: { $in: ['Open', 'In Progress'] } }),
+    Lead.countDocuments({ status: 'pending' })
   ]);
 
   const subscriptionRevenue = totalRevenue[0]?.total || 0;
@@ -280,6 +284,9 @@ export const getDashboard = asyncHandler(async (req, res) => {
     cleanersCount: activeCleaners,
     pendingApplicationsCount: pendingApps + pendingKyc,
     pendingOrdersCount,
+    pendingLeavesCount,
+    pendingGrievancesCount,
+    pendingLeadsCount,
     revenue: totalRevVal,
     subscriptionRevenue,
     marketplaceRevenue: marketRevenue,
@@ -314,16 +321,23 @@ export const getDashboard = asyncHandler(async (req, res) => {
 
 export const getAdminBadges = asyncHandler(async (req, res) => {
   const { default: CleanerApplication } = await import('../models/CleanerApplication.js');
-  const [pendingApps, pendingKyc, pendingOrdersCount] = await Promise.all([
+  const { default: Lead } = await import('../models/Lead.js');
+  const [pendingApps, pendingKyc, pendingOrdersCount, pendingLeavesCount, pendingGrievancesCount, pendingLeadsCount] = await Promise.all([
     CleanerApplication.countDocuments({ status: 'pending' }),
     Cleaner.countDocuments({ kycStatus: 'pending' }),
-    Order.countDocuments({ status: { $in: ['Placed', 'Confirmed'] } })
+    Order.countDocuments({ status: { $in: ['Placed', 'Confirmed'] } }),
+    LeaveRequest.countDocuments({ status: 'pending' }),
+    Grievance.countDocuments({ status: { $in: ['Open', 'In Progress'] } }),
+    Lead.countDocuments({ status: 'pending' })
   ]);
 
   res.json({ 
     success: true, 
     pendingApplicationsCount: pendingApps + pendingKyc, 
-    pendingOrdersCount 
+    pendingOrdersCount,
+    pendingLeavesCount,
+    pendingGrievancesCount,
+    pendingLeadsCount
   });
 });
 

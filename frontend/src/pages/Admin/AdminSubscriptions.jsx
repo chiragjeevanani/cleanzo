@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { UserPlus, CheckCircle, Clock, ShieldCheck, User, Download } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 import { exportToExcel } from '../../utils/excelExporter'
 
 export default function AdminSubscriptions() {
-  const [filter, setFilter] = useState('all')
+  const [searchParams] = useSearchParams()
+  const initialFilter = searchParams.get('filter') || 'all'
+  const [filter, setFilter] = useState(initialFilter)
   const [subs, setSubs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -92,7 +95,9 @@ export default function AdminSubscriptions() {
 
   const filtered = filter === 'all'
     ? subs
-    : subs.filter(s => getDisplayStatus(s).toLowerCase() === filter.toLowerCase())
+    : filter === 'trial'
+      ? subs.filter(s => s.isTrial)
+      : subs.filter(s => getDisplayStatus(s).toLowerCase() === filter.toLowerCase())
 
   if (loading) return (
     <div>
@@ -127,8 +132,8 @@ export default function AdminSubscriptions() {
       )}
 
       <div className="flex gap-8" style={{ marginBottom: 20 }}>
-        {['all', 'Active', 'Expired'].map(f => (
-          <button key={f} onClick={() => setFilter(f === 'all' ? 'all' : f)} className={`chip ${filter === f ? 'chip-lime' : 'chip-ghost'}`} style={{ cursor: 'pointer', textTransform: 'capitalize' }}>{f}</button>
+        {['all', 'Active', 'Expired', 'trial'].map(f => (
+          <button key={f} onClick={() => setFilter(f)} className={`chip ${filter.toLowerCase() === f.toLowerCase() ? 'chip-lime' : 'chip-ghost'}`} style={{ cursor: 'pointer', textTransform: 'capitalize' }}>{f === 'trial' ? 'Trial' : f}</button>
         ))}
       </div>
       <div className="glass" style={{ overflow: 'hidden' }}>

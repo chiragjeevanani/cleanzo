@@ -185,7 +185,7 @@ export default function AdminLeaves() {
                   border: '1px solid var(--border-glass)',
                   display: 'flex',
                   flexDirection: 'column',
-                  justifyContent: 'between'
+                  justifyContent: 'space-between'
                 }}
               >
                 <div>
@@ -284,14 +284,14 @@ export default function AdminLeaves() {
                   <div className="flex gap-10" style={{ marginTop: 12 }}>
                     <button 
                       onClick={() => handleOpenReject(req)}
-                      className="btn-glass flex-1 flex items-center justify-center gap-6"
+                      className="btn btn-glass flex-1 flex items-center justify-center gap-6"
                       style={{ padding: '10px 0', borderRadius: 12, fontSize: 12, fontWeight: 700, color: 'var(--error)' }}
                     >
                       <X size={14} /> Reject
                     </button>
                     <button 
                       onClick={() => handleApprove(req)}
-                      className="btn-primary flex-1 flex items-center justify-center gap-6"
+                      className="btn btn-primary flex-1 flex items-center justify-center gap-6"
                       style={{ padding: '10px 0', borderRadius: 12, fontSize: 12, fontWeight: 800 }}
                     >
                       <Check size={14} /> Approve
