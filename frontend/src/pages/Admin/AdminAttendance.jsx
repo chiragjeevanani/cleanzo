@@ -40,7 +40,7 @@ export default function AdminAttendance() {
       const attendanceRes = await apiClient.get(`/admin/cleaners/attendance`, { date: selectedDate })
       setAttendanceRecords(attendanceRes.records || [])
     } catch (err) {
-      setError('Failed to fetch attendance logs or cleaner records.')
+      setError(err?.message || 'Failed to fetch attendance logs or cleaner records.')
       console.error(err)
     } finally {
       setLoading(false)
