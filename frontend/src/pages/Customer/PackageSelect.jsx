@@ -184,7 +184,7 @@ export default function PackageSelect() {
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Add a Vehicle</div>
               <p className="text-body-sm text-secondary">Please add a vehicle to your garage to see available subscription plans.</p>
             </div>
-            <Link to="/customer/profile" className="btn btn-primary mt-8">Go to Profile</Link>
+            <Link to="/customer/vehicles" className="btn btn-primary mt-8">Add Vehicle</Link>
           </div>
         )}
 
@@ -232,7 +232,7 @@ export default function PackageSelect() {
               </div>
 
               <div className="flex flex-col gap-10" style={{ marginBottom: 24 }}>
-                {pkg.features.slice(0, 4).map((f, i) => (
+                {(pkg.features || []).slice(0, 4).map((f, i) => (
                   <div key={i} className="flex items-center gap-10 text-body-sm">
                     <Check size={16} className="text-lime" strokeWidth={3} />
                     <span className="text-secondary">{f}</span>
