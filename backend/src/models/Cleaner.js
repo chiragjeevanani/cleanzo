@@ -18,7 +18,7 @@ const cleanerSchema = new Schema({
   totalCompleted:  { type: Number, default: 0 },
   isAvailable:     { type: Boolean, default: true },
   isActive:        { type: Boolean, default: true },
-  dailyRate:       { type: Number, default: 500 },
+  dailyRate:       { type: Number, default: null },
   joiningDate:     { type: Date, default: Date.now },
   fcmTokens:       { type: [String], default: [] },
   lastLogin:       { type: Date },

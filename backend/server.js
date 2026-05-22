@@ -45,6 +45,7 @@ const seedSettingsOnStartup = async () => {
     { key: 'prioritySlotFee',         value: 99,  description: 'Priority slot surcharge when slot is full (₹)' },
     { key: 'referralDiscountPercent', value: 25,  description: 'Discount % applied to new user on referral' },
     { key: 'referralExpiryDays',      value: 7,   description: 'Days the referral discount stays valid' },
+    { key: 'globalCleanerPayoutRate', value: 500, description: 'Default global daily payout rate for cleaners (₹)' },
   ];
   try {
     for (const s of defaults) {

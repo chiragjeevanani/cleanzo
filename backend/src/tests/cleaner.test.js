@@ -5,6 +5,7 @@ import Cleaner from '../models/Cleaner.js';
 import Attendance from '../models/Attendance.js';
 import Subscription from '../models/Subscription.js';
 import LeaveRequest from '../models/LeaveRequest.js';
+import Settings from '../models/Settings.js';
 import mongoose from 'mongoose';
 import { getISTMidnight } from '../utils/dateHelper.js';
 
@@ -175,6 +176,21 @@ describe('CLEAN-8..10 | Attendance and earnings', () => {
     expect(res.status).toBe(200);
     expect(res.body.presentDays).toBe(2);
     expect(res.body.totalEarnings).toBe(1200);
+  });
+
+  it('CLEAN-9b: GET /earnings falls back to globalCleanerPayoutRate setting when cleaner dailyRate is unset', async () => {
+    const { cleaner, token } = await createCleaner();
+    await Cleaner.findByIdAndUpdate(cleaner._id, { dailyRate: null });
+    await Settings.findOneAndUpdate({ key: 'globalCleanerPayoutRate' }, { value: 750 }, { upsert: true });
+
+    const now = new Date();
+    await Attendance.create({ cleaner: cleaner._id, date: new Date(now.getFullYear(), now.getMonth(), 1), status: 'present' });
+
+    const res = await api.get('/api/cleaner/earnings').set(authHeader(token));
+    expect(res.status).toBe(200);
+    expect(res.body.presentDays).toBe(1);
+    expect(res.body.dailyRate).toBe(750);
+    expect(res.body.totalEarnings).toBe(750);
   });
 
   it('CLEAN-10: 3rd leave request in same month returns 400', async () => {

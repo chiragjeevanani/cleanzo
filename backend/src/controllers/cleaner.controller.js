@@ -339,7 +339,10 @@ export const getEarnings = asyncHandler(async (req, res) => {
   });
 
   const cleaner = await Cleaner.findById(req.user._id);
-  const dailyRate = cleaner.dailyRate || 500;
+  const { default: Settings } = await import('../models/Settings.js');
+  const globalSetting = await Settings.findOne({ key: 'globalCleanerPayoutRate' });
+  const globalRate = globalSetting ? globalSetting.value : 500;
+  const dailyRate = (cleaner.dailyRate !== undefined && cleaner.dailyRate !== null) ? cleaner.dailyRate : globalRate;
   const totalEarnings = presentDays * dailyRate;
 
   res.json({ 

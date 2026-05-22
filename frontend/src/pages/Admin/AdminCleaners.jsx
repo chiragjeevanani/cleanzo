@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Star, MapPin, MoreVertical, Plus, X, Trash2, UserX, UserCheck, Filter, Search, KeyRound, Eye, EyeOff, Download, Edit } from 'lucide-react'
+import { Star, MapPin, MoreVertical, Plus, X, Trash2, UserX, UserCheck, Filter, Search, KeyRound, Eye, EyeOff, Download, Edit, Settings2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
 import { exportToExcel } from '../../utils/excelExporter'
@@ -25,8 +25,12 @@ export default function AdminCleaners() {
   const [pwSaving, setPwSaving] = useState(false)
   const [pwSuccess, setPwSuccess] = useState('')
   const [saving, setSaving] = useState(false)
+  const [globalPayoutRate, setGlobalPayoutRate] = useState(500)
+  const [showGlobalPayoutModal, setShowGlobalPayoutModal] = useState(false)
+  const [globalPayoutInput, setGlobalPayoutInput] = useState('500')
+  const [globalPayoutSaving, setGlobalPayoutSaving] = useState(false)
   const [formData, setFormData] = useState({ 
-    name: '', phone: '', email: '', age: '', city: '', assignedArea: '', dailyRate: 500,
+    name: '', phone: '', email: '', age: '', city: '', assignedArea: '', dailyRate: '',
     fatherName: '', currentAddress: '', permanentAddress: '',
     referenceName: '', referencePhone: ''
   })
@@ -40,7 +44,7 @@ export default function AdminCleaners() {
       age: cleaner.age || '',
       city: cleaner.city || '',
       assignedArea: cleaner.assignedArea || '',
-      dailyRate: cleaner.dailyRate || 500,
+      dailyRate: cleaner.dailyRate !== null && cleaner.dailyRate !== undefined ? cleaner.dailyRate : '',
       fatherName: cleaner.fatherName || '',
       currentAddress: cleaner.currentAddress || '',
       permanentAddress: cleaner.permanentAddress || '',
@@ -103,10 +107,18 @@ export default function AdminCleaners() {
 
   const fetchCleaners = async () => {
     try {
+      setLoading(true)
       const res = await apiClient.get('/admin/cleaners')
       setCleaners(res.cleaners || [])
+      
+      const settingsRes = await apiClient.get('/admin/settings')
+      const globalSetting = settingsRes.settings?.find(s => s.key === 'globalCleanerPayoutRate')
+      if (globalSetting) {
+        setGlobalPayoutRate(globalSetting.value)
+        setGlobalPayoutInput(String(globalSetting.value))
+      }
     } catch {
-      setError('Failed to load cleaners.')
+      setError('Failed to load cleaners or settings.')
     } finally {
       setLoading(false)
     }
@@ -179,16 +191,35 @@ export default function AdminCleaners() {
     }
   }
 
+  const handleSaveGlobalPayout = async () => {
+    const rate = parseFloat(globalPayoutInput)
+    if (!globalPayoutInput || isNaN(rate) || rate <= 0) return
+    setGlobalPayoutSaving(true)
+    try {
+      await apiClient.put('/admin/settings/globalCleanerPayoutRate', { value: rate })
+      setGlobalPayoutRate(rate)
+      setShowGlobalPayoutModal(false)
+    } catch (err) {
+      setError(err?.message || 'Failed to update global payout rate.')
+    } finally {
+      setGlobalPayoutSaving(false)
+    }
+  }
+
   const handleAdd = async (e) => {
     e.preventDefault()
     setSaving(true)
     setError('')
     try {
-      const res = await apiClient.post('/admin/cleaners', formData)
+      const payload = {
+        ...formData,
+        dailyRate: formData.dailyRate !== '' && formData.dailyRate !== undefined ? Number(formData.dailyRate) : null
+      }
+      const res = await apiClient.post('/admin/cleaners', payload)
       setCleaners(prev => [res.cleaner, ...prev])
       setShowAddModal(false)
       setFormData({ 
-        name: '', phone: '', email: '', age: '', city: '', assignedArea: '', dailyRate: 500,
+        name: '', phone: '', email: '', age: '', city: '', assignedArea: '', dailyRate: '',
         fatherName: '', currentAddress: '', permanentAddress: '',
         referenceName: '', referencePhone: ''
       })
@@ -204,11 +235,15 @@ export default function AdminCleaners() {
     setSaving(true)
     setError('')
     try {
-      const res = await apiClient.put(`/admin/cleaners/${showEditModal._id}`, formData)
+      const payload = {
+        ...formData,
+        dailyRate: formData.dailyRate !== '' && formData.dailyRate !== undefined ? Number(formData.dailyRate) : null
+      }
+      const res = await apiClient.put(`/admin/cleaners/${showEditModal._id}`, payload)
       setCleaners(prev => prev.map(c => c._id === showEditModal._id ? res.cleaner : c))
       setShowEditModal(null)
       setFormData({ 
-        name: '', phone: '', email: '', age: '', city: '', assignedArea: '', dailyRate: 500,
+        name: '', phone: '', email: '', age: '', city: '', assignedArea: '', dailyRate: '',
         fatherName: '', currentAddress: '', permanentAddress: '',
         referenceName: '', referencePhone: ''
       })
@@ -259,6 +294,16 @@ export default function AdminCleaners() {
             style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
+          </button>
+          <button
+            className="btn btn-glass btn-sm"
+            onClick={() => { setGlobalPayoutInput(String(globalPayoutRate)); setShowGlobalPayoutModal(true) }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, borderColor: 'rgba(147,112,219,0.35)', color: 'var(--text-secondary)' }}
+            title="Set global payout rate for all cleaners"
+          >
+            <Settings2 size={16} style={{ color: '#b695f8' }} />
+            <span>Global Payout</span>
+            <span style={{ background: 'rgba(147,112,219,0.18)', color: '#b695f8', borderRadius: 8, padding: '1px 8px', fontSize: 12, fontWeight: 700 }}>₹{globalPayoutRate}</span>
           </button>
           <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
             <Plus size={16} /> Add Cleaner
@@ -474,8 +519,10 @@ export default function AdminCleaners() {
                     <input className="input-field" placeholder="Andheri West" value={formData.assignedArea} onChange={e => setFormData({ ...formData, assignedArea: e.target.value })} />
                   </div>
                   <div className="flex flex-col gap-6">
-                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>DAILY PAYOUT RATE (₹) *</label>
-                    <input required type="number" className="input-field" placeholder="500" value={formData.dailyRate} onChange={e => setFormData({ ...formData, dailyRate: e.target.value })} />
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>DAILY PAYOUT RATE (₹)
+                      <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 500, color: '#b695f8', background: 'rgba(147,112,219,0.12)', borderRadius: 6, padding: '1px 6px' }}>Optional</span>
+                    </label>
+                    <input type="number" min="1" className="input-field" placeholder={`Uses global rate: ₹${globalPayoutRate}`} value={formData.dailyRate} onChange={e => setFormData({ ...formData, dailyRate: e.target.value })} />
                   </div>
                 </div>
               </section>
@@ -666,8 +713,10 @@ export default function AdminCleaners() {
                     <input className="input-field" placeholder="Andheri West" value={formData.assignedArea} onChange={e => setFormData({ ...formData, assignedArea: e.target.value })} />
                   </div>
                   <div className="flex flex-col gap-6">
-                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>DAILY PAYOUT RATE (₹) *</label>
-                    <input required type="number" className="input-field" placeholder="500" value={formData.dailyRate} onChange={e => setFormData({ ...formData, dailyRate: e.target.value })} />
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>DAILY PAYOUT RATE (₹)
+                      <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 500, color: '#b695f8', background: 'rgba(147,112,219,0.12)', borderRadius: 6, padding: '1px 6px' }}>Optional</span>
+                    </label>
+                    <input type="number" min="1" className="input-field" placeholder={`Uses global rate: ₹${globalPayoutRate}`} value={formData.dailyRate} onChange={e => setFormData({ ...formData, dailyRate: e.target.value })} />
                   </div>
                 </div>
               </section>
@@ -705,6 +754,68 @@ export default function AdminCleaners() {
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Global Payout Rate Modal */}
+      {showGlobalPayoutModal && (
+        <div className="modal-overlay" style={{ backdropFilter: 'blur(20px)', backgroundColor: 'rgba(0,0,0,0.85)' }}>
+          <div className="glass animate-scale-in" style={{
+            width: 440, padding: '40px 48px', borderRadius: 32,
+            border: '1px solid rgba(147,112,219,0.3)', boxShadow: 'var(--shadow-lg)',
+            background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-surface) 100%)',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', top: '-20%', right: '-20%', width: 220, height: 220, background: '#7c3aed', opacity: 0.06, filter: 'blur(60px)', pointerEvents: 'none' }} />
+
+            <div className="flex justify-between items-start" style={{ marginBottom: 28 }}>
+              <div>
+                <div style={{ width: 48, height: 48, borderRadius: 16, background: 'rgba(147,112,219,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                  <Settings2 size={22} style={{ color: '#b695f8' }} />
+                </div>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800 }}>Global Payout Rate</h2>
+                <p className="text-secondary" style={{ fontSize: 13, marginTop: 4 }}>Default daily rate applied to all cleaners without a custom rate</p>
+              </div>
+              <button className="glass flex items-center justify-center" onClick={() => setShowGlobalPayoutModal(false)}
+                style={{ width: 36, height: 36, borderRadius: 12, flexShrink: 0 }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-8" style={{ marginBottom: 24 }}>
+              <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 700, letterSpacing: '0.08em' }}>DAILY RATE (₹ PER DAY)</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#b695f8', fontWeight: 700, fontSize: 16, pointerEvents: 'none' }}>₹</span>
+                <input
+                  type="number"
+                  min="1"
+                  className="input-field"
+                  placeholder="e.g. 500"
+                  value={globalPayoutInput}
+                  onChange={e => setGlobalPayoutInput(e.target.value)}
+                  style={{ paddingLeft: 36, fontSize: 20, fontWeight: 700 }}
+                  autoFocus
+                />
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                Currently set to <strong style={{ color: '#b695f8' }}>₹{globalPayoutRate}</strong> per day.
+                Cleaners with a custom payout rate will not be affected.
+              </p>
+            </div>
+
+            <div className="flex gap-12">
+              <button type="button" className="btn btn-glass w-full" onClick={() => setShowGlobalPayoutModal(false)}>Cancel</button>
+              <button
+                type="button"
+                disabled={globalPayoutSaving || !globalPayoutInput || parseFloat(globalPayoutInput) <= 0}
+                onClick={handleSaveGlobalPayout}
+                className="btn w-full"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #9f67f8)', color: '#fff', borderRadius: 14, fontWeight: 700 }}
+              >
+                {globalPayoutSaving ? 'Saving...' : 'Save Rate'}
+              </button>
+            </div>
           </div>
         </div>
       )}
