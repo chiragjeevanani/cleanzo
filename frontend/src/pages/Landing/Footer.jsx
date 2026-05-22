@@ -9,7 +9,7 @@ export default function Footer() {
         <div className="footer-grid">
           <div className="footer-brand">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img src="/logo.png" alt="Cleanzo Logo" style={{ height: 35, width: 'auto' }} />
+              <img src="/logo.png" alt="Cleanzo Logo" style={{ height: 46, width: 'auto' }} />
               <h2 className="footer-logo-text" style={{ margin: 0 }}>CLEANZO</h2>
             </div>
             <p className="text-body-sm text-secondary" style={{ maxWidth: 320, marginTop: 16 }}>
@@ -47,6 +47,7 @@ export default function Footer() {
            <span className="text-body-sm text-tertiary">© {new Date().getFullYear()} CLEANZO ARTIFACT DEVICES INC. ENGINEERED FOR THE ELITE.</span>
         </div>
       </div>
+      <div className="footer-bg-text">CLEANZO</div>
     </footer>
   )
 }

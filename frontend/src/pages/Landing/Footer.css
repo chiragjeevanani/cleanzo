@@ -2,6 +2,13 @@
   padding: 100px 0 60px;
   background: var(--bg-primary);
   border-top: 1px solid var(--divider);
+  position: relative;
+  overflow: hidden;
+}
+
+.site-footer .container {
+  position: relative;
+  z-index: 2;
 }
 
 .footer-grid {
@@ -13,7 +20,7 @@
 
 .footer-logo-text {
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 34px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--accent-lime);
@@ -84,5 +91,24 @@
 
 .theme-light .social-link-icon:hover {
   color: var(--primary-blue);
+}
+
+.footer-bg-text {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(80px, 20vw, 280px);
+  font-weight: 950;
+  font-family: var(--font-display);
+  color: var(--text-primary);
+  opacity: 0.04;
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  z-index: 1;
+  line-height: 0.8;
+  user-select: none;
 }
 
