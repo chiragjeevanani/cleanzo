@@ -4,6 +4,7 @@ import Task from '../models/Task.js';
 import Cleaner from '../models/Cleaner.js';
 import Attendance from '../models/Attendance.js';
 import Subscription from '../models/Subscription.js';
+import LeaveRequest from '../models/LeaveRequest.js';
 import mongoose from 'mongoose';
 import { getISTMidnight } from '../utils/dateHelper.js';
 
@@ -178,16 +179,50 @@ describe('CLEAN-8..10 | Attendance and earnings', () => {
 
   it('CLEAN-10: 3rd leave request in same month returns 400', async () => {
     const { cleaner, token } = await createCleaner();
+    
+    // Choose a future date in the current month (or next month if today is late in the month)
+    // To be safe, let's use next month so we don't accidentally choose past dates
     const now = new Date();
-    // Seed 2 existing leaves
-    await Attendance.insertMany([
-      { cleaner: cleaner._id, date: new Date(now.getFullYear(), now.getMonth(), 1), status: 'leave' },
-      { cleaner: cleaner._id, date: new Date(now.getFullYear(), now.getMonth(), 2), status: 'leave' },
+    const targetYear = now.getFullYear();
+    const targetMonth = now.getMonth() + 1; // next month
+
+    // Seed 2 existing leave requests
+    await LeaveRequest.insertMany([
+      { cleaner: cleaner._id, date: getISTMidnight(new Date(targetYear, targetMonth, 5)), status: 'pending' },
+      { cleaner: cleaner._id, date: getISTMidnight(new Date(targetYear, targetMonth, 10)), status: 'approved' }
     ]);
-    const future = new Date(now.getFullYear(), now.getMonth(), 15).toISOString().split('T')[0];
-    const res = await api.post('/api/cleaner/leave').set(authHeader(token)).send({ date: future });
+
+    const thirdDate = new Date(targetYear, targetMonth, 15).toISOString().split('T')[0];
+    const res = await api.post('/api/cleaner/leave').set(authHeader(token)).send({ date: thirdDate, reason: 'Sick' });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/maximum 2 leaves/i);
+  });
+
+  it('rejects leave requests on past dates', async () => {
+    const { token } = await createCleaner();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dateStr = yesterday.toISOString().split('T')[0];
+
+    const res = await api.post('/api/cleaner/leave').set(authHeader(token)).send({ date: dateStr, reason: 'Doc appointment' });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/past dates/i);
+  });
+
+  it('allows applying for leave on future dates and saves as pending', async () => {
+    const { cleaner, token } = await createCleaner();
+    const future = new Date();
+    future.setDate(future.getDate() + 5);
+    const dateStr = future.toISOString().split('T')[0];
+
+    const res = await api.post('/api/cleaner/leave').set(authHeader(token)).send({ date: dateStr, reason: 'Family event' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const reqDoc = await LeaveRequest.findOne({ cleaner: cleaner._id, date: getISTMidnight(future) });
+    expect(reqDoc).not.toBeNull();
+    expect(reqDoc.status).toBe('pending');
+    expect(reqDoc.reason).toBe('Family event');
   });
 });
 

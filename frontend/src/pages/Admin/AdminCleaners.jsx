@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Star, MapPin, MoreVertical, Plus, X, Trash2, UserX, UserCheck, Filter, Search, KeyRound, Eye, EyeOff, Download } from 'lucide-react'
+import { Star, MapPin, MoreVertical, Plus, X, Trash2, UserX, UserCheck, Filter, Search, KeyRound, Eye, EyeOff, Download, Edit } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
 import { exportToExcel } from '../../utils/excelExporter'
@@ -12,6 +12,7 @@ export default function AdminCleaners() {
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(null) // cleaner object
   const [showFilters, setShowFilters] = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterArea, setFilterArea] = useState('')
@@ -24,7 +25,32 @@ export default function AdminCleaners() {
   const [pwSaving, setPwSaving] = useState(false)
   const [pwSuccess, setPwSuccess] = useState('')
   const [saving, setSaving] = useState(false)
+  const [formData, setFormData] = useState({ 
+    name: '', phone: '', email: '', age: '', city: '', assignedArea: '', dailyRate: 500,
+    fatherName: '', currentAddress: '', permanentAddress: '',
+    referenceName: '', referencePhone: ''
+  })
   const menuRef = useRef(null)
+
+  const openEditCleaner = (cleaner) => {
+    setFormData({
+      name: cleaner.name || '',
+      phone: cleaner.phone || '',
+      email: cleaner.email || '',
+      age: cleaner.age || '',
+      city: cleaner.city || '',
+      assignedArea: cleaner.assignedArea || '',
+      dailyRate: cleaner.dailyRate || 500,
+      fatherName: cleaner.fatherName || '',
+      currentAddress: cleaner.currentAddress || '',
+      permanentAddress: cleaner.permanentAddress || '',
+      referenceName: cleaner.localReference?.name || '',
+      referencePhone: cleaner.localReference?.phone || ''
+    })
+    setShowEditModal(cleaner)
+    setOpenMenu(null)
+  }
+
 
   const [exporting, setExporting] = useState(false)
 
@@ -162,7 +188,7 @@ export default function AdminCleaners() {
       setCleaners(prev => [res.cleaner, ...prev])
       setShowAddModal(false)
       setFormData({ 
-        name: '', phone: '', email: '', age: '', city: '', assignedArea: '',
+        name: '', phone: '', email: '', age: '', city: '', assignedArea: '', dailyRate: 500,
         fatherName: '', currentAddress: '', permanentAddress: '',
         referenceName: '', referencePhone: ''
       })
@@ -172,6 +198,27 @@ export default function AdminCleaners() {
       setSaving(false)
     }
   }
+
+  const handleEdit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      const res = await apiClient.put(`/admin/cleaners/${showEditModal._id}`, formData)
+      setCleaners(prev => prev.map(c => c._id === showEditModal._id ? res.cleaner : c))
+      setShowEditModal(null)
+      setFormData({ 
+        name: '', phone: '', email: '', age: '', city: '', assignedArea: '', dailyRate: 500,
+        fatherName: '', currentAddress: '', permanentAddress: '',
+        referenceName: '', referencePhone: ''
+      })
+    } catch (err) {
+      setError(err?.message || 'Failed to update cleaner. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
 
   const activeFiltersCount = (filterStatus !== 'all' ? 1 : 0) + (filterArea ? 1 : 0)
   const activeMenu = openMenu ? cleaners.find(c => c._id === openMenu) : null
@@ -335,6 +382,14 @@ export default function AdminCleaners() {
           </Link>
           <div style={{ height: 1, background: 'var(--divider)' }} />
           <button
+            onClick={() => openEditCleaner(activeMenu)}
+            className="flex items-center gap-10"
+            style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: 14, color: 'var(--text-primary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+          >
+            <Edit size={15} /> Edit Details
+          </button>
+          <div style={{ height: 1, background: 'var(--divider)' }} />
+          <button
             onClick={() => handleToggleActive(activeMenu)}
             className="flex items-center gap-10"
             style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: 14, color: activeMenu.isActive ? 'var(--warning)' : 'var(--success)', background: 'transparent', border: 'none', cursor: 'pointer' }}
@@ -409,7 +464,7 @@ export default function AdminCleaners() {
                     <input type="number" className="input-field" placeholder="25" value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })} />
                   </div>
                 </div>
-                <div className="grid-2 gap-16">
+                 <div className="grid-3 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>CITY *</label>
                     <input required className="input-field" placeholder="Mumbai" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} />
@@ -417,6 +472,10 @@ export default function AdminCleaners() {
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>ASSIGNED AREA</label>
                     <input className="input-field" placeholder="Andheri West" value={formData.assignedArea} onChange={e => setFormData({ ...formData, assignedArea: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>DAILY PAYOUT RATE (₹) *</label>
+                    <input required type="number" className="input-field" placeholder="500" value={formData.dailyRate} onChange={e => setFormData({ ...formData, dailyRate: e.target.value })} />
                   </div>
                 </div>
               </section>
@@ -545,6 +604,107 @@ export default function AdminCleaners() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Cleaner Modal */}
+      {showEditModal && (
+        <div className="modal-overlay" style={{ backdropFilter: 'blur(20px)', backgroundColor: 'rgba(0,0,0,0.85)' }}>
+          <div className="glass animate-scale-in" style={{
+            width: 700, padding: '40px 48px', borderRadius: 36,
+            border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-lg)',
+            background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-surface) 100%)',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', top: '-10%', right: '-10%', width: 200, height: 200, background: 'var(--accent-lime)', opacity: 0.05, filter: 'blur(60px)', pointerEvents: 'none' }} />
+            <div className="flex justify-between items-start" style={{ marginBottom: 32 }}>
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}>Edit Cleaner</h2>
+                <p className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>Update crew member details</p>
+              </div>
+              <button className="glass flex items-center justify-center" onClick={() => setShowEditModal(null)}
+                style={{ width: 40, height: 40, borderRadius: 14 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleEdit} className="flex flex-col gap-24" style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 8 }}>
+              {/* Personal Info Section */}
+              <section className="space-y-16">
+                <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>PERSONAL INFO</h4>
+                <div className="grid-2 gap-16">
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>FULL NAME *</label>
+                    <input required className="input-field" placeholder="Ravi Kumar" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>FATHER'S NAME</label>
+                    <input className="input-field" placeholder="Suresh Kumar" value={formData.fatherName} onChange={e => setFormData({ ...formData, fatherName: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid-3 gap-16">
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>PHONE *</label>
+                    <input required className="input-field" placeholder="9876543210" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>EMAIL</label>
+                    <input type="email" className="input-field" placeholder="ravi@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>AGE</label>
+                    <input type="number" className="input-field" placeholder="25" value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid-3 gap-16">
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>CITY *</label>
+                    <input required className="input-field" placeholder="Mumbai" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>ASSIGNED AREA</label>
+                    <input className="input-field" placeholder="Andheri West" value={formData.assignedArea} onChange={e => setFormData({ ...formData, assignedArea: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>DAILY PAYOUT RATE (₹) *</label>
+                    <input required type="number" className="input-field" placeholder="500" value={formData.dailyRate} onChange={e => setFormData({ ...formData, dailyRate: e.target.value })} />
+                  </div>
+                </div>
+              </section>
+
+              {/* Address Section */}
+              <section className="space-y-16">
+                <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>ADDRESS DETAILS</h4>
+                <div className="flex flex-col gap-6">
+                  <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>CURRENT ADDRESS</label>
+                  <textarea className="input-field" placeholder="House No, Street, Landmark..." value={formData.currentAddress} onChange={e => setFormData({ ...formData, currentAddress: e.target.value })} style={{ minHeight: 60 }} />
+                </div>
+                <div className="flex flex-col gap-6">
+                  <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>PERMANENT ADDRESS</label>
+                  <textarea className="input-field" placeholder="Same as current or other..." value={formData.permanentAddress} onChange={e => setFormData({ ...formData, permanentAddress: e.target.value })} style={{ minHeight: 60 }} />
+                </div>
+              </section>
+
+              {/* Reference Section */}
+              <section className="space-y-16">
+                <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>LOCAL REFERENCE</h4>
+                <div className="grid-2 gap-16">
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>REFERENCE NAME</label>
+                    <input className="input-field" placeholder="Contact Person Name" value={formData.referenceName} onChange={e => setFormData({ ...formData, referenceName: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-6">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>REFERENCE PHONE</label>
+                    <input className="input-field" placeholder="Contact Person Phone" value={formData.referencePhone} onChange={e => setFormData({ ...formData, referencePhone: e.target.value })} />
+                  </div>
+                </div>
+              </section>
+
+              <button disabled={saving} className="btn btn-primary w-full" type="submit"
+                style={{ padding: '16px', borderRadius: 20, fontSize: 16, fontWeight: 700, marginTop: 8 }}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </form>
           </div>
         </div>
       )}

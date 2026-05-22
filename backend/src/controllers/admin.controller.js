@@ -26,6 +26,9 @@ import Grievance from '../models/Grievance.js';
 import Admin from '../models/Admin.js';
 import PartnerSociety from '../models/PartnerSociety.js';
 import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.service.js';
+import Attendance from '../models/Attendance.js';
+import LeaveRequest from '../models/LeaveRequest.js';
+
 
 
 // Helper to log activities
@@ -441,7 +444,7 @@ export const getCleaners = asyncHandler(async (req, res) => {
 
 export const addCleaner = asyncHandler(async (req, res) => {
   const { 
-    name, phone, email, age, city, assignedArea,
+    name, phone, email, age, city, assignedArea, dailyRate,
     fatherName, currentAddress, permanentAddress,
     referenceName, referencePhone 
   } = req.body;
@@ -449,7 +452,7 @@ export const addCleaner = asyncHandler(async (req, res) => {
   if (!name || !phone || !city) throw new ApiError(400, 'Name, phone, and city are required');
   
   const cleaner = await Cleaner.create({ 
-    name, phone, email, age, city, assignedArea,
+    name, phone, email, age, city, assignedArea, dailyRate,
     fatherName, currentAddress, permanentAddress,
     localReference: { name: referenceName, phone: referencePhone }
   });
@@ -1572,4 +1575,139 @@ export const removeFcmToken = asyncHandler(async (req, res) => {
   await Admin.findByIdAndUpdate(req.user._id, { $pull: { fcmTokens: token } });
   res.json({ success: true, message: 'FCM token removed' });
 });
+
+// ─── LEAVE MANAGEMENT ──────────────────────────────
+
+export const getLeaveRequests = asyncHandler(async (req, res) => {
+  const { status } = req.query;
+  const query = {};
+  if (status && status !== 'all') {
+    query.status = status;
+  }
+  const leaveRequests = await LeaveRequest.find(query)
+    .populate('cleaner', 'name phone email city assignedArea')
+    .sort('-date');
+  res.json({ success: true, leaveRequests });
+});
+
+export const reviewLeaveRequest = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status, rejectionReason } = req.body;
+  
+  if (!status || !['approved', 'rejected'].includes(status)) {
+    throw new ApiError(400, 'Invalid status. Must be approved or rejected.');
+  }
+
+  const leaveReq = await LeaveRequest.findById(id);
+  if (!leaveReq) throw new ApiError(404, 'Leave request not found');
+
+  if (leaveReq.status !== 'pending') {
+    throw new ApiError(400, `This leave request has already been ${leaveReq.status}`);
+  }
+
+  leaveReq.status = status;
+  if (status === 'rejected') {
+    leaveReq.rejectionReason = rejectionReason || '';
+  }
+  await leaveReq.save();
+
+  if (status === 'approved') {
+    // 1. Mark cleaner as 'leave' in Attendance collection
+    await Attendance.findOneAndUpdate(
+      { cleaner: leaveReq.cleaner, date: leaveReq.date },
+      { status: 'leave' },
+      { upsert: true, new: true }
+    );
+
+    // 2. Unassign tasks assigned to this cleaner on this date
+    // Set tasks that are 'pending' to unassigned (cleaner: null)
+    const result = await Task.updateMany(
+      { cleaner: leaveReq.cleaner, date: leaveReq.date, status: 'pending' },
+      { $unset: { cleaner: "" } }
+    );
+    
+    await logActivity({
+      type: 'leave_approved',
+      message: `Admin approved leave request for cleaner: ${leaveReq.cleaner} on date ${leaveReq.date.toLocaleDateString()}`,
+      performer: req.user._id,
+      metadata: { leaveRequestId: id, cleanerId: leaveReq.cleaner, tasksUnassigned: result.modifiedCount }
+    });
+  } else {
+    await logActivity({
+      type: 'leave_rejected',
+      message: `Admin rejected leave request for cleaner: ${leaveReq.cleaner} on date ${leaveReq.date.toLocaleDateString()}`,
+      performer: req.user._id,
+      metadata: { leaveRequestId: id, cleanerId: leaveReq.cleaner, reason: rejectionReason }
+    });
+  }
+
+  res.json({ success: true, leaveRequest: leaveReq, message: `Leave request ${status} successfully` });
+});
+
+// ─── ATTENDANCE OVERRIDES ───────────────────────────
+
+export const getCleanerAttendanceLogs = asyncHandler(async (req, res) => {
+  const { date, month, year } = req.query;
+  
+  let query = {};
+  
+  if (date) {
+    query.date = getISTMidnight(new Date(date));
+  } else if (month && year) {
+    const start = new Date(parseInt(year), parseInt(month), 1);
+    const end = new Date(parseInt(year), parseInt(month) + 1, 0, 23, 59, 59, 999);
+    query.date = { $gte: start, $lte: end };
+  } else {
+    // Default to today
+    query.date = getISTMidnight();
+  }
+
+  // Find all attendance records
+  const records = await Attendance.find(query).populate('cleaner', 'name phone email assignedArea city');
+  
+  res.json({ success: true, records });
+});
+
+export const updateCleanerAttendance = asyncHandler(async (req, res) => {
+  const { cleanerId, date, status, checkIn, checkOut, note } = req.body;
+  
+  if (!cleanerId || !date || !status) {
+    throw new ApiError(400, 'cleanerId, date, and status are required');
+  }
+
+  if (!['present', 'absent', 'leave'].includes(status)) {
+    throw new ApiError(400, 'Invalid status. Must be present, absent, or leave');
+  }
+
+  const targetDate = getISTMidnight(new Date(date));
+
+  const updatedRecord = await Attendance.findOneAndUpdate(
+    { cleaner: cleanerId, date: targetDate },
+    { 
+      status,
+      checkIn: checkIn ? new Date(checkIn) : undefined,
+      checkOut: checkOut ? new Date(checkOut) : undefined,
+      note: note || ''
+    },
+    { upsert: true, new: true }
+  );
+
+  // If manual status is set to leave, we should also unassign pending tasks
+  if (status === 'leave') {
+    await Task.updateMany(
+      { cleaner: cleanerId, date: targetDate, status: 'pending' },
+      { $unset: { cleaner: "" } }
+    );
+  }
+
+  await logActivity({
+    type: 'attendance_override',
+    message: `Admin manually updated attendance status of cleaner ${cleanerId} on ${targetDate.toLocaleDateString()} to ${status}`,
+    performer: req.user._id,
+    metadata: { cleanerId, date: targetDate, status }
+  });
+
+  res.json({ success: true, record: updatedRecord, message: 'Attendance updated successfully' });
+});
+
 

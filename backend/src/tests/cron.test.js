@@ -202,8 +202,52 @@ describe('CRON-3 | createDailyTasks idempotency', () => {
     // Second run → Set already contains sub._id → newDocs is empty → no insert
     await runCreateDailyTasks();
 
+        const tasks = await Task.find({ subscription: sub._id, date: { $gte: today, $lt: tomorrow } });
+    expect(tasks.length).toBe(1);
+  });
+
+  it('creates task as unassigned if the cleaner is on approved leave today', async () => {
+    const { customer } = await createCustomer();
+    const vehicle = await createVehicle(customer._id);
+    const society = await createSociety();
+    const { cleaner } = await createCleaner();
+
+    // 1. Create a subscription with the assigned cleaner
+    const sub = await Subscription.create({
+      customer: customer._id,
+      vehicle: vehicle._id,
+      society: society._id,
+      slot: '06_07_AM',
+      isTrial: false,
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      totalDays: 30,
+      remainingDays: 30,
+      amount: 399,
+      status: 'Active',
+      assignedCleaner: cleaner._id,
+    });
+
+    const today = getISTMidnight();
+
+    // 2. Create an approved leave request for this cleaner for today
+    const { default: LeaveRequest } = await import('../models/LeaveRequest.js');
+    await LeaveRequest.create({
+      cleaner: cleaner._id,
+      date: today,
+      status: 'approved',
+      reason: 'Sick leave',
+    });
+
+    // 3. Call the imported createDailyTasks function
+    await createDailyTasks();
+
+    // 4. Verify that the task was created, but cleaner is null (unassigned)
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     const tasks = await Task.find({ subscription: sub._id, date: { $gte: today, $lt: tomorrow } });
     expect(tasks.length).toBe(1);
+    expect(tasks[0].cleaner).toBeNull();
   });
 });
 

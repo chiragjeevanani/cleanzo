@@ -10,6 +10,7 @@ import { syncCleanerStats } from '../utils/cleanerStats.js';
 import Customer from '../models/Customer.js';
 import Admin from '../models/Admin.js';
 import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.service.js';
+import LeaveRequest from '../models/LeaveRequest.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -351,31 +352,65 @@ export const getEarnings = asyncHandler(async (req, res) => {
 });
 
 export const requestLeave = asyncHandler(async (req, res) => {
-  const { date } = req.body;
+  const { date, reason } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
 
   const leaveDate = getISTMidnight(date);
+  const today = getISTMidnight();
 
-  const { default: Attendance } = await import('../models/Attendance.js');
-  
-  // Check if already 2 leaves this month
-  const start = new Date(leaveDate.getFullYear(), leaveDate.getMonth(), 1);
-  const leaveCount = await Attendance.countDocuments({
+  if (leaveDate < today) {
+    throw new ApiError(400, 'Cannot apply for leaves on past dates');
+  }
+
+  // Check if there is already a pending or approved request for this date
+  const existingRequest = await LeaveRequest.findOne({
     cleaner: req.user._id,
-    date: { $gte: start },
-    status: 'leave'
+    date: leaveDate
   });
 
-  if (leaveCount >= 2) {
+  if (existingRequest) {
+    if (existingRequest.status === 'pending') {
+      throw new ApiError(400, 'You already have a pending leave request for this date');
+    }
+    if (existingRequest.status === 'approved') {
+      throw new ApiError(400, 'Leave has already been approved for this date');
+    }
+    // If rejected, they can re-apply if needed, so we'll delete/overwrite or update it
+    if (existingRequest.status === 'rejected') {
+      existingRequest.status = 'pending';
+      existingRequest.reason = reason || '';
+      existingRequest.rejectionReason = undefined;
+      await existingRequest.save();
+      return res.json({ success: true, message: 'Leave request submitted successfully' });
+    }
+  }
+
+  // Check if already 2 leaves (pending or approved) this month
+  const start = new Date(leaveDate.getFullYear(), leaveDate.getMonth(), 1);
+  const end = new Date(leaveDate.getFullYear(), leaveDate.getMonth() + 1, 0, 23, 59, 59, 999);
+  const activeLeaveRequestsCount = await LeaveRequest.countDocuments({
+    cleaner: req.user._id,
+    date: { $gte: start, $lte: end },
+    status: { $in: ['pending', 'approved'] }
+  });
+
+  if (activeLeaveRequestsCount >= 2) {
     throw new ApiError(400, 'Maximum 2 leaves allowed per month');
   }
 
-  await Attendance.findOneAndUpdate(
-    { cleaner: req.user._id, date: leaveDate },
-    { status: 'leave' },
-    { upsert: true, new: true }
-  );
+  await LeaveRequest.create({
+    cleaner: req.user._id,
+    date: leaveDate,
+    reason: reason || '',
+    status: 'pending'
+  });
 
-  res.json({ success: true, message: 'Leave marked successfully' });
+  res.json({ success: true, message: 'Leave request submitted successfully' });
 });
+
+export const getLeaveRequestHistory = asyncHandler(async (req, res) => {
+  const history = await LeaveRequest.find({ cleaner: req.user._id }).sort('-date');
+  res.json({ success: true, history });
+});
+
 

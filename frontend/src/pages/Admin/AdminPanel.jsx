@@ -2,7 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut, User, MapPin, ShoppingCart, Car, LifeBuoy } from 'lucide-react'
+import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut, User, MapPin, ShoppingCart, Car, LifeBuoy, CalendarDays, FileClock } from 'lucide-react'
 import PageLoader from '../../components/PageLoader'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import apiClient from '../../services/apiClient'
@@ -26,11 +26,15 @@ const AdminMarketplace  = lazy(() => import('./AdminMarketplace'))
 const AdminVehicleCategories = lazy(() => import('./AdminVehicleCategories'))
 const AdminBrands = lazy(() => import('./AdminBrands'))
 const AdminGrievances = lazy(() => import('./AdminGrievances'))
+const AdminAttendance = lazy(() => import('./AdminAttendance'))
+const AdminLeaves = lazy(() => import('./AdminLeaves'))
 
 const navItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { path: '/admin/users', icon: Users, label: 'Users' },
   { path: '/admin/cleaners', icon: UserCog, label: 'Cleaners' },
+  { path: '/admin/attendance', icon: CalendarDays, label: 'Attendance' },
+  { path: '/admin/leaves', icon: FileClock, label: 'Leaves' },
   { path: '/admin/applications', icon: FileText, label: 'Cleaner KYC' },
   { path: '/admin/societies', icon: MapPin, label: 'Societies' },
   { path: '/admin/leads', icon: Users, label: 'Leads' },
@@ -213,6 +217,8 @@ export default function AdminPanel() {
             <Route path="users/:id" element={<AdminUserDetails />} />
             <Route path="cleaners" element={<AdminCleaners />} />
             <Route path="cleaners/:id" element={<AdminCleanerDetails />} />
+            <Route path="attendance" element={<AdminAttendance />} />
+            <Route path="leaves" element={<AdminLeaves />} />
             <Route path="applications" element={<AdminApplications />} />
             <Route path="societies" element={<AdminSocieties />} />
             <Route path="leads" element={<AdminLeads />} />

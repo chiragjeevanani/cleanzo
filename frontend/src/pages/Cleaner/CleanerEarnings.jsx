@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react'
 import { IndianRupee, TrendingUp, Calendar, AlertCircle, ShieldCheck, Download } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
+import { useAuth } from '../../context/AuthContext'
 
 export default function CleanerEarnings() {
   const { showToast } = useToast()
+  const { user } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -23,6 +25,56 @@ export default function CleanerEarnings() {
     }
     fetchEarnings()
   }, [])
+
+  const handleDownloadStatement = async () => {
+    try {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = now.getMonth()
+      
+      const attendanceRes = await apiClient.get(`/cleaner/attendance?year=${year}&month=${month}`)
+      const attendance = attendanceRes.history || []
+      
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June", 
+        "July", "August", "September", "October", "November", "December"
+      ]
+      
+      let csvContent = "CLEANZO PARTNER EARNINGS STATEMENT\n"
+      csvContent += `Partner Name,${user?.name || 'Partner'}\n`
+      csvContent += `Month,${monthNames[month]} ${year}\n`
+      csvContent += `Daily Rate,INR ${data?.dailyRate || 500}\n`
+      csvContent += `Present Days,${data?.presentDays || 0}\n`
+      csvContent += `Total Earnings,INR ${data?.totalEarnings || 0}\n\n`
+      
+      csvContent += "Date,Status,Tasks Completed,Amount Earned (INR)\n"
+      
+      attendance.forEach(record => {
+        const dateStr = new Date(record.date).toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        })
+        const earned = record.status === 'present' ? (data?.dailyRate || 500) : 0
+        csvContent += `"${dateStr}","${record.status}",${record.tasksCompleted || 0},${earned}\n`
+      })
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.setAttribute("href", url)
+      link.setAttribute("download", `cleanzo_statement_${monthNames[month].toLowerCase()}_${year}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      showToast('Statement downloaded successfully', 'success')
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to download statement', 'error')
+    }
+  }
 
   if (loading) return <PageLoader />
 
@@ -125,7 +177,7 @@ export default function CleanerEarnings() {
       </div>
 
       {/* Download Button */}
-      <button className="btn btn-ghost w-full" style={{ borderRadius: 24, padding: '18px', fontWeight: 800, fontSize: 15, gap: 8 }} onClick={() => showToast('Statement download coming soon', 'info')}>
+      <button className="btn btn-ghost w-full" style={{ borderRadius: 24, padding: '18px', fontWeight: 800, fontSize: 15, gap: 8 }} onClick={handleDownloadStatement}>
         <Download size={18} /> Download Statement
       </button>
     </div>

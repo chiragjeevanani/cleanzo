@@ -20,10 +20,16 @@ router.delete('/users/:id', ctrl.deleteUser);
 
 router.get('/cleaners', ctrl.getCleaners);
 router.post('/cleaners', ctrl.addCleaner);
+router.get('/cleaners/attendance', ctrl.getCleanerAttendanceLogs);
+router.put('/cleaners/attendance', ctrl.updateCleanerAttendance);
 router.get('/cleaners/:id', ctrl.getCleanerById);
 router.put('/cleaners/:id', ctrl.updateCleaner);
 router.delete('/cleaners/:id', ctrl.deleteCleaner);
 router.put('/cleaners/:id/set-password', ctrl.setCleanerPassword);
+
+router.get('/leaves', ctrl.getLeaveRequests);
+router.put('/leaves/:id/review', ctrl.reviewLeaveRequest);
+
 
 router.get('/packages', ctrl.getAllPackages);
 router.post('/packages', ctrl.createPackage);

@@ -39,6 +39,8 @@ router.post(
 router.get('/attendance', ctrl.getAttendance);
 router.get('/earnings', ctrl.getEarnings);
 router.post('/leave', ctrl.requestLeave);
+router.get('/leave/history', ctrl.getLeaveRequestHistory);
+
 
 export default router;
 

@@ -9,6 +9,9 @@ import Settings from '../models/Settings.js';
 import Subscription from '../models/Subscription.js';
 import Package from '../models/Package.js';
 import Society from '../models/Society.js';
+import Attendance from '../models/Attendance.js';
+import LeaveRequest from '../models/LeaveRequest.js';
+import Task from '../models/Task.js';
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 describe('ADMIN-1 | GET /admin/dashboard', () => {
@@ -516,5 +519,118 @@ describe('ADMIN | GET /settings', () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.settings)).toBe(true);
     expect(res.body.settings.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ─── ADMIN LEAVES & ATTENDANCE OVERRIDES ──────────────────────────────────────
+describe('ADMIN | Attendance and Leave Management', () => {
+  it('GET /cleaners/attendance returns daily attendance records', async () => {
+    const { token } = await createAdmin();
+    const { cleaner } = await createCleaner();
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    // Seed record
+    const targetDate = new Date(todayStr + 'T00:00:00.000Z');
+    await Attendance.create({ cleaner: cleaner._id, date: targetDate, status: 'present' });
+
+    const res = await api.get('/api/admin/cleaners/attendance').set(authHeader(token)).query({ date: todayStr });
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.records)).toBe(true);
+    expect(res.body.records.length).toBe(1);
+    expect(res.body.records[0].status).toBe('present');
+  });
+
+  it('PUT /cleaners/attendance overrides cleaner attendance status', async () => {
+    const { token } = await createAdmin();
+    const { cleaner } = await createCleaner();
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    const res = await api.put('/api/admin/cleaners/attendance').set(authHeader(token)).send({
+      cleanerId: cleaner._id,
+      date: todayStr,
+      status: 'leave',
+      note: 'Admin override leave'
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.record.status).toBe('leave');
+    expect(res.body.record.note).toBe('Admin override leave');
+
+    const updated = await Attendance.findOne({ cleaner: cleaner._id, date: new Date(todayStr + 'T00:00:00.000Z') });
+    expect(updated).not.toBeNull();
+    expect(updated.status).toBe('leave');
+  });
+
+  it('GET /leaves lists leave requests', async () => {
+    const { token } = await createAdmin();
+    const { cleaner } = await createCleaner();
+    await LeaveRequest.create({ cleaner: cleaner._id, date: new Date(), reason: 'Sick', status: 'pending' });
+
+    const res = await api.get('/api/admin/leaves').set(authHeader(token));
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.leaveRequests)).toBe(true);
+    expect(res.body.leaveRequests.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('PUT /leaves/:id/review approves a leave request and updates tasks', async () => {
+    const { token: adminToken } = await createAdmin();
+    const { cleaner } = await createCleaner();
+    const leaveDate = new Date('2026-06-10T00:00:00.000Z');
+
+    const leave = await LeaveRequest.create({
+      cleaner: cleaner._id,
+      date: leaveDate,
+      reason: 'Sick leave',
+      status: 'pending'
+    });
+
+    // Seed task on that date
+    const task = await Task.create({
+      subscription: new mongoose.Types.ObjectId(),
+      customer: new mongoose.Types.ObjectId(),
+      cleaner: cleaner._id,
+      vehicle: new mongoose.Types.ObjectId(),
+      date: leaveDate,
+      status: 'pending',
+      packageName: 'Basic'
+    });
+
+    const res = await api.put(`/api/admin/leaves/${leave._id}/review`).set(authHeader(adminToken)).send({
+      status: 'approved'
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.leaveRequest.status).toBe('approved');
+
+    // Attendance is upserted
+    const att = await Attendance.findOne({ cleaner: cleaner._id, date: leaveDate });
+    expect(att).not.toBeNull();
+    expect(att.status).toBe('leave');
+
+    // Task is unassigned
+    const updatedTask = await Task.findById(task._id);
+    expect(updatedTask.cleaner).toBeUndefined(); // cleaner: null/$unset
+  });
+
+  it('PUT /leaves/:id/review rejects a leave request with a reason', async () => {
+    const { token } = await createAdmin();
+    const { cleaner } = await createCleaner();
+    const leave = await LeaveRequest.create({
+      cleaner: cleaner._id,
+      date: new Date(),
+      reason: 'Vacation',
+      status: 'pending'
+    });
+
+    const res = await api.put(`/api/admin/leaves/${leave._id}/review`).set(authHeader(token)).send({
+      status: 'rejected',
+      rejectionReason: 'Not enough notice'
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.leaveRequest.status).toBe('rejected');
+    expect(res.body.leaveRequest.rejectionReason).toBe('Not enough notice');
   });
 });

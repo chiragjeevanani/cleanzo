@@ -4,10 +4,11 @@ import Subscription from '../models/Subscription.js';
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
 import Society from '../models/Society.js';
+import LeaveRequest from '../models/LeaveRequest.js';
 import { getISTMidnight } from '../utils/dateHelper.js';
 
 // ─── Job 1: Expire referral discounts (midnight) ──────────────────────────────
-const expireReferralDiscounts = async () => {
+export const expireReferralDiscounts = async () => {
   try {
     const result = await Customer.updateMany(
       { 'referralDiscount.isActive': true, 'referralDiscount.expiresAt': { $lt: new Date() } },
@@ -20,7 +21,7 @@ const expireReferralDiscounts = async () => {
 };
 
 // ─── Job 2: Expire subscriptions + decrement slot count (midnight) ────────────
-const expireSubscriptions = async () => {
+export const expireSubscriptions = async () => {
   try {
     const now = new Date();
     const expired = await Subscription.find({ status: 'Active', endDate: { $lt: now } });
@@ -60,7 +61,7 @@ const expireSubscriptions = async () => {
 };
 
 // ─── Job 3: Create daily tasks for all active subscriptions (4 AM) ────────────
-const createDailyTasks = async () => {
+export const createDailyTasks = async () => {
   try {
     const today = getISTMidnight();
     const tomorrow = new Date(today);
@@ -75,6 +76,17 @@ const createDailyTasks = async () => {
       console.log('[CRON] No active subscriptions — skipping task creation');
       return;
     }
+
+    // Fetch all approved leave requests for today
+    const approvedLeaves = await LeaveRequest.find({
+      date: today,
+      status: 'approved'
+    }).select('cleaner');
+
+    // Create a Set of cleaner IDs who are on approved leave today
+    const cleanersOnLeaveToday = new Set(
+      approvedLeaves.map(leave => leave.cleaner.toString())
+    );
 
     // One query to find all sub IDs that already have a task today (range check)
     const subIds = activeSubs.map(s => s._id);
@@ -96,10 +108,14 @@ const createDailyTasks = async () => {
         if (slot?.timeWindow) scheduledTime = slot.timeWindow.split(' - ')[0];
       }
 
+      // Check if the assigned cleaner is on approved leave today
+      const assignedCleanerId = sub.assignedCleaner?._id?.toString();
+      const isCleanerOnLeave = assignedCleanerId && cleanersOnLeaveToday.has(assignedCleanerId);
+
       newDocs.push({
         subscription: sub._id,
         customer: sub.customer,
-        cleaner: sub.assignedCleaner?._id || null,
+        cleaner: isCleanerOnLeave ? null : (sub.assignedCleaner?._id || null),
         vehicle: sub.vehicle,
         date: today,
         scheduledTime,
@@ -127,8 +143,9 @@ const createDailyTasks = async () => {
   }
 };
 
+
 // ─── Job 4: Send reminders — referral + subscription expiry (9 AM) ────────────
-const sendReminders = async () => {
+export const sendReminders = async () => {
   try {
     const now = new Date();
 
