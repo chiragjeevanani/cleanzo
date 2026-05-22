@@ -281,7 +281,7 @@ export default function AdminLeaves() {
 
                 {/* Actions */}
                 {req.status === 'pending' && (
-                  <div className="flex gap-10" style={{ marginTop: 12 }}>
+                  <div className="flex" style={{ marginTop: 12, gap: 16 }}>
                     <button 
                       onClick={() => handleOpenReject(req)}
                       className="btn btn-glass flex-1 flex items-center justify-center gap-6"

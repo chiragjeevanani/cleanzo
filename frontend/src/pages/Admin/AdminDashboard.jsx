@@ -264,6 +264,22 @@ export default function AdminDashboard() {
           70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); transform: scale(1.1); }
           100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); transform: scale(1); }
         }
+        .kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          margin-bottom: 28px;
+        }
+        @media (max-width: 1024px) {
+          .kpi-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        @media (max-width: 640px) {
+          .kpi-grid {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
 
       {/* Action Required / Pending Requests Grid */}
@@ -441,63 +457,93 @@ export default function AdminDashboard() {
       {activeTab === 'overview' && (
         <>
           {/* KPI Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 28 }}>
-            {kpiData.map((k, i) => (
-              <div key={i} className="glass animate-fade-in" style={{ padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 160 }}>
-                <div>
-                  <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 'var(--radius)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <k.icon size={20} style={{ color: k.color }} />
-                    </div>
-                    {k.growth !== 0 && (
-                      <div className="flex items-center gap-4" style={{ fontSize: 13, fontWeight: 600, color: k.growth > 0 ? 'var(--success)' : 'var(--error)' }}>
-                        {k.growth > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                        {Math.abs(k.growth)}%
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em' }}>
-                    {typeof k.value === 'number' ? k.value.toLocaleString() : k.value}
-                  </div>
-                  <div className="text-body-sm text-secondary" style={{ marginTop: 4 }}>{k.label}</div>
-                </div>
+          <div className="kpi-grid">
+            {kpiData.map((k, i) => {
+              const handleCardClick = () => {
+                if (k.label === 'Total Users') {
+                  navigate('/admin/users')
+                } else if (k.label === 'Subscriptions') {
+                  navigate('/admin/subscriptions?filter=Active')
+                } else if (k.label === 'Total Revenue') {
+                  navigate('/admin/revenue')
+                } else if (k.label === 'Pending Orders') {
+                  navigate('/admin/marketplace')
+                } else if (k.label === 'Trial (Not Subscribed)') {
+                  navigate('/admin/subscriptions?filter=trial')
+                } else if (k.label === 'Inactive Subscriptions') {
+                  navigate('/admin/subscriptions?filter=Expired')
+                }
+              }
 
-                {/* Revenue Split Breakdown */}
-                {k.label === 'Total Revenue' && stats && (
-                  <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--divider)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                      <span className="text-secondary flex items-center gap-6">
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#007AFF', display: 'inline-block' }} />
-                        Subscription
-                      </span>
-                      <span style={{ fontWeight: 600 }}>₹{(stats.subscriptionRevenue || 0).toLocaleString()}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                      <span className="text-secondary flex items-center gap-6">
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#DFFF00', display: 'inline-block' }} />
-                        Marketplace
-                      </span>
-                      <span style={{ fontWeight: 600 }}>₹{(stats.marketplaceRevenue || 0).toLocaleString()}</span>
-                    </div>
-                    {/* Visual mini progress bar for split */}
-                    {stats.revenue > 0 && (
-                      <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', marginTop: 4 }}>
-                        <div style={{ 
-                          width: `${((stats.subscriptionRevenue || 0) / stats.revenue) * 100}%`, 
-                          background: '#007AFF', 
-                          height: '100%' 
-                        }} />
-                        <div style={{ 
-                          width: `${((stats.marketplaceRevenue || 0) / stats.revenue) * 100}%`, 
-                          background: '#DFFF00', 
-                          height: '100%' 
-                        }} />
+              return (
+                <div 
+                  key={i} 
+                  onClick={handleCardClick}
+                  className="glass hover-glow animate-fade-in" 
+                  style={{ 
+                    padding: 24, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    justifyContent: 'space-between', 
+                    minHeight: 160,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div>
+                    <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 'var(--radius)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <k.icon size={20} style={{ color: k.color }} />
                       </div>
-                    )}
+                      {k.growth !== 0 && (
+                        <div className="flex items-center gap-4" style={{ fontSize: 13, fontWeight: 600, color: k.growth > 0 ? 'var(--success)' : 'var(--error)' }}>
+                          {k.growth > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                          {Math.abs(k.growth)}%
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em' }}>
+                      {typeof k.value === 'number' ? k.value.toLocaleString() : k.value}
+                    </div>
+                    <div className="text-body-sm text-secondary" style={{ marginTop: 4 }}>{k.label}</div>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {/* Revenue Split Breakdown */}
+                  {k.label === 'Total Revenue' && stats && (
+                    <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--divider)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                        <span className="text-secondary flex items-center gap-6">
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#007AFF', display: 'inline-block' }} />
+                          Subscription
+                        </span>
+                        <span style={{ fontWeight: 600 }}>₹{(stats.subscriptionRevenue || 0).toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                        <span className="text-secondary flex items-center gap-6">
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#DFFF00', display: 'inline-block' }} />
+                          Marketplace
+                        </span>
+                        <span style={{ fontWeight: 600 }}>₹{(stats.marketplaceRevenue || 0).toLocaleString()}</span>
+                      </div>
+                      {/* Visual mini progress bar for split */}
+                      {stats.revenue > 0 && (
+                        <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', marginTop: 4 }}>
+                          <div style={{ 
+                            width: `${((stats.subscriptionRevenue || 0) / stats.revenue) * 100}%`, 
+                            background: '#007AFF', 
+                            height: '100%' 
+                          }} />
+                          <div style={{ 
+                            width: `${((stats.marketplaceRevenue || 0) / stats.revenue) * 100}%`, 
+                            background: '#DFFF00', 
+                            height: '100%' 
+                          }} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           {/* Charts Row */}

@@ -9,6 +9,16 @@ export default function AdminSubscriptions() {
   const [searchParams] = useSearchParams()
   const initialFilter = searchParams.get('filter') || 'all'
   const [filter, setFilter] = useState(initialFilter)
+
+  useEffect(() => {
+    const queryFilter = searchParams.get('filter')
+    if (queryFilter) {
+      setFilter(queryFilter)
+    } else {
+      setFilter('all')
+    }
+  }, [searchParams])
+
   const [subs, setSubs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
