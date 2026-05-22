@@ -84,22 +84,22 @@ export default function BookingFlow() {
     return settings.trialPrice || 30
   }
   
-  const trialPrice = getDynamicTrialPrice()
-  const prioritySlotFee = settings.prioritySlotFee || 99
-  
   const [step, setStep] = useState(0)
-  
+
   // Selections
   const [selectedSociety, setSelectedSociety] = useState(null)
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [selectedVehicle, setSelectedVehicle] = useState(null)
-  const [selectedPkg, setSelectedPkg] = useState(null) 
+  const [selectedPkg, setSelectedPkg] = useState(null)
   const [selectedTrialDate, setSelectedTrialDate] = useState(null)
   const [specialInstructions, setSpecialInstructions] = useState('')
-  
+
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+
+  const trialPrice = getDynamicTrialPrice()
+  const prioritySlotFee = settings.prioritySlotFee || 99
 
   // Initial selection logic based on global data
   useEffect(() => {
