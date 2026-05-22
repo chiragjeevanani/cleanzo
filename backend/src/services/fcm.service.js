@@ -11,14 +11,23 @@ let initialized = false;
 
 function getAdmin() {
   if (!initialized) {
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-    if (!serviceAccountPath) {
-      console.warn('⚠️  FIREBASE_SERVICE_ACCOUNT_PATH not set — push notifications disabled');
+
+    if (!serviceAccountJson && !serviceAccountPath) {
+      console.warn('⚠️  Neither FIREBASE_SERVICE_ACCOUNT_JSON nor FIREBASE_SERVICE_ACCOUNT_PATH set — push notifications disabled');
       return null;
     }
+
     try {
-      const resolvedPath = path.resolve(process.cwd(), serviceAccountPath);
-      const serviceAccount = require(resolvedPath);
+      let serviceAccount;
+      if (serviceAccountJson) {
+        serviceAccount = JSON.parse(serviceAccountJson);
+      } else {
+        const resolvedPath = path.resolve(process.cwd(), serviceAccountPath);
+        serviceAccount = require(resolvedPath);
+      }
+
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
