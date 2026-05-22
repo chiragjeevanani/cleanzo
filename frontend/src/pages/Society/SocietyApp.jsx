@@ -50,14 +50,7 @@ export default function SocietyApp() {
       {/* Sidebar */}
       <aside className="admin-sidebar" style={{ transform: sidebarOpen ? 'none' : 'translateX(-100%)', zIndex: isMobile ? 100 : undefined }}>
         <div className="sidebar-logo">
-          <div style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: '#DFFF00',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginRight: 4
-          }}>
-            <ShieldCheck size={18} color="#000" strokeWidth={2.5} />
-          </div>
+          <img src="/logo.png" alt="Cleanzo" />
           <span>Cleanzo Partner</span>
         </div>
         <div className="sidebar-nav">

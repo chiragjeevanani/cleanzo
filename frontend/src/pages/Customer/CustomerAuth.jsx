@@ -354,9 +354,7 @@ export default function CustomerAuth() {
         
         {/* Logo */}
         <header style={{ padding: '24px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, var(--primary-blue), var(--accent-lime))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ShieldCheck size={24} color="#000" />
-          </div>
+          <img src="/logo.png" alt="Cleanzo Logo" style={{ height: 40, width: 'auto' }} />
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>CLEANZO</span>
         </header>
 

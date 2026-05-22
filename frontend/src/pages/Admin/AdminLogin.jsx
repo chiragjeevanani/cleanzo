@@ -186,13 +186,7 @@ export default function AdminLogin() {
 
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'auto', position: 'relative', zIndex: 1 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: '#DFFF00',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <ShieldCheck size={20} color="#000" strokeWidth={2.5} />
-            </div>
+            <img src="/logo.png" alt="Cleanzo Logo" style={{ height: 36, width: 'auto' }} />
             <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 18, color: '#fff', letterSpacing: '0.08em' }}>CLEANZO</span>
             <span style={{
               marginLeft: 2, padding: '2px 9px', borderRadius: 6,

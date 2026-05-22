@@ -8,7 +8,10 @@ export default function Footer() {
       <div className="container">
         <div className="footer-grid">
           <div className="footer-brand">
-            <h2 className="footer-logo-text">CLEANZO</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <img src="/logo.png" alt="Cleanzo Logo" style={{ height: 35, width: 'auto' }} />
+              <h2 className="footer-logo-text" style={{ margin: 0 }}>CLEANZO</h2>
+            </div>
             <p className="text-body-sm text-secondary" style={{ maxWidth: 320, marginTop: 16 }}>
               The global benchmark in technical automotive interior restoration and high-performance protection systems.
             </p>
