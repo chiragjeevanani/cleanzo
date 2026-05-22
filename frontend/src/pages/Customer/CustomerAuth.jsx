@@ -112,6 +112,17 @@ export default function CustomerAuth() {
   }, [formData.city, societies])
 
   const [timer, setTimer] = useState(30)
+
+  useEffect(() => {
+    if (step !== 'otp' || timer <= 0) return
+
+    const interval = setInterval(() => {
+      setTimer(prev => prev - 1)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [step, timer])
+
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [confirmDialog, setConfirmDialog] = useState(null)
@@ -146,7 +157,7 @@ export default function CustomerAuth() {
 
   // ── Send OTP (or capture lead if 'Other' society selected) ──
   const handleSendOtp = async (e) => {
-    e.preventDefault()
+    e?.preventDefault()
     setErrorMsg('')
     const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^91/, '')
     if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
