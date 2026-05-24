@@ -396,22 +396,17 @@ export default function BookingFlow() {
               <h3 className="text-headline-sm" style={{ marginBottom: 4 }}>Service Location</h3>
               <p className="text-secondary text-body-sm">Where and when should we arrive?</p>
             </div>
-            
+
+            {/* Society — read-only, auto-selected at registration */}
             <div className="flex flex-col gap-12">
-              <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)' }}>Select Society</label>
-              <div className="flex flex-col gap-12">
-                {societies.map(soc => (
-                  <button key={soc._id} className="glass" onClick={() => { setSelectedSociety(soc); setSelectedSlot(null); }}
-                    style={{ 
-                      padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', 
-                      borderColor: selectedSociety?._id === soc._id ? 'var(--accent-lime)' : 'var(--border-glass)',
-                      borderRadius: 20,
-                      background: selectedSociety?._id === soc._id ? 'rgba(223, 255, 0, 0.05)' : 'var(--bg-glass)'
-                    }}>
-                    <MapPin size={20} style={{ color: selectedSociety?._id === soc._id ? 'var(--accent-lime)' : 'var(--text-tertiary)' }} />
-                    <div><div style={{ fontWeight: 700 }}>{soc.name}</div><div className="text-body-sm text-secondary">{soc.city}</div></div>
-                  </button>
-                ))}
+              <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)' }}>Your Society</label>
+              <div className="glass" style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 16, borderRadius: 20, border: '1px solid var(--accent-lime)', background: 'rgba(223,255,0,0.04)' }}>
+                <MapPin size={20} style={{ color: 'var(--accent-lime)' }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700 }}>{selectedSociety?.name}</div>
+                  <div className="text-body-sm text-secondary">{selectedSociety?.city}</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-lime)', background: 'rgba(223,255,0,0.1)', padding: '3px 10px', borderRadius: 8 }}>YOUR LOCATION</span>
               </div>
             </div>
 
@@ -544,68 +539,109 @@ export default function BookingFlow() {
               </button>
 
               {selectedPkg?.isTrial && (
-                <div className="animate-slide-up" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700 }}>SELECT TRIAL WASH DATE</label>
-                  <div className="flex gap-12">
-                    {(() => {
-                      const today = new Date()
-                      
-                      const tomorrow = new Date()
-                      tomorrow.setDate(today.getDate() + 1)
-                      const tomorrowVal = getLocalDateString(tomorrow)
-                      const tomorrowStr = tomorrow.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
-                      
-                      const dayAfter = new Date()
-                      dayAfter.setDate(today.getDate() + 2)
-                      const dayAfterVal = getLocalDateString(dayAfter)
-                      const dayAfterStr = dayAfter.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
-                      
-                      return [
-                        { label: 'Tomorrow', dateStr: tomorrowStr, value: tomorrowVal },
-                        { label: 'Day After', dateStr: dayAfterStr, value: dayAfterVal }
-                      ].map((opt) => {
-                        const isDateSelected = selectedTrialDate === opt.value
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setSelectedTrialDate(opt.value)}
-                            className="glass animate-fade-in"
-                            style={{
-                              flex: 1,
-                              padding: '16px',
-                              borderRadius: 16,
-                              textAlign: 'center',
-                              borderColor: isDateSelected ? 'var(--accent-lime)' : 'var(--border-glass)',
-                              background: isDateSelected ? 'rgba(223, 255, 0, 0.08)' : 'var(--bg-glass)',
-                              boxShadow: isDateSelected ? 'var(--shadow-glow-lime)' : 'none',
-                              transition: 'all 0.3s'
-                            }}
-                          >
-                            <div style={{ fontWeight: 800, fontSize: 14, color: isDateSelected ? 'var(--accent-lime)' : 'var(--text-primary)' }}>{opt.label}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{opt.dateStr}</div>
-                          </button>
-                        )
-                      })
-                    })()}
+                <>
+                  <div className="animate-slide-up" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700 }}>SELECT TRIAL WASH DATE</label>
+                    <div className="flex gap-12">
+                      {(() => {
+                        const today = new Date()
+
+                        const tomorrow = new Date()
+                        tomorrow.setDate(today.getDate() + 1)
+                        const tomorrowVal = getLocalDateString(tomorrow)
+                        const tomorrowStr = tomorrow.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+
+                        const dayAfter = new Date()
+                        dayAfter.setDate(today.getDate() + 2)
+                        const dayAfterVal = getLocalDateString(dayAfter)
+                        const dayAfterStr = dayAfter.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+
+                        return [
+                          { label: 'Tomorrow', dateStr: tomorrowStr, value: tomorrowVal },
+                          { label: 'Day After', dateStr: dayAfterStr, value: dayAfterVal }
+                        ].map((opt) => {
+                          const isDateSelected = selectedTrialDate === opt.value
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setSelectedTrialDate(opt.value)}
+                              className="glass animate-fade-in"
+                              style={{
+                                flex: 1,
+                                padding: '16px',
+                                borderRadius: 16,
+                                textAlign: 'center',
+                                borderColor: isDateSelected ? 'var(--accent-lime)' : 'var(--border-glass)',
+                                background: isDateSelected ? 'rgba(223, 255, 0, 0.08)' : 'var(--bg-glass)',
+                                boxShadow: isDateSelected ? 'var(--shadow-glow-lime)' : 'none',
+                                transition: 'all 0.3s'
+                              }}
+                            >
+                              <div style={{ fontWeight: 800, fontSize: 14, color: isDateSelected ? 'var(--accent-lime)' : 'var(--text-primary)' }}>{opt.label}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{opt.dateStr}</div>
+                            </button>
+                          )
+                        })
+                      })()}
+                    </div>
                   </div>
-                </div>
+
+                  {/* Time slot picker — appears after date is chosen */}
+                  {selectedTrialDate && selectedSociety && (
+                    <div className="animate-slide-up flex flex-col gap-12" style={{ marginTop: 4 }}>
+                      <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700 }}>SELECT TIME SLOT</label>
+                      <div className="flex flex-col gap-10">
+                        {selectedSociety.slots.map(s => {
+                          const isFull = s.currentCount >= s.maxVehicles
+                          const isSelected = selectedSlot?.slotId === s.slotId
+                          return (
+                            <button key={s.slotId} className="glass" onClick={() => setSelectedSlot(s)}
+                              style={{
+                                padding: '16px 20px', display: 'flex', flexDirection: 'column', textAlign: 'left',
+                                borderColor: isSelected ? 'var(--accent-lime)' : 'var(--border-glass)',
+                                borderRadius: 16,
+                                background: isSelected ? 'rgba(223, 255, 0, 0.05)' : 'var(--bg-glass)'
+                              }}>
+                              <div className="flex justify-between w-full items-center">
+                                <div className="flex items-center gap-10">
+                                  <Clock size={16} style={{ color: isSelected ? 'var(--accent-lime)' : 'var(--text-tertiary)' }} />
+                                  <span style={{ fontWeight: 700, fontSize: 14 }}>{s.timeWindow}</span>
+                                </div>
+                                {isFull ? (
+                                  <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--error)', background: 'rgba(255,69,58,0.1)', padding: '4px 10px', borderRadius: 8 }}>PRIORITY ONLY</span>
+                                ) : (
+                                  <span style={{ fontSize: 10, color: 'var(--success)', fontWeight: 800 }}>AVAILABLE</span>
+                                )}
+                              </div>
+                              {isFull && (
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, paddingLeft: 26, lineHeight: 1.4 }}>
+                                  Slot is full — a <b>₹99 Priority Pass</b> will be added.
+                                </div>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
             {selectedPkg?.isTrial && selectedSlot && (selectedSlot.currentCount >= selectedSlot.maxVehicles) && (
               <div className="glass animate-slide-up" style={{ padding: '16px 20px', borderRadius: 16, border: '1px solid rgba(255,50,50,0.2)', background: 'rgba(255,50,50,0.05)', color: '#ff5555', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Info size={16} />
-                <span style={{ fontWeight: 500 }}>Trial plan is only available in active/available slots. Please go back and choose an available slot.</span>
+                <span style={{ fontWeight: 500 }}>This slot is full — a ₹99 Priority Pass will be added to your trial booking.</span>
               </div>
             )}
 
             <div className="flex gap-12 mt-4">
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 16 }} onClick={() => setStep(1)}>Back</button>
-              <button 
-                disabled={!selectedPkg || (selectedPkg.isTrial && selectedSlot && selectedSlot.currentCount >= selectedSlot.maxVehicles)} 
-                className="btn btn-primary" 
-                style={{ flex: 2, borderRadius: 18, fontWeight: 800 }} 
+              <button
+                disabled={!selectedPkg || (selectedPkg?.isTrial && (!selectedTrialDate || !selectedSlot)) || (selectedPkg?.isTrial && selectedSlot?.currentCount >= selectedSlot?.maxVehicles)}
+                className="btn btn-primary"
+                style={{ flex: 2, borderRadius: 18, fontWeight: 800 }}
                 onClick={() => setStep(3)}
               >
                 Final Confirmation
