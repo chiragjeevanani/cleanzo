@@ -416,4 +416,14 @@ export const getLeaveRequestHistory = asyncHandler(async (req, res) => {
   res.json({ success: true, history });
 });
 
+export const getActiveLeave = asyncHandler(async (req, res) => {
+  const today = getISTMidnight();
+  const leave = await LeaveRequest.findOne({
+    cleaner: req.user._id,
+    date: { $gte: today },
+    status: { $in: ['pending', 'approved'] }
+  }).sort('date');
+  res.json({ success: true, leave });
+});
+
 

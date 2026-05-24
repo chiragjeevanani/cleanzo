@@ -40,6 +40,12 @@ export const logActivity = async ({ type, message, performer, metadata }) => {
   }
 };
 
+export const getProfile = asyncHandler(async (req, res) => {
+  const admin = await Admin.findById(req.user._id).select('-password -fcmTokens -__v');
+  if (!admin) throw new ApiError(404, 'Admin not found');
+  res.json({ success: true, admin });
+});
+
 export const uploadImage = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Please upload an image');
   const url = await uploadBufferToCloudinary(req.file.buffer);

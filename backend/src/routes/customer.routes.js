@@ -36,6 +36,7 @@ router.post('/addresses', ctrl.addAddress);
 router.put('/addresses/:id', ctrl.updateAddress);
 router.delete('/addresses/:id', ctrl.deleteAddress);
 
+router.get('/grievances', ctrl.getGrievances);
 router.post('/grievances', upload.single('attachment'), validateImageBytes, ctrl.addGrievance);
 
 router.get('/societies', cacheMiddleware(3600), ctrl.getSocieties);

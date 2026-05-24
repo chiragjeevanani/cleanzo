@@ -747,6 +747,11 @@ export const deleteAddress = asyncHandler(async (req, res) => {
   res.json({ success: true, addresses: customer.addresses });
 });
 
+export const getGrievances = asyncHandler(async (req, res) => {
+  const grievances = await Grievance.find({ customer: req.user._id }).sort('-createdAt').lean();
+  res.json({ success: true, grievances });
+});
+
 export const addGrievance = asyncHandler(async (req, res) => {
   const { name, email, phone, subject, issue } = req.body;
   if (!name || !email || !phone || !subject || !issue) {

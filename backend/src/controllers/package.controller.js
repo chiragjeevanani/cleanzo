@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Package from '../models/Package.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
@@ -9,6 +10,9 @@ export const getPackages = asyncHandler(async (req, res) => {
 
 // Public: get package by id
 export const getPackageById = asyncHandler(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ success: false, message: 'Invalid package ID' });
+  }
   const pkg = await Package.findById(req.params.id);
   if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
   res.json({ success: true, package: pkg });

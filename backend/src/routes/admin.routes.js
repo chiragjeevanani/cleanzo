@@ -7,6 +7,7 @@ const router = Router();
 
 router.use(protect, authorize('admin', 'superadmin'));
 
+router.get('/profile', ctrl.getProfile);
 router.post('/upload', upload.single('image'), ctrl.uploadImage);
 
 router.get('/dashboard', ctrl.getDashboard);
