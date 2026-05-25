@@ -192,7 +192,7 @@ export default function AdminSubscriptions() {
                               onChange={(e) => handleAssignCleaner(s._id, e.target.value)}
                               value={s.assignedCleaner._id}
                             >
-                              {cleaners.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                              {cleaners.map(c => <option key={c._id} value={c._id} style={{ background: '#1c1c1e', color: '#fff' }}>{c.name}</option>)}
                             </select>
                           )}
                         </div>
@@ -203,8 +203,8 @@ export default function AdminSubscriptions() {
                           defaultValue=""
                           disabled={isExpired || remaining <= 0}
                         >
-                          <option value="" disabled>{isExpired || remaining <= 0 ? 'No Usage Left' : 'Assign Cleaner'}</option>
-                          {!isExpired && remaining > 0 && cleaners.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                          <option value="" disabled style={{ background: '#1c1c1e', color: '#888' }}>{isExpired || remaining <= 0 ? 'No Usage Left' : 'Assign Cleaner'}</option>
+                          {!isExpired && remaining > 0 && cleaners.map(c => <option key={c._id} value={c._id} style={{ background: '#1c1c1e', color: '#fff' }}>{c.name}</option>)}
                         </select>
                       )}
                     </div>

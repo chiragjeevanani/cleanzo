@@ -332,6 +332,10 @@ export default function AdminAttendance() {
                       <p className="text-tertiary" style={{ fontSize: 12, marginTop: 2 }}>{cleaner.phone}</p>
                     </div>
                     <span style={{ 
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1,
                       fontSize: 10, 
                       fontWeight: 900, 
                       padding: '4px 10px', 

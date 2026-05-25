@@ -332,7 +332,7 @@ export default function AdminMarketplace() {
 
             <form onSubmit={handleSubmitProduct} className="flex flex-col gap-36">
               {/* Core Details */}
-              <div className="space-y-32">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                 <div className="flex flex-col gap-12">
                   <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>PRODUCT IDENTITY</label>
                   <input required className="input-field" 

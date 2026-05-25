@@ -839,10 +839,22 @@ export default function AdminSocieties() {
 
       {/* Context Menu All Societies */}
       {openMenu && (
-        <div ref={menuRef} className="glass animate-fade-in" style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 1000, minWidth: 160, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-lg)' }}>
-          <button onClick={() => handleEdit(societies.find(s => s._id === openMenu))} className="menu-item"><Edit2 size={14} /> Edit Society</button>
+        <div ref={menuRef} className="glass-solid animate-fade-in" style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 1000, minWidth: 160, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-lg)' }}>
+          <button 
+            onClick={() => handleEdit(societies.find(s => s._id === openMenu))} 
+            className="flex items-center gap-8" 
+            style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: 14, color: 'var(--text-primary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+          >
+            <Edit2 size={14} /> Edit Society
+          </button>
           <div className="divider" />
-          <button onClick={() => { setConfirmDelete(societies.find(s => s._id === openMenu)); setOpenMenu(null) }} className="menu-item text-error"><Trash2 size={14} /> Delete</button>
+          <button 
+            onClick={() => { setConfirmDelete(societies.find(s => s._id === openMenu)); setOpenMenu(null) }} 
+            className="flex items-center gap-8" 
+            style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: 14, color: 'var(--error)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+          >
+            <Trash2 size={14} /> Delete
+          </button>
         </div>
       )}
 

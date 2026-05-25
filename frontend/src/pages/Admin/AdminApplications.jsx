@@ -185,7 +185,7 @@ export default function AdminApplications() {
       </div>
 
       {showModal && selectedApp && (
-        <div className="modal-overlay" style={{ display: 'flex' }} onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" style={{ display: 'flex', overflowY: 'auto', padding: '40px 20px', alignItems: 'flex-start' }} onClick={() => setShowModal(false)}>
           <div className="modal-content glass-solid" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, padding: 40, position: 'relative' }}>
             <button 
               className="btn-icon btn-glass" 
@@ -211,10 +211,10 @@ export default function AdminApplications() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 40, marginBottom: 40 }}>
-              <div className="space-y-32">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                 <section>
                   <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginBottom: 16 }}>CONTACT & PERSONAL</h4>
-                  <div className="space-y-12">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div className="flex justify-between items-center"><span className="text-secondary text-sm">Phone Number</span> <span className="font-bold">{selectedApp.phone}</span></div>
                     <div className="flex justify-between items-center"><span className="text-secondary text-sm">Email Address</span> <span className="font-bold">{selectedApp.email || 'Not provided'}</span></div>
                     <div className="flex justify-between items-center">
@@ -231,7 +231,7 @@ export default function AdminApplications() {
 
                 <section>
                   <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginBottom: 16 }}>ADDRESS DETAILS</h4>
-                  <div className="glass p-16 rounded-2xl border-divider" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                  <div className="glass" style={{ padding: 16, borderRadius: 16, background: 'rgba(255,255,255,0.02)' }}>
                     <p className="text-sm font-semibold">{selectedApp.currentAddress || 'Current address not specified'}</p>
                     <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                       <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>PERMANENT ADDRESS</span>
@@ -243,14 +243,14 @@ export default function AdminApplications() {
                 <section>
                   <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginBottom: 16 }}>LOCAL REFERENCE</h4>
                   <div className="flex gap-16">
-                    <div className="flex-1 glass p-12 rounded-xl text-sm" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                      <span className="text-tertiary block text-xs mb-4">NAME</span>
+                    <div className="flex-1 glass" style={{ padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.02)' }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-tertiary)', marginBottom: 4 }}>NAME</div>
                       <strong style={{ color: selectedApp.localReference?.name ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
                         {selectedApp.localReference?.name || 'N/A'}
                       </strong>
                     </div>
-                    <div className="flex-1 glass p-12 rounded-xl text-sm" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                      <span className="text-tertiary block text-xs mb-4">PHONE</span>
+                    <div className="flex-1 glass" style={{ padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.02)' }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-tertiary)', marginBottom: 4 }}>PHONE</div>
                       <strong style={{ color: selectedApp.localReference?.phone ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
                         {selectedApp.localReference?.phone || 'N/A'}
                       </strong>
@@ -261,7 +261,7 @@ export default function AdminApplications() {
 
               <div>
                 <h4 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginBottom: 16 }}>KYC VERIFICATION</h4>
-                <div className="space-y-16">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <div className="doc-preview-card">
                     <div className="flex justify-between items-center mb-8">
                       <span className="text-xs font-bold text-tertiary">AADHAAR CARD</span>

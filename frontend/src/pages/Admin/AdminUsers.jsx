@@ -273,7 +273,7 @@ export default function AdminUsers() {
                     <MoreVertical size={16} />
                   </button>
                   {openMenu === u._id && (
-                    <div className="glass animate-fade-in" style={{
+                    <div className="glass-solid animate-fade-in" style={{
                       position: 'absolute', right: 8, top: '100%', zIndex: 100,
                       minWidth: 180, borderRadius: 14, overflow: 'hidden',
                       border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-lg)'

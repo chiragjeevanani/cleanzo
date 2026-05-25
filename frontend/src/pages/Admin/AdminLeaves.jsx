@@ -161,7 +161,7 @@ export default function AdminLeaves() {
           {[0, 1, 2].map(i => <div key={i} className="glass skeleton" style={{ height: 180, borderRadius: 20 }} />)}
         </div>
       ) : filteredRequests.length === 0 ? (
-        <div className="glass flex flex-col items-center justify-center p-40" style={{ borderRadius: 20, textAlign: 'center', border: '1px solid var(--border-glass)' }}>
+        <div className="glass flex flex-col items-center justify-center" style={{ padding: 40, borderRadius: 20, textAlign: 'center', border: '1px solid var(--border-glass)' }}>
           <FileClock size={40} style={{ color: 'var(--text-tertiary)', marginBottom: 16 }} />
           <h4 style={{ fontWeight: 700, fontSize: 16 }}>No Leave Requests</h4>
           <p className="text-secondary" style={{ fontSize: 13, marginTop: 4 }}>
@@ -218,6 +218,10 @@ export default function AdminLeaves() {
                     </div>
 
                     <span style={{ 
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1,
                       fontSize: 9, 
                       fontWeight: 900, 
                       padding: '4px 10px', 
@@ -284,15 +288,15 @@ export default function AdminLeaves() {
                   <div className="flex" style={{ marginTop: 12, gap: 16 }}>
                     <button 
                       onClick={() => handleOpenReject(req)}
-                      className="btn btn-glass flex-1 flex items-center justify-center gap-6"
-                      style={{ padding: '10px 0', borderRadius: 12, fontSize: 12, fontWeight: 700, color: 'var(--error)' }}
+                      className="btn btn-glass flex-1 flex items-center justify-center gap-8"
+                      style={{ padding: '10px 16px', borderRadius: 12, fontSize: 12, fontWeight: 700, color: 'var(--error)', lineHeight: 1 }}
                     >
                       <X size={14} /> Reject
                     </button>
                     <button 
                       onClick={() => handleApprove(req)}
-                      className="btn btn-primary flex-1 flex items-center justify-center gap-6"
-                      style={{ padding: '10px 0', borderRadius: 12, fontSize: 12, fontWeight: 800 }}
+                      className="btn btn-primary flex-1 flex items-center justify-center gap-8"
+                      style={{ padding: '10px 16px', borderRadius: 12, fontSize: 12, fontWeight: 800, lineHeight: 1 }}
                     >
                       <Check size={14} /> Approve
                     </button>
