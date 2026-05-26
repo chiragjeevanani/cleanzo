@@ -11,6 +11,7 @@ export const createSocietySchema = Joi.object({
     timeWindow: Joi.string().required(),
     maxVehicles: Joi.number().default(20),
     currentCount: Joi.number().default(0),
+    status: Joi.string().valid('Open', 'Closed', 'Blocked').default('Open'),
   })),
   isActive: Joi.boolean().default(true),
 });
@@ -26,6 +27,7 @@ export const updateSocietySchema = Joi.object({
     timeWindow: Joi.string().required(),
     maxVehicles: Joi.number(),
     currentCount: Joi.number(),
+    status: Joi.string().valid('Open', 'Closed', 'Blocked').default('Open'),
   })),
   isActive: Joi.boolean(),
 });

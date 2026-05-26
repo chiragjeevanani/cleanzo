@@ -21,6 +21,8 @@ const subscriptionSchema = new Schema({
   paymentId:       { type: String },
   amount:          { type: Number, required: true },
   priorityFee:     { type: Number, default: 0 },
+  isPremiumOverride: { type: Boolean, default: false },
+  overrideReason:    { type: String },
   specialInstructions: { type: String, maxlength: 200 },
 }, { timestamps: true });
 

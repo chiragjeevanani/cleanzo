@@ -83,6 +83,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const completeCustomerSignup = async (payload) => {
+    try {
+      const res = await apiClient.post('/auth/complete-signup', payload);
+      localStorage.setItem('token', res.token);
+      localStorage.setItem('refreshToken', res.refreshToken);
+      localStorage.setItem('userRole', res.user.role);
+      setUser(res.user);
+      return { success: true };
+    } catch (error) {
+      const message = error.message || 'Signup completion failed';
+      return { success: false, message };
+    }
+  };
+
   const loginWithPassword = async (phone, password, role) => {
     try {
       const res = await apiClient.post('/auth/login-password', { phone, password, role });
@@ -132,7 +146,7 @@ export const AuthProvider = ({ children }) => {
   const updateUser = (updates) => setUser(prev => ({ ...prev, ...updates }));
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithPassword, adminLogin, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, completeCustomerSignup, loginWithPassword, adminLogin, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -57,6 +57,42 @@ const seedSettingsOnStartup = async () => {
   }
 };
 
+const seedCitiesOnStartup = async () => {
+  try {
+    const City = (await import('./src/models/City.js')).default;
+    const Society = (await import('./src/models/Society.js')).default;
+    
+    const count = await City.countDocuments();
+    if (count === 0) {
+      const initialCities = [
+        { name: 'Pune', state: 'Maharashtra', isActive: true },
+        { name: 'Mumbai', state: 'Maharashtra', isActive: true },
+        { name: 'Bengaluru', state: 'Karnataka', isActive: true },
+        { name: 'Delhi', state: 'Delhi', isActive: true },
+        { name: 'Noida', state: 'Uttar Pradesh', isActive: true },
+        { name: 'Gurgaon', state: 'Haryana', isActive: true }
+      ];
+      
+      // Also pull any cities from existing societies
+      const existingSocietyCities = await Society.distinct('city');
+      for (const cityName of existingSocietyCities) {
+        if (cityName && !initialCities.some(c => c.name.toLowerCase() === cityName.toLowerCase())) {
+          initialCities.push({
+            name: cityName,
+            state: 'Operational State',
+            isActive: true
+          });
+        }
+      }
+      
+      await City.insertMany(initialCities);
+      console.log(`✅ Auto-seeded ${initialCities.length} operational cities`);
+    }
+  } catch (err) {
+    console.error('❌ Cities seed failed:', err.message);
+  }
+};
+
 const PORT = process.env.PORT || 3001;
 
 const start = async () => {
@@ -68,6 +104,7 @@ const start = async () => {
     await connectDB();
     await seedAdminOnStartup();
     await seedSettingsOnStartup();
+    await seedCitiesOnStartup();
     startCronJobs();
   } catch (err) {
     console.error('❌ Async startup error:', err.message);

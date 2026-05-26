@@ -28,6 +28,7 @@ import PartnerSociety from '../models/PartnerSociety.js';
 import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.service.js';
 import Attendance from '../models/Attendance.js';
 import LeaveRequest from '../models/LeaveRequest.js';
+import Settings from '../models/Settings.js';
 
 
 
@@ -744,8 +745,24 @@ export const getSocieties = asyncHandler(async (req, res) => {
 
 export const createSociety = asyncHandler(async (req, res) => {
   const { default: Society } = await import('../models/Society.js');
-  const { name, city, area, pincode, address, slots, cleaners, isActive } = req.body;
-  const society = await Society.create({ name, city, area, pincode, address, slots, cleaners, isActive });
+  const { name, state, city, area, pincode, address, slots, cleaners, isActive } = req.body;
+  
+  if (!name || !state || !city || !area || !pincode || !address) {
+    throw new ApiError(400, 'Name, State, City, Area, Pincode and Address are required');
+  }
+
+  // Duplicate Check (case-insensitive check for society name in the same State and City)
+  const existing = await Society.findOne({
+    name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+    state: { $regex: new RegExp(`^${state.trim()}$`, 'i') },
+    city: { $regex: new RegExp(`^${city.trim()}$`, 'i') }
+  });
+
+  if (existing) {
+    throw new ApiError(400, `Society "${name}" already exists in ${city}, ${state}`);
+  }
+
+  const society = await Society.create({ name, state, city, area, pincode, address, slots, cleaners, isActive });
   
   await logActivity({
     type: 'system',
@@ -760,9 +777,29 @@ export const createSociety = asyncHandler(async (req, res) => {
 
 export const updateSociety = asyncHandler(async (req, res) => {
   const { default: Society } = await import('../models/Society.js');
-  const { name, city, area, pincode, address, slots, cleaners, isActive } = req.body;
-  const society = await Society.findByIdAndUpdate(req.params.id, { name, city, area, pincode, address, slots, cleaners, isActive }, { new: true });
-  if (!society) throw new ApiError(404, 'Society not found');
+  const { name, state, city, area, pincode, address, slots, cleaners, isActive } = req.body;
+
+  const current = await Society.findById(req.params.id);
+  if (!current) throw new ApiError(404, 'Society not found');
+
+  if (name || state || city) {
+    const checkName = name ? name.trim() : current.name;
+    const checkState = state ? state.trim() : (current.state || 'Maharashtra');
+    const checkCity = city ? city.trim() : current.city;
+
+    const existing = await Society.findOne({
+      _id: { $ne: req.params.id },
+      name: { $regex: new RegExp(`^${checkName}$`, 'i') },
+      state: { $regex: new RegExp(`^${checkState}$`, 'i') },
+      city: { $regex: new RegExp(`^${checkCity}$`, 'i') }
+    });
+
+    if (existing) {
+      throw new ApiError(400, `Society "${checkName}" already exists in ${checkCity}, ${checkState}`);
+    }
+  }
+
+  const society = await Society.findByIdAndUpdate(req.params.id, { name, state, city, area, pincode, address, slots, cleaners, isActive }, { new: true });
 
   await logActivity({
     type: 'system',
@@ -1730,4 +1767,115 @@ export const updateCleanerAttendance = asyncHandler(async (req, res) => {
   res.json({ success: true, record: updatedRecord, message: 'Attendance updated successfully' });
 });
 
+
+// ─── TRUSTED SOCIETIES (CMS) ─────────────────────
+export const getTrustedSocieties = asyncHandler(async (req, res) => {
+  const setting = await Settings.findOne({ key: 'trustedSocieties' });
+  const defaultData = { heading: 'TRUSTED BY RESIDENTS OF', items: [] };
+  res.json({ success: true, data: setting ? setting.value : defaultData });
+});
+
+export const updateTrustedSocieties = asyncHandler(async (req, res) => {
+  const { heading, items } = req.body;
+  if (!heading || !Array.isArray(items)) {
+    throw new ApiError(400, 'heading (string) and items (array) are required');
+  }
+  const data = { heading, items };
+  await Settings.findOneAndUpdate(
+    { key: 'trustedSocieties' },
+    { key: 'trustedSocieties', value: data, description: 'Trusted societies shown on landing page hero' },
+    { upsert: true, new: true }
+  );
+  await clearCache('cache:global:*');
+  res.json({ success: true, data });
+});
+
+// ─── CITY MANAGEMENT ─────────────────────────────
+export const getCities = asyncHandler(async (req, res) => {
+  const { default: City } = await import('../models/City.js');
+  const cities = await City.find().sort('name');
+  res.json({ success: true, cities });
+});
+
+export const createCity = asyncHandler(async (req, res) => {
+  const { default: City } = await import('../models/City.js');
+  const { name, state, isActive, launchDate } = req.body;
+  if (!name || !state) {
+    throw new ApiError(400, 'City name and State are required');
+  }
+  
+  // check for existing city
+  const existing = await City.findOne({ name: { $regex: new RegExp(`^${name.trim()}$`, 'i') } });
+  if (existing) {
+    throw new ApiError(400, `City "${name}" already exists`);
+  }
+
+  const city = await City.create({ 
+    name: name.trim(), 
+    state: state.trim(), 
+    isActive: isActive !== false, 
+    launchDate: launchDate ? new Date(launchDate) : undefined 
+  });
+  
+  await logActivity({
+    type: 'system',
+    message: `Admin created city: ${name}`,
+    performer: req.user._id,
+    metadata: { cityId: city._id }
+  });
+
+  await clearCache('cache:global:*');
+  res.status(201).json({ success: true, city });
+});
+
+export const updateCity = asyncHandler(async (req, res) => {
+  const { default: City } = await import('../models/City.js');
+  const { name, state, isActive, launchDate } = req.body;
+  
+  const city = await City.findById(req.params.id);
+  if (!city) throw new ApiError(404, 'City not found');
+
+  if (name) {
+    // Check if name is taken by another city
+    const existing = await City.findOne({ 
+      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+      _id: { $ne: req.params.id }
+    });
+    if (existing) {
+      throw new ApiError(400, `City "${name}" already exists`);
+    }
+    city.name = name.trim();
+  }
+  if (state) city.state = state.trim();
+  if (isActive !== undefined) city.isActive = isActive;
+  city.launchDate = launchDate ? new Date(launchDate) : undefined;
+
+  await city.save();
+
+  await logActivity({
+    type: 'system',
+    message: `Admin updated city: ${city.name}`,
+    performer: req.user._id,
+    metadata: { cityId: city._id }
+  });
+
+  await clearCache('cache:global:*');
+  res.json({ success: true, city });
+});
+
+export const deleteCity = asyncHandler(async (req, res) => {
+  const { default: City } = await import('../models/City.js');
+  const city = await City.findByIdAndDelete(req.params.id);
+  if (!city) throw new ApiError(404, 'City not found');
+
+  await logActivity({
+    type: 'system',
+    message: `Admin deleted city: ${city.name}`,
+    performer: req.user._id,
+    metadata: { cityId: city._id }
+  });
+
+  await clearCache('cache:global:*');
+  res.json({ success: true, message: 'City deleted successfully' });
+});
 

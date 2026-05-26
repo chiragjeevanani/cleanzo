@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Instagram, Facebook, Linkedin } from 'lucide-react'
 import './Footer.css'
+import { getAppLogo } from '../../utils/helpers'
 
 export default function Footer() {
   return (
@@ -9,8 +10,8 @@ export default function Footer() {
         <div className="footer-grid">
           <div className="footer-brand">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img src="/logo.png" alt="Cleanzo Logo" style={{ height: 46, width: 'auto' }} />
-              <h2 className="footer-logo-text" style={{ margin: 0 }}>CLEANZO</h2>
+              <img src={getAppLogo()} alt="Cleanzo Logo" style={{ height: 46, width: 'auto' }} />
+              <h2 className="footer-logo-text" style={{ margin: 0 }}>Cleanzo</h2>
             </div>
             <p className="text-body-sm text-secondary" style={{ maxWidth: 320, marginTop: 16 }}>
               The global benchmark in technical automotive interior restoration and high-performance protection systems.
@@ -30,10 +31,9 @@ export default function Footer() {
 
           <div className="footer-links-group">
             <h4 className="text-label" style={{ marginBottom: 24, color: 'var(--primary-blue)' }}>QUICK LINKS</h4>
-            <Link to="/" className="footer-link">RESERVE PILOT</Link>
-            <Link to="/" className="footer-link">TERMS OF SERVICE</Link>
-            <Link to="/" className="footer-link">WARRANTY</Link>
-            <Link to="/" className="footer-link">NETWORK STATUS</Link>
+            <Link to="/terms" className="footer-link">TERMS OF SERVICE</Link>
+            <Link to="/warranty" className="footer-link">WARRANTY</Link>
+            <Link to="/network-status" className="footer-link">NETWORK STATUS</Link>
           </div>
 
           <div className="footer-links-group">
@@ -44,10 +44,10 @@ export default function Footer() {
         </div>
 
         <div className="footer-bottom-premium">
-           <span className="text-body-sm text-tertiary">© {new Date().getFullYear()} CLEANZO ARTIFACT DEVICES INC. ENGINEERED FOR THE ELITE.</span>
+           <span className="text-body-sm text-tertiary">© {new Date().getFullYear()} Cleanzo Artifact Devices Inc. Engineered for the elite.</span>
         </div>
       </div>
-      <div className="footer-bg-text">CLEANZO</div>
+      <div className="footer-bg-text">Cleanzo</div>
     </footer>
   )
 }

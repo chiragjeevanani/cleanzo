@@ -24,3 +24,20 @@ export function formatINR(amount) {
     maximumFractionDigits: 0
   }).format(amount);
 }
+
+/**
+ * Retrieve the current application logo URL from configuration settings
+ */
+export function getAppLogo() {
+  try {
+    const config = localStorage.getItem('cleanzo_logo_config');
+    if (config) {
+      const parsed = JSON.parse(config);
+      if (parsed.currentUrl) return parsed.currentUrl;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return '/logo.png';
+}
+

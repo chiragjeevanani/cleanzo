@@ -7,6 +7,7 @@ import Admin from '../models/Admin.js';
 import PartnerSociety from '../models/PartnerSociety.js';
 import Settings from '../models/Settings.js';
 import RefreshToken from '../models/RefreshToken.js';
+import Society from '../models/Society.js';
 import { sendOtp, verifyOtp } from '../services/otp.service.js';
 import { normalizePhone } from '../utils/helpers.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -481,5 +482,134 @@ export const handleSocietyLogin = asyncHandler(async (req, res) => {
       society: society.society,
     },
   });
+});
+
+// ─── VERIFY OTP ONLY FOR SIGNUP ────────────────────
+/**
+ * POST /api/auth/verify-otp-signup
+ * Body: { phone, code, role }
+ */
+export const handleVerifyOtpSignup = asyncHandler(async (req, res) => {
+  const { phone, code, role } = req.body;
+
+  if (role !== 'customer') {
+    throw new ApiError(400, 'Signup flow is only available for customer role.');
+  }
+
+  const result = await verifyOtp(phone, code, 'customer');
+  if (!result.success) {
+    throw new ApiError(400, result.message);
+  }
+
+  const normalized = normalizePhone(phone);
+
+  // Generate a secure, short-lived signup token valid for 15 minutes
+  const signupToken = jwt.sign(
+    { phone: normalized, signup: true },
+    process.env.JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+
+  res.json({
+    success: true,
+    message: 'OTP verified successfully.',
+    signupToken,
+  });
+});
+
+// ─── COMPLETE SIGNUP ───────────────────────────────
+/**
+ * POST /api/auth/complete-signup
+ * Body: { signupToken, firstName, lastName, email, city, society?, societyName?, area?, referralCode? }
+ */
+export const handleCompleteSignup = asyncHandler(async (req, res) => {
+  const { signupToken, firstName, lastName, email, city, society, societyName, area, referralCode } = req.body;
+
+  let decoded;
+  try {
+    decoded = jwt.verify(signupToken, process.env.JWT_SECRET);
+  } catch (err) {
+    throw new ApiError(401, 'Signup token has expired or is invalid. Please verify OTP again.');
+  }
+
+  if (!decoded || !decoded.signup || !decoded.phone) {
+    throw new ApiError(401, 'Invalid signup token.');
+  }
+
+  const phone = normalizePhone(decoded.phone);
+
+  // Check if customer already exists
+  let existingUser = await Customer.findOne({ phone });
+  if (existingUser) {
+    throw new ApiError(400, 'An account already exists with this phone number.');
+  }
+
+  // Check if email already exists
+  let existingEmail = await Customer.findOne({ email: email.toLowerCase() });
+  if (existingEmail) {
+    throw new ApiError(400, 'An account already exists with this email address.');
+  }
+
+  // Generate a random secure password since they use OTP authentication primarily
+  const randomPassword = crypto.randomBytes(16).toString('hex');
+
+  // Handle referral — load discount config from admin-controlled Settings
+  let referredByCustomer = null;
+  if (referralCode) {
+    referredByCustomer = await Customer.findOne({ referralCode: referralCode.toUpperCase() });
+  }
+
+  const [discountSetting, expirySetting] = await Promise.all([
+    Settings.findOne({ key: 'referralDiscountPercent' }),
+    Settings.findOne({ key: 'referralExpiryDays' }),
+  ]);
+  const referralPercent = discountSetting?.value ?? 25;
+  const referralExpiryDays = expirySetting?.value ?? 7;
+
+  // Attempt to build addresses array if society ID is provided
+  const addresses = [];
+  if (society) {
+    const soc = await Society.findById(society);
+    if (soc) {
+      addresses.push({
+        label: 'Home',
+        societyName: soc.name,
+        city: soc.city,
+        state: soc.state || '',
+        pincode: soc.pincode || '',
+        society: soc._id,
+        isDefault: true,
+      });
+    }
+  }
+
+  // Create customer
+  const user = await Customer.create({
+    firstName,
+    lastName,
+    phone,
+    email,
+    password: randomPassword,
+    city,
+    addresses,
+    referredBy: referredByCustomer?._id || null,
+    referralDiscount: referredByCustomer ? {
+      isActive: true,
+      percentage: referralPercent,
+      expiresAt: new Date(Date.now() + referralExpiryDays * 24 * 60 * 60 * 1000),
+    } : { isActive: false, percentage: 0 },
+  });
+
+  await logActivity({
+    type: 'user_created',
+    message: `New customer signed up: ${firstName} ${lastName}`,
+    metadata: { userId: user._id }
+  });
+
+  user.lastLogin = new Date();
+  await user.save({ validateModifiedOnly: true });
+
+  // Log user in and return tokens
+  await sendTokenResponse(user, 'customer', res);
 });
 

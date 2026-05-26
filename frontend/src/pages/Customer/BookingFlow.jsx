@@ -93,6 +93,8 @@ export default function BookingFlow() {
   const [selectedPkg, setSelectedPkg] = useState(null)
   const [selectedTrialDate, setSelectedTrialDate] = useState(null)
   const [specialInstructions, setSpecialInstructions] = useState('')
+  const [isPremiumOverride, setIsPremiumOverride] = useState(false)
+  const [overrideReason, setOverrideReason] = useState('')
 
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -154,8 +156,16 @@ export default function BookingFlow() {
 
   // Calculate pricing
   const basePrice = selectedPkg ? (selectedPkg.isTrial ? trialPrice : selectedPkg.price) : 0
-  const isSlotFull = selectedSlot ? (selectedSlot.currentCount >= selectedSlot.maxVehicles) : false
-  const priorityFee = (isSlotFull && !selectedPkg?.isTrial) ? prioritySlotFee : 0
+  
+  // Selected slot state checks
+  const isSelectedSlotUnavailable = selectedSlot
+    ? (selectedSlot.status === 'Closed' || selectedSlot.status === 'Blocked' || selectedSlot.currentCount >= selectedSlot.maxVehicles)
+    : false;
+
+  // Active override mode: if selected slot is unavailable, or explicit override is set
+  const activeOverride = isPremiumOverride || isSelectedSlotUnavailable;
+
+  const priorityFee = (activeOverride && !selectedPkg?.isTrial) ? prioritySlotFee : 0
   let subtotal = basePrice + priorityFee
   
   const hasReferralDiscount = user?.referralDiscount?.isActive && !selectedPkg?.isTrial
@@ -208,7 +218,9 @@ export default function BookingFlow() {
               slotId: selectedSlot.slotId,
               specialInstructions,
               paymentId: response.razorpay_payment_id,
-              startDate: selectedPkg.isTrial ? selectedTrialDate : undefined
+              startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
+              isPremiumOverride: activeOverride,
+              overrideReason: activeOverride ? overrideReason : undefined
             })
 
             refreshAll() // Refresh global data to reflect new subscription
@@ -413,32 +425,88 @@ export default function BookingFlow() {
             {selectedSociety && (
               <div className="flex flex-col gap-12 animate-slide-up">
                 <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)' }}>Select Time Slot</label>
+                
+                {(() => {
+                  const allSlotsUnavailable = selectedSociety?.slots?.every(s => 
+                    s.status === 'Closed' || s.status === 'Blocked' || s.currentCount >= s.maxVehicles
+                  );
+                  return allSlotsUnavailable ? (
+                    <div className="glass animate-slide-up" style={{ 
+                      padding: '18px 24px', 
+                      borderRadius: 20, 
+                      border: '1.5px solid rgba(255, 149, 0, 0.3)', 
+                      background: 'rgba(255, 149, 0, 0.04)', 
+                      color: '#FF9500',
+                      marginBottom: 8,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10
+                    }}>
+                      <div className="flex items-center gap-10">
+                        <span style={{ fontSize: 20 }}>✨</span>
+                        <div style={{ fontWeight: 800, fontSize: 14 }}>Premium Priority Booking Active</div>
+                      </div>
+                      <p style={{ fontSize: 12, opacity: 0.85, lineHeight: 1.4 }}>
+                        Standard slots for your society are currently fully booked, closed, or blocked. You can still schedule your service using our Premium Priority Override by paying a convenience surcharge of <b>₹{prioritySlotFee}</b>.
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
+
                 <div className="flex flex-col gap-12">
                   {selectedSociety.slots.map(s => {
                     const isFull = s.currentCount >= s.maxVehicles;
+                    const isClosed = s.status === 'Closed';
+                    const isBlocked = s.status === 'Blocked';
+                    const isUnavailable = isFull || isClosed || isBlocked;
                     const isSelected = selectedSlot?.slotId === s.slotId;
+                    
+                    let badgeText = "AVAILABLE";
+                    let badgeColor = "var(--success)";
+                    let badgeBg = "rgba(50,215,75,0.1)";
+                    if (isClosed) {
+                      badgeText = "CLOSED";
+                      badgeColor = "var(--error)";
+                      badgeBg = "rgba(255,69,58,0.1)";
+                    } else if (isBlocked) {
+                      badgeText = "BLOCKED";
+                      badgeColor = "var(--text-tertiary)";
+                      badgeBg = "var(--border-glass)";
+                    } else if (isFull) {
+                      badgeText = "FULL (PRIORITY)";
+                      badgeColor = "#FF9500";
+                      badgeBg = "rgba(255, 149, 0, 0.1)";
+                    }
+
                     return (
-                      <button key={s.slotId} className="glass" onClick={() => setSelectedSlot(s)}
+                      <button key={s.slotId} className="glass" 
+                        onClick={() => {
+                          setSelectedSlot(s);
+                          if (isUnavailable) {
+                            setIsPremiumOverride(true);
+                          } else {
+                            setIsPremiumOverride(false);
+                          }
+                        }}
                         style={{ 
                           padding: '20px 24px', display: 'flex', flexDirection: 'column', textAlign: 'left', 
-                          borderColor: isSelected ? 'var(--accent-lime)' : 'var(--border-glass)',
+                          borderColor: isSelected ? (isUnavailable ? '#FF9500' : 'var(--accent-lime)') : 'var(--border-glass)',
                           borderRadius: 20,
-                          background: isSelected ? 'rgba(223, 255, 0, 0.05)' : 'var(--bg-glass)'
+                          background: isSelected ? (isUnavailable ? 'rgba(255, 149, 0, 0.04)' : 'rgba(223, 255, 0, 0.05)') : 'var(--bg-glass)',
+                          transition: 'all 0.25s'
                         }}>
                         <div className="flex justify-between w-full items-center">
                           <div className="flex items-center gap-10">
-                            <Clock size={18} style={{ color: isSelected ? 'var(--accent-lime)' : 'var(--text-tertiary)' }} />
+                            <Clock size={18} style={{ color: isSelected ? (isUnavailable ? '#FF9500' : 'var(--accent-lime)') : 'var(--text-tertiary)' }} />
                             <span style={{ fontWeight: 700 }}>{s.timeWindow}</span>
                           </div>
-                          {isFull ? (
-                            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--error)', background: 'rgba(255,69,58,0.1)', padding: '4px 10px', borderRadius: 8 }}>PRIORITY ONLY</span>
-                          ) : (
-                            <span style={{ fontSize: 10, color: 'var(--success)', fontWeight: 800 }}>AVAILABLE</span>
-                          )}
+                          <span style={{ fontSize: 9, fontWeight: 800, color: badgeColor, background: badgeBg, padding: '4px 10px', borderRadius: 8, letterSpacing: '0.05em' }}>
+                            {badgeText}
+                          </span>
                         </div>
-                        {isFull && (
+                        {isUnavailable && (
                           <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 10, paddingLeft: 28, lineHeight: 1.4 }}>
-                            Standard slots are full. A <b>₹99 Priority Pass</b> will be added to your booking.
+                            This slot is reserved for <b>Premium Override Bookings</b>. A surcharge of <b>₹{prioritySlotFee}</b> applies.
                           </div>
                         )}
                       </button>
@@ -448,9 +516,25 @@ export default function BookingFlow() {
               </div>
             )}
 
+            {activeOverride && (
+              <div className="glass animate-slide-up flex flex-col gap-8" style={{ padding: '20px 24px', borderRadius: 20, border: '1.5px solid rgba(255, 149, 0, 0.3)', background: 'rgba(255, 149, 0, 0.01)', marginTop: 8 }}>
+                <label className="text-label" style={{ color: '#FF9500', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}>
+                  <span>✨</span> PRIORITY BOOKING REASON *
+                </label>
+                <textarea 
+                  required 
+                  className="input-field" 
+                  style={{ minHeight: 80, padding: 12, borderColor: overrideReason.trim() ? 'var(--border-glass)' : 'rgba(255, 149, 0, 0.3)' }} 
+                  value={overrideReason} 
+                  onChange={e => setOverrideReason(e.target.value)} 
+                  placeholder="Please specify why you need priority booking (e.g. urgent on-demand cleaning, strict timing, morning office rush)..." 
+                />
+              </div>
+            )}
+
             <div className="flex gap-12 mt-12">
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 16 }} onClick={() => setStep(0)}>Back</button>
-              <button disabled={!selectedSociety || !selectedSlot} className="btn btn-primary" style={{ flex: 2, borderRadius: 18, fontWeight: 800 }} onClick={() => setStep(2)}>Continue to Plans</button>
+              <button disabled={!selectedSociety || !selectedSlot || (activeOverride && !overrideReason.trim())} className="btn btn-primary" style={{ flex: 2, borderRadius: 18, fontWeight: 800 }} onClick={() => setStep(2)}>Continue to Plans</button>
             </div>
           </div>
         )}
@@ -591,32 +675,81 @@ export default function BookingFlow() {
                   {selectedTrialDate && selectedSociety && (
                     <div className="animate-slide-up flex flex-col gap-12" style={{ marginTop: 4 }}>
                       <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700 }}>SELECT TIME SLOT</label>
+                      
+                      {(() => {
+                        const allSlotsUnavailable = selectedSociety?.slots?.every(s => 
+                          s.status === 'Closed' || s.status === 'Blocked' || s.currentCount >= s.maxVehicles
+                        );
+                        return allSlotsUnavailable ? (
+                          <div className="glass animate-slide-up" style={{ 
+                            padding: '14px 18px', 
+                            borderRadius: 16, 
+                            border: '1px solid rgba(255, 149, 0, 0.3)', 
+                            background: 'rgba(255, 149, 0, 0.04)', 
+                            color: '#FF9500',
+                            marginBottom: 8,
+                            fontSize: 12,
+                            lineHeight: 1.4
+                          }}>
+                            Standard trial slots are currently full or restricted. Premium priority override pricing applies.
+                          </div>
+                        ) : null;
+                      })()}
+
                       <div className="flex flex-col gap-10">
                         {selectedSociety.slots.map(s => {
-                          const isFull = s.currentCount >= s.maxVehicles
-                          const isSelected = selectedSlot?.slotId === s.slotId
+                          const isFull = s.currentCount >= s.maxVehicles;
+                          const isClosed = s.status === 'Closed';
+                          const isBlocked = s.status === 'Blocked';
+                          const isUnavailable = isFull || isClosed || isBlocked;
+                          const isSelected = selectedSlot?.slotId === s.slotId;
+                          
+                          let badgeText = "AVAILABLE";
+                          let badgeColor = "var(--success)";
+                          let badgeBg = "rgba(50,215,75,0.1)";
+                          if (isClosed) {
+                            badgeText = "CLOSED";
+                            badgeColor = "var(--error)";
+                            badgeBg = "rgba(255,69,58,0.1)";
+                          } else if (isBlocked) {
+                            badgeText = "BLOCKED";
+                            badgeColor = "var(--text-tertiary)";
+                            badgeBg = "var(--border-glass)";
+                          } else if (isFull) {
+                            badgeText = "FULL (PRIORITY)";
+                            badgeColor = "#FF9500";
+                            badgeBg = "rgba(255, 149, 0, 0.1)";
+                          }
+
                           return (
-                            <button key={s.slotId} className="glass" onClick={() => setSelectedSlot(s)}
+                            <button key={s.slotId} className="glass" 
+                              onClick={() => {
+                                setSelectedSlot(s);
+                                if (isUnavailable) {
+                                  setIsPremiumOverride(true);
+                                } else {
+                                  setIsPremiumOverride(false);
+                                }
+                              }}
                               style={{
                                 padding: '16px 20px', display: 'flex', flexDirection: 'column', textAlign: 'left',
-                                borderColor: isSelected ? 'var(--accent-lime)' : 'var(--border-glass)',
+                                borderColor: isSelected ? (isUnavailable ? '#FF9500' : 'var(--accent-lime)') : 'var(--border-glass)',
                                 borderRadius: 16,
-                                background: isSelected ? 'rgba(223, 255, 0, 0.05)' : 'var(--bg-glass)'
+                                background: isSelected ? (isUnavailable ? 'rgba(255, 149, 0, 0.04)' : 'rgba(223, 255, 0, 0.05)') : 'var(--bg-glass)',
+                                transition: 'all 0.25s'
                               }}>
                               <div className="flex justify-between w-full items-center">
                                 <div className="flex items-center gap-10">
-                                  <Clock size={16} style={{ color: isSelected ? 'var(--accent-lime)' : 'var(--text-tertiary)' }} />
+                                  <Clock size={16} style={{ color: isSelected ? (isUnavailable ? '#FF9500' : 'var(--accent-lime)') : 'var(--text-tertiary)' }} />
                                   <span style={{ fontWeight: 700, fontSize: 14 }}>{s.timeWindow}</span>
                                 </div>
-                                {isFull ? (
-                                  <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--error)', background: 'rgba(255,69,58,0.1)', padding: '4px 10px', borderRadius: 8 }}>PRIORITY ONLY</span>
-                                ) : (
-                                  <span style={{ fontSize: 10, color: 'var(--success)', fontWeight: 800 }}>AVAILABLE</span>
-                                )}
+                                <span style={{ fontSize: 9, fontWeight: 800, color: badgeColor, background: badgeBg, padding: '4px 10px', borderRadius: 8, letterSpacing: '0.05em' }}>
+                                  {badgeText}
+                                </span>
                               </div>
-                              {isFull && (
+                              {isUnavailable && (
                                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, paddingLeft: 26, lineHeight: 1.4 }}>
-                                  Slot is full — a <b>₹99 Priority Pass</b> will be added.
+                                  Override booking applies — a surcharge of <b>₹{prioritySlotFee}</b> will be added.
                                 </div>
                               )}
                             </button>
@@ -629,17 +762,26 @@ export default function BookingFlow() {
               )}
             </div>
 
-            {selectedPkg?.isTrial && selectedSlot && (selectedSlot.currentCount >= selectedSlot.maxVehicles) && (
-              <div className="glass animate-slide-up" style={{ padding: '16px 20px', borderRadius: 16, border: '1px solid rgba(255,50,50,0.2)', background: 'rgba(255,50,50,0.05)', color: '#ff5555', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Info size={16} />
-                <span style={{ fontWeight: 500 }}>This slot is full — a ₹99 Priority Pass will be added to your trial booking.</span>
+            {selectedPkg?.isTrial && activeOverride && (
+              <div className="glass animate-slide-up flex flex-col gap-8" style={{ padding: '16px 20px', borderRadius: 16, border: '1px solid rgba(255, 149, 0, 0.3)', background: 'rgba(255, 149, 0, 0.01)', marginTop: 8 }}>
+                <label className="text-label" style={{ color: '#FF9500', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700 }}>
+                  ✨ TRIAL PRIORITY BOOKING REASON *
+                </label>
+                <textarea 
+                  required 
+                  className="input-field" 
+                  style={{ minHeight: 60, padding: 10, fontSize: 13, borderColor: overrideReason.trim() ? 'var(--border-glass)' : 'rgba(255, 149, 0, 0.3)' }} 
+                  value={overrideReason} 
+                  onChange={e => setOverrideReason(e.target.value)} 
+                  placeholder="Why do you require priority booking for your trial?" 
+                />
               </div>
             )}
 
             <div className="flex gap-12 mt-4">
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 16 }} onClick={() => setStep(1)}>Back</button>
               <button
-                disabled={!selectedPkg || (selectedPkg?.isTrial && (!selectedTrialDate || !selectedSlot)) || (selectedPkg?.isTrial && selectedSlot?.currentCount >= selectedSlot?.maxVehicles)}
+                disabled={!selectedPkg || (selectedPkg?.isTrial && (!selectedTrialDate || !selectedSlot)) || (selectedPkg?.isTrial && activeOverride && !overrideReason.trim())}
                 className="btn btn-primary"
                 style={{ flex: 2, borderRadius: 18, fontWeight: 800 }}
                 onClick={() => setStep(3)}
@@ -705,9 +847,16 @@ export default function BookingFlow() {
                     <span style={{ fontWeight: 700 }}>₹{basePrice}</span>
                   </div>
                   {priorityFee > 0 && (
-                    <div className="flex justify-between text-body-sm" style={{ color: 'var(--error)' }}>
-                      <span>Priority Slot Fee</span>
-                      <span style={{ fontWeight: 700 }}>+₹{priorityFee}</span>
+                    <div className="flex flex-col gap-4">
+                      <div className="flex justify-between text-body-sm" style={{ color: '#FF9500' }}>
+                        <span>Premium Priority Fee</span>
+                        <span style={{ fontWeight: 700 }}>+₹{priorityFee}</span>
+                      </div>
+                      {overrideReason && (
+                        <span className="text-[11px]" style={{ color: '#FF9500', fontStyle: 'italic', paddingLeft: 8, lineHeight: 1.3 }}>
+                          Priority Reason: "{overrideReason}"
+                        </span>
+                      )}
                     </div>
                   )}
                   {hasReferralDiscount && (

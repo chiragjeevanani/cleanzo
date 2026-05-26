@@ -14,6 +14,9 @@ const router = Router();
 router.get('/societies/search', publicCtrl.searchSocieties);
 router.get('/societies/active', cacheMiddleware(3600), publicCtrl.listActiveSocieties);
 
+// Cities (public)
+router.get('/cities', cacheMiddleware(3600), publicCtrl.listActiveCities);
+
 // ─── LEAD CAPTURE ────────────────────────────────
 router.post('/leads', publicCtrl.captureLead);
 
@@ -139,6 +142,14 @@ router.get('/brands', cacheMiddleware(3600), asyncHandler(async (req, res) => {
   const { default: Brand } = await import('../models/Brand.js');
   const brands = await Brand.find({ isActive: true }).sort('name');
   res.json({ success: true, brands });
+}));
+
+// Trusted Societies (public)
+router.get('/trusted-societies', cacheMiddleware(300), asyncHandler(async (req, res) => {
+  const { default: Settings } = await import('../models/Settings.js');
+  const setting = await Settings.findOne({ key: 'trustedSocieties' });
+  const defaultData = { heading: 'TRUSTED BY RESIDENTS OF', items: [] };
+  res.json({ success: true, data: setting ? setting.value : defaultData });
 }));
 
 export default router;

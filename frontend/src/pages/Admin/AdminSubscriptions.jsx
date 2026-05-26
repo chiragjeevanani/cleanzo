@@ -165,8 +165,10 @@ export default function AdminSubscriptions() {
               const statusLower = displayStatus.toLowerCase()
               const isExpired = statusLower === 'expired' || statusLower === 'cancelled'
 
+              const isOverride = s.isPremiumOverride;
+
               return (
-                <tr key={s._id}>
+                <tr key={s._id} style={isOverride ? { background: 'rgba(255, 149, 0, 0.02)', borderLeft: '3.5px solid #FF9500' } : {}}>
                   <td style={{ fontWeight: 600 }}>
                     <div className="flex flex-col">
                       <span>{customerName}</span>
@@ -177,7 +179,30 @@ export default function AdminSubscriptions() {
                   <td>
                     <div className="flex flex-col gap-4">
                       <span className={`chip ${packageName === 'Elite' ? 'chip-lime' : packageName === 'Premium' ? 'chip-blue' : 'chip-ghost'}`} style={{ width: 'fit-content' }}>{packageName}</span>
+                      {isOverride && (
+                        <span className="chip animate-pulse" style={{ 
+                          background: 'rgba(255, 149, 0, 0.1)', 
+                          color: '#FF9500', 
+                          borderColor: 'rgba(255, 149, 0, 0.25)', 
+                          fontSize: 9, 
+                          fontWeight: 800, 
+                          textTransform: 'uppercase', 
+                          marginTop: 4, 
+                          width: 'fit-content',
+                          padding: '3px 8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4
+                        }}>
+                          👑 Priority Override
+                        </span>
+                      )}
                       <span className="text-[10px] text-tertiary font-bold px-4">Usage: {usage} ({remaining} left)</span>
+                      {isOverride && (
+                        <span className="text-[10px]" style={{ color: '#FF9500', fontStyle: 'italic', display: 'block', marginTop: 4, lineHeight: 1.3 }}>
+                          Reason: {s.overrideReason || 'N/A'} (Fee: ₹{s.priorityFee || 0})
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td>

@@ -39,7 +39,7 @@ const typeStyles = {
 function ToastStack({ toasts, onDismiss }) {
   if (toasts.length === 0) return null
   return (
-    <div role="status" aria-live="polite" aria-atomic="false" style={{ position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, pointerEvents: 'none' }}>
+    <div role="status" aria-live="polite" aria-atomic="false" style={{ position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, pointerEvents: 'none' }}>
       {toasts.map(t => (
         <div key={t.id}
           onClick={() => {
@@ -55,12 +55,13 @@ function ToastStack({ toasts, onDismiss }) {
             fontSize: 14,
             fontWeight: 700,
             fontFamily: 'var(--font-display)',
-            maxWidth: 320,
+            maxWidth: 420,
             textAlign: 'center',
             cursor: 'pointer',
             pointerEvents: 'auto',
             animation: 'fadeInUp 250ms var(--ease-out) both',
-            whiteSpace: 'nowrap',
+            whiteSpace: 'normal',
+            wordBreak: 'break-word',
             letterSpacing: '0.01em',
           }}>
           {t.message}

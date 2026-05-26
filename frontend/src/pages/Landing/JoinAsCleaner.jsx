@@ -292,7 +292,7 @@ const JoinAsCleaner = () => {
             <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Shield size={24} color="#000" />
             </div>
-            <span style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em' }}>CLEANZO <span style={{ color: 'var(--accent-lime)' }}>CREW</span></span>
+            <span style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em' }}>Cleanzo <span style={{ color: 'var(--accent-lime)' }}>Crew</span></span>
           </div>
 
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 64, fontWeight: 900, lineHeight: 0.95, letterSpacing: '-0.05em', marginBottom: 32 }}>

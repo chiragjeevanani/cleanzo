@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, Eye, EyeOff, ShieldCheck, ArrowRight, Zap, Users, BarChart3, Clock, CheckCircle2 } from 'lucide-react';
 import { useSocietyAuth } from '../../context/SocietyAuthContext';
+import { getAppLogo } from '../../utils/helpers';
 
 const FEATURES = [
   { icon: Users,     text: 'View resident subscription stats' },
@@ -189,8 +190,8 @@ export default function SocietyLogin() {
 
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'auto', position: 'relative', zIndex: 1 }}>
-            <img src="/logo.png" alt="Cleanzo Logo" style={{ height: 36, width: 'auto' }} />
-            <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 18, color: '#fff', letterSpacing: '0.08em' }}>CLEANZO</span>
+            <img src={getAppLogo()} alt="Cleanzo Logo" style={{ height: 36, width: 'auto' }} />
+            <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 18, color: '#fff', letterSpacing: '0.08em' }}>Cleanzo</span>
             <span style={{
               marginLeft: 2, padding: '2px 9px', borderRadius: 6,
               background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.4)',

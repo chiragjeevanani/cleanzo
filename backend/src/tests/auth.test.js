@@ -240,3 +240,52 @@ describe('AUTH | forgot / reset password', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('AUTH | multi-phase customer signup flow', () => {
+  it('verifies OTP and completes signup successfully', async () => {
+    const phone = '9000000100';
+    await seedOtp(phone, '123456');
+
+    // 1. Verify OTP only
+    const verifyRes = await api.post('/api/auth/verify-otp-signup').send({
+      phone,
+      code: '123456',
+      role: 'customer',
+    });
+    expect(verifyRes.status).toBe(200);
+    expect(verifyRes.body.signupToken).toBeTruthy();
+
+    const signupToken = verifyRes.body.signupToken;
+
+    // 2. Complete Signup
+    const completeRes = await api.post('/api/auth/complete-signup').send({
+      signupToken,
+      firstName: 'John',
+      lastName: 'Smith',
+      email: 'johnsmith@example.com',
+      city: 'Jaipur',
+    });
+    expect(completeRes.status).toBe(200);
+    expect(completeRes.body.token).toBeTruthy();
+    expect(completeRes.body.refreshToken).toBeTruthy();
+    expect(completeRes.body.user.firstName).toBe('John');
+
+    // Verify user in DB
+    const user = await Customer.findOne({ phone });
+    expect(user).toBeTruthy();
+    expect(user.firstName).toBe('John');
+    expect(user.lastName).toBe('Smith');
+  });
+
+  it('rejects signup with invalid token', async () => {
+    const res = await api.post('/api/auth/complete-signup').send({
+      signupToken: 'invalid-token-here',
+      firstName: 'John',
+      lastName: 'Smith',
+      email: 'johnsmith2@example.com',
+      city: 'Jaipur',
+    });
+    expect(res.status).toBe(401);
+  });
+});
+

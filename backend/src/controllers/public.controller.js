@@ -91,3 +91,14 @@ export const getProductById = asyncHandler(async (req, res) => {
   if (!product || !product.isActive) throw new ApiError(404, 'Product not found');
   res.json({ success: true, product });
 });
+
+/**
+ * GET /api/public/cities
+ * Returns all active cities for customer signup, lead capture, and profile dropdowns
+ */
+export const listActiveCities = asyncHandler(async (req, res) => {
+  const { default: City } = await import('../models/City.js');
+  const cities = await City.find({ isActive: true }).sort('name').lean();
+  res.json({ success: true, cities });
+});
+

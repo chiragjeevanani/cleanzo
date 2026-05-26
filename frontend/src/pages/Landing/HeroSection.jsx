@@ -15,6 +15,17 @@ export default function HeroSection({ bgImageUrl, heroReady }) {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const widgetRef = useRef(null)
 
+  // CMS: Trusted Societies — fetched from backend so admin changes are live for all users
+  const [societiesData, setSocietiesData] = useState({ heading: '', items: [] })
+
+  useEffect(() => {
+    apiClient.get('/public/trusted-societies')
+      .then(res => { if (res?.data) setSocietiesData(res.data) })
+      .catch(err => console.error('Failed to fetch trusted societies:', err))
+  }, [])
+
+
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (widgetRef.current && !widgetRef.current.contains(event.target)) {
@@ -197,15 +208,17 @@ export default function HeroSection({ bgImageUrl, heroReady }) {
             </div>
           </div>
 
-          <div className="hero-trust-bar animate-fade-in-up delay-5">
-            <span className="trust-label">TRUSTED BY RESIDENTS OF</span>
-            <div className="trust-logos">
-              <span className="trust-logo">DLF THE CAMELLIAS</span>
-              <span className="trust-logo">M3M GOLF ESTATE</span>
-              <span className="trust-logo">IREO VICTORY VALLEY</span>
-              <span className="trust-logo">THE MAGNOLIAS</span>
+          {societiesData.items.length > 0 && (
+            <div className="hero-trust-bar animate-fade-in-up delay-5">
+              <span className="trust-label">{societiesData.heading}</span>
+              <div className="trust-logos">
+                {societiesData.items.map((item, idx) => (
+                  <span key={idx} className="trust-logo">{item}</span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
         </div>
 
         <div className="hero-scroll-indicator animate-bounce">

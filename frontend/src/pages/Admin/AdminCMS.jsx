@@ -1,0 +1,899 @@
+import { useState, useEffect, useRef } from 'react'
+import { FileText, Shield, Activity, HelpCircle, Save, Plus, Trash2, CheckCircle, RefreshCw, Star, MapPin, Image, Eye, Loader2, Globe, ExternalLink, X, Send } from 'lucide-react'
+import { useToast } from '../../context/ToastContext'
+import FaqsManager from './FaqsManager'
+import TestimonialsManager from './TestimonialsManager'
+import apiClient from '../../services/apiClient'
+
+export default function AdminCMS() {
+  const { showToast } = useToast()
+  const [activeTab, setActiveTab] = useState('terms')
+
+  // --- Terms of Service State ---
+  const [termsData, setTermsData] = useState({
+    lastUpdated: 'October 2023',
+    sections: [
+      { id: 1, title: '1. Acceptance of Terms', content: 'By accessing and using the Cleanzo application and services, you agree to be bound by these Terms of Service. If you do not agree with any part of these terms, you must not use our services. These terms constitute a legally binding agreement between you and Cleanzo.' },
+      { id: 2, title: '2. Service Description', content: 'Cleanzo provides premium mobile car detailing and daily doorstep cleaning services. Our service includes exterior cleaning, with interior vacuuming and specialized treatments available as add-ons. We reserve the right to refuse service to any vehicle that poses a health or safety risk or is in a condition that prevents safe cleaning.' },
+      { id: 3, title: '3. User Obligations', content: 'You are responsible for providing accurate location data and ensuring that your vehicle is parked in a location where our executives can safely perform the service. You must also ensure that all windows and doors are fully closed prior to the scheduled service time.' },
+      { id: 4, title: '4. Service Availability & External Factors', content: 'Cleanzo strives to provide 365-day service. However, services may be temporarily suspended due to external factors beyond our control, including heavy rain, curfew/lockdown restrictions, or election day regulations. In such cases, missed service days are automatically added back to subscription validity.' },
+      { id: 5, title: '5. Leave Policy', content: 'Our cleaning staff is entitled to one scheduled leave per month. This day is already factored into our competitive pricing model and will not be added back to your subscription validity. Any additional leaves taken by the staff beyond this will be credited back to your account.' },
+      { id: 6, title: '6. Liability & Damages', content: 'While we take the utmost care, Cleanzo is not liable for pre-existing damage, loose parts, mechanical issues, or internal electronic failures. We recommend securing or removing all valuables from the vehicle prior to service. Any claims for damage must be reported within 24 hours of service completion.' }
+    ]
+  })
+
+  // --- Warranty State ---
+  const [warrantyData, setWarrantyData] = useState({
+    heroTitle: 'Premium Warranty Policy',
+    heroDescription: 'Engineered for elite endurance. Every premium detail and daily maintenance plan is backed by our high-performance execution guarantee.',
+    sections: [
+      {
+        id: 1,
+        title: '1. Detail & Coating Warranty',
+        content: 'All professional restorations and advanced exterior ceramic protections applied by our specialists are covered for material integrity and craftsmanship:',
+        bullets: [
+          'Coatings Longevity: High-performance coatings are guaranteed to maintain high-hydrophobicity and gloss rating for up to 3 years.',
+          'Zero Flaking Policy: Coverage against premature sealant degradation, hazing, or product micro-flaking under normal environmental conditions.',
+          'Finish Guard: Absolute guarantee against detailing-induced marring, swirl marks, or paint damage during correction treatments.'
+        ]
+      },
+      {
+        id: 2,
+        title: '2. Subscription Service Guarantee',
+        content: 'For our daily doorstep cleaning plan subscribers, we ensure absolute consistency:',
+        bullets: [
+          'Weather Protection: Standard suspension due to weather (e.g. intense downpours) guarantees subscription extension. All missed sessions are automatically rolled back into your schedule.',
+          'Execution Review: If you notice an oversight in our cleaning execution, report it in the Cleanzo mobile app within 12 hours for prompt rectifications or service credits.',
+          'Staff Availability: Backed by standby detailing hubs to ensure replacement crews are mobilized seamlessly.'
+        ]
+      },
+      {
+        id: 3,
+        title: '3. Claims & Resolution Process',
+        content: 'Need validation or want to initiate a warranty review? Submit a claim through the support hub inside your Client Login Portal, upload photos of the affected section, and our inspection crew will review the telemetry within 24 hours. Alternatively, reach our support team directly at support@cleanzo.net.',
+        bullets: []
+      }
+    ]
+  })
+
+  // --- Network Status State ---
+  const [networkData, setNetworkData] = useState({
+    overallStatus: 'ALL SYSTEMS OPERATIONAL',
+    statusColor: 'success', // success, warning, error
+    nodes: [
+      { id: 1, name: 'Core API & Database Cluster', status: 'Operational' },
+      { id: 2, name: 'Customer Booking & Payments', status: 'Operational' },
+      { id: 3, name: 'Cleaner Dispatch & Real-Time Sync', status: 'Operational' },
+      { id: 4, name: 'Standby Operations Support Nodes', status: 'Active' }
+    ],
+    updates: [
+      { id: 1, date: 'May 24, 2026 - Maintenance Resolved', message: 'Standard scheduled database cluster performance optimization successfully finalized at 04:00 UTC. System telemetry indicates zero disruption to active customer dispatch routines.' },
+      { id: 2, date: 'April 12, 2026 - Incident Resolved', message: 'Minor performance latency observed with the cleaner SMS notification gateway. Fully resolved in 14 minutes by standby engineering.' }
+    ]
+  })
+
+
+  // --- Trusted Societies State ---
+  const [societiesData, setSocietiesData] = useState({ heading: 'TRUSTED BY RESIDENTS OF', items: [] })
+  const [loadingSocieties, setLoadingSocieties] = useState(false)
+  const [savingSocieties, setSavingSocieties] = useState(false)
+
+  // --- Banners State ---
+  const [banners, setBanners] = useState([])
+  const [loadingBanners, setLoadingBanners] = useState(true)
+  const [bannerForm, setBannerForm] = useState({ title: '', description: '', imageUrl: '', link: '' })
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [publishingBanner, setPublishingBanner] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const fileInputRef = useRef(null)
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const cachedTerms = localStorage.getItem('cleanzo_cms_terms')
+    if (cachedTerms) {
+      try { setTermsData(JSON.parse(cachedTerms)) } catch (e) { console.error(e) }
+    }
+
+    const cachedWarranty = localStorage.getItem('cleanzo_cms_warranty')
+    if (cachedWarranty) {
+      try { setWarrantyData(JSON.parse(cachedWarranty)) } catch (e) { console.error(e) }
+    }
+
+    const cachedNetwork = localStorage.getItem('cleanzo_cms_network_status')
+    if (cachedNetwork) {
+      try { setNetworkData(JSON.parse(cachedNetwork)) } catch (e) { console.error(e) }
+    }
+
+
+  }, [])
+
+  // Dynamic Banners Fetch
+  const fetchBanners = async () => {
+    try {
+      const res = await apiClient.get('/admin/banners')
+      setBanners(res.banners || [])
+    } catch (err) {
+      console.error('Failed to fetch banners:', err)
+    } finally {
+      setLoadingBanners(false)
+    }
+  }
+
+  // Trusted Societies Fetch & Save
+  const fetchSocieties = async () => {
+    setLoadingSocieties(true)
+    try {
+      const res = await apiClient.get('/admin/trusted-societies')
+      setSocietiesData(res.data)
+    } catch (err) {
+      console.error('Failed to fetch trusted societies:', err)
+    } finally {
+      setLoadingSocieties(false)
+    }
+  }
+
+  const saveSocieties = async () => {
+    const filteredItems = societiesData.items.filter(s => s.trim() !== '')
+    if (filteredItems.length === 0 && societiesData.items.length > 0) {
+      showToast('Please enter at least one society name before saving.', 'error')
+      return
+    }
+    const payload = { ...societiesData, items: filteredItems }
+    setSocietiesData(payload)
+    setSavingSocieties(true)
+    try {
+      await apiClient.put('/admin/trusted-societies', payload)
+      showToast('Trusted Societies updated! Changes are now live on the website.', 'success')
+    } catch (err) {
+      showToast(err?.message || 'Failed to save trusted societies', 'error')
+    } finally {
+      setSavingSocieties(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'banners') {
+      fetchBanners()
+    }
+    if (activeTab === 'societies') {
+      fetchSocieties()
+    }
+  }, [activeTab])
+
+
+  const handleImageSelect = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    setUploadingImage(true)
+    const formData = new FormData()
+    formData.append('image', file)
+
+    try {
+      const res = await apiClient.uploadForm('/admin/upload', formData)
+      setBannerForm({ ...bannerForm, imageUrl: res.imageUrl })
+      showToast('Image uploaded successfully', 'success')
+    } catch (err) {
+      showToast(err?.message || 'Failed to upload image', 'error')
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const handlePublishBanner = async () => {
+    if (!bannerForm.title || !bannerForm.imageUrl) {
+      showToast('Title and Image are required', 'error')
+      return
+    }
+
+    setPublishingBanner(true)
+    try {
+      await apiClient.post('/admin/banners', bannerForm)
+      showToast('Banner published successfully!', 'success')
+      setBannerForm({ title: '', description: '', imageUrl: '', link: '' })
+      fetchBanners()
+    } catch (err) {
+      showToast(err?.message || 'Failed to publish banner', 'error')
+    } finally {
+      setPublishingBanner(false)
+    }
+  }
+
+  const handleDeleteBanner = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this banner?')) return
+    try {
+      await apiClient.delete(`/admin/banners/${id}`)
+      showToast('Banner deleted', 'success')
+      fetchBanners()
+    } catch (err) {
+      showToast('Failed to delete banner', 'error')
+    }
+  }
+
+  // --- Save Handlers ---
+  const saveTerms = () => {
+    localStorage.setItem('cleanzo_cms_terms', JSON.stringify(termsData))
+    showToast('Terms of Service saved and updated!', 'success')
+  }
+
+  const saveWarranty = () => {
+    localStorage.setItem('cleanzo_cms_warranty', JSON.stringify(warrantyData))
+    showToast('Warranty policy saved and updated!', 'success')
+  }
+
+  const saveNetworkStatus = () => {
+    localStorage.setItem('cleanzo_cms_network_status', JSON.stringify(networkData))
+    showToast('Network Status dashboard updated!', 'success')
+  }
+
+
+
+  return (
+    <div style={{ paddingBottom: 80 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>CMS</h1>
+        <p className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>
+          Content Management System for managing public information, legal terms, policies, and FAQs
+        </p>
+      </div>
+
+      {/* Subsection Tabs */}
+      <div className="flex gap-8" style={{ marginBottom: 28, borderBottom: '1px solid var(--divider)', paddingBottom: 0 }}>
+        {[
+          { id: 'terms', icon: FileText, label: 'Terms of Service' },
+          { id: 'warranty', icon: Shield, label: 'Warranty Policy' },
+          { id: 'network', icon: Activity, label: 'Network Status' },
+          { id: 'societies', icon: MapPin, label: 'Trusted Societies' },
+          { id: 'banners', icon: Image, label: 'Banners' },
+          { id: 'reviews', icon: Star, label: 'Reviews' },
+          { id: 'faqs', icon: HelpCircle, label: 'FAQs' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '12px 18px',
+              fontSize: 14,
+              fontWeight: 600,
+              borderBottom: activeTab === tab.id ? '2px solid var(--accent-lime)' : '2px solid transparent',
+              color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              marginBottom: -1,
+              transition: 'all 0.2s',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <tab.icon size={16} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Subsections Content */}
+      <div className="glass-solid animate-fade-in" style={{ padding: '32px', borderRadius: 'var(--radius)' }}>
+        
+        {/* --- 1. TERMS OF SERVICE --- */}
+        {activeTab === 'terms' && (
+          <div>
+            <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Manage Terms of Service</h3>
+              <button onClick={saveTerms} className="btn btn-primary btn-sm flex items-center gap-8">
+                <Save size={14} /> Save Terms
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-24">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 300 }}>
+                <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Last Updated Date</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={termsData.lastUpdated}
+                  onChange={e => setTermsData({ ...termsData, lastUpdated: e.target.value })}
+                />
+              </div>
+
+              <div className="divider" style={{ margin: '12px 0' }} />
+
+              <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600 }}>Sections</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {termsData.sections.map((section, idx) => (
+                  <div key={section.id} className="glass" style={{ padding: 20, borderRadius: 'var(--radius-sm)', position: 'relative' }}>
+                    <button
+                      onClick={() => {
+                        const filtered = termsData.sections.filter(s => s.id !== section.id)
+                        setTermsData({ ...termsData, sections: filtered })
+                      }}
+                      style={{ position: 'absolute', top: 16, right: 16, color: 'var(--error)', cursor: 'pointer' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <input
+                        type="text"
+                        className="input-field"
+                        style={{ fontWeight: 600, fontSize: 14, border: 'none', background: 'rgba(255,255,255,0.02)' }}
+                        value={section.title}
+                        onChange={e => {
+                          const updated = [...termsData.sections]
+                          updated[idx].title = e.target.value
+                          setTermsData({ ...termsData, sections: updated })
+                        }}
+                      />
+                      <textarea
+                        className="input-field"
+                        rows={3}
+                        style={{ fontSize: 13, resize: 'vertical' }}
+                        value={section.content}
+                        onChange={e => {
+                          const updated = [...termsData.sections]
+                          updated[idx].content = e.target.value
+                          setTermsData({ ...termsData, sections: updated })
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  onClick={() => {
+                    const newSection = { id: Date.now(), title: `${termsData.sections.length + 1}. New Policy Term`, content: 'Enter the contents here...' }
+                    setTermsData({ ...termsData, sections: [...termsData.sections, newSection] })
+                  }}
+                  className="btn btn-glass btn-sm"
+                  style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Plus size={14} /> Add New Term
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- 2. WARRANTY POLICY --- */}
+        {activeTab === 'warranty' && (
+          <div>
+            <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Manage Warranty Policy</h3>
+              <button onClick={saveWarranty} className="btn btn-primary btn-sm flex items-center gap-8">
+                <Save size={14} /> Save Warranty
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-24">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Hero Title</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={warrantyData.heroTitle}
+                    onChange={e => setWarrantyData({ ...warrantyData, heroTitle: e.target.value })}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Hero Description</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={warrantyData.heroDescription}
+                    onChange={e => setWarrantyData({ ...warrantyData, heroDescription: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="divider" style={{ margin: '12px 0' }} />
+
+              <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600 }}>Coverage Categories</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {warrantyData.sections.map((section, idx) => (
+                  <div key={section.id} className="glass" style={{ padding: 20, borderRadius: 'var(--radius-sm)', position: 'relative' }}>
+                    <button
+                      onClick={() => {
+                        const filtered = warrantyData.sections.filter(s => s.id !== section.id)
+                        setWarrantyData({ ...warrantyData, sections: filtered })
+                      }}
+                      style={{ position: 'absolute', top: 16, right: 16, color: 'var(--error)', cursor: 'pointer' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <input
+                        type="text"
+                        className="input-field"
+                        style={{ fontWeight: 600, fontSize: 14, border: 'none', background: 'rgba(255,255,255,0.02)' }}
+                        value={section.title}
+                        onChange={e => {
+                          const updated = [...warrantyData.sections]
+                          updated[idx].title = e.target.value
+                          setWarrantyData({ ...warrantyData, sections: updated })
+                        }}
+                      />
+                      <textarea
+                        className="input-field"
+                        rows={3}
+                        style={{ fontSize: 13, resize: 'vertical' }}
+                        value={section.content}
+                        onChange={e => {
+                          const updated = [...warrantyData.sections]
+                          updated[idx].content = e.target.value
+                          setWarrantyData({ ...warrantyData, sections: updated })
+                        }}
+                      />
+
+                      {/* Bullets Sub-management */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 12 }}>
+                        <span className="text-label" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>Bullet Guidelines</span>
+                        {section.bullets.map((bullet, bulletIdx) => (
+                          <div key={bulletIdx} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="text"
+                              className="input-field"
+                              style={{ fontSize: 12, padding: '8px 12px' }}
+                              value={bullet}
+                              onChange={e => {
+                                const updated = [...warrantyData.sections]
+                                updated[idx].bullets[bulletIdx] = e.target.value
+                                setWarrantyData({ ...warrantyData, sections: updated })
+                              }}
+                            />
+                            <button
+                              onClick={() => {
+                                const updated = [...warrantyData.sections]
+                                updated[idx].bullets.splice(bulletIdx, 1)
+                                setWarrantyData({ ...warrantyData, sections: updated })
+                              }}
+                              style={{ color: 'var(--error)', padding: 4 }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
+                            const updated = [...warrantyData.sections]
+                            updated[idx].bullets.push('New guideline criteria description...')
+                            setWarrantyData({ ...warrantyData, sections: updated })
+                          }}
+                          className="btn btn-glass btn-sm"
+                          style={{ alignSelf: 'flex-start', padding: '6px 12px', fontSize: 11 }}
+                        >
+                          + Add Guideline Bullet
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  onClick={() => {
+                    const newSection = { id: Date.now(), title: `${warrantyData.sections.length + 1}. New Warranty Clause`, content: 'Enter contents...', bullets: [] }
+                    setWarrantyData({ ...warrantyData, sections: [...warrantyData.sections, newSection] })
+                  }}
+                  className="btn btn-glass btn-sm"
+                  style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Plus size={14} /> Add Category
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- 3. NETWORK STATUS --- */}
+        {activeTab === 'network' && (
+          <div>
+            <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Manage Network Status</h3>
+              <button onClick={saveNetworkStatus} className="btn btn-primary btn-sm flex items-center gap-8">
+                <Save size={14} /> Save Status
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-24">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Overall Health Status Headline</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={networkData.overallStatus}
+                    onChange={e => setNetworkData({ ...networkData, overallStatus: e.target.value.toUpperCase() })}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Status Indicator Glow</label>
+                  <select
+                    className="input-field"
+                    style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                    value={networkData.statusColor}
+                    onChange={e => setNetworkData({ ...networkData, statusColor: e.target.value })}
+                  >
+                    <option value="success">Green (All Systems Normal)</option>
+                    <option value="warning">Yellow (Degraded Performance)</option>
+                    <option value="error">Red (Outage / Heavy Incident)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="divider" style={{ margin: '12px 0' }} />
+
+              <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600 }}>Core Service Nodes</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+                {networkData.nodes.map((node, idx) => (
+                  <div key={node.id} className="glass" style={{ padding: '16px 20px', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justify: 'space-between', gap: 16 }}>
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{node.name}</span>
+                    <input
+                      type="text"
+                      className="input-field"
+                      style={{ maxWidth: 200, padding: '8px 12px', fontSize: 13 }}
+                      value={node.status}
+                      onChange={e => {
+                        const updated = [...networkData.nodes]
+                        updated[idx].status = e.target.value
+                        setNetworkData({ ...networkData, nodes: updated })
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="divider" style={{ margin: '12px 0' }} />
+
+              <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600 }}>Operational Updates Log</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {networkData.updates.map((update, idx) => (
+                  <div key={update.id} className="glass" style={{ padding: 20, borderRadius: 'var(--radius-sm)', position: 'relative' }}>
+                    <button
+                      onClick={() => {
+                        const filtered = networkData.updates.filter(u => u.id !== update.id)
+                        setNetworkData({ ...networkData, updates: filtered })
+                      }}
+                      style={{ position: 'absolute', top: 16, right: 16, color: 'var(--error)', cursor: 'pointer' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <input
+                        type="text"
+                        className="input-field"
+                        style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-blue)', background: 'rgba(255,255,255,0.02)', border: 'none' }}
+                        value={update.date}
+                        onChange={e => {
+                          const updated = [...networkData.updates]
+                          updated[idx].date = e.target.value
+                          setNetworkData({ ...networkData, updates: updated })
+                        }}
+                      />
+                      <textarea
+                        className="input-field"
+                        rows={2}
+                        style={{ fontSize: 13, resize: 'vertical' }}
+                        value={update.message}
+                        onChange={e => {
+                          const updated = [...networkData.updates]
+                          updated[idx].message = e.target.value
+                          setNetworkData({ ...networkData, updates: updated })
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  onClick={() => {
+                    const newUpdate = { id: Date.now(), date: 'New Date Label - Status Update', message: 'Describe status changes or resolutions here...' }
+                    setNetworkData({ ...networkData, updates: [newUpdate, ...networkData.updates] })
+                  }}
+                  className="btn btn-glass btn-sm"
+                  style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Plus size={14} /> Add Incident Update Log
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+
+        {/* --- 4. TRUSTED SOCIETIES --- */}
+        {activeTab === 'societies' && (
+          <div>
+            <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Manage Trusted Societies</h3>
+                <p className="text-secondary" style={{ fontSize: 13, marginTop: 4 }}>
+                  Societies listed here will appear live on the website's hero section for all users.
+                </p>
+              </div>
+              <button
+                onClick={saveSocieties}
+                disabled={savingSocieties}
+                className="btn btn-primary btn-sm flex items-center gap-8"
+              >
+                {savingSocieties ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {savingSocieties ? 'Saving...' : 'Save & Publish'}
+              </button>
+            </div>
+
+            {loadingSocieties ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 24 }}>
+                <Loader2 size={20} className="animate-spin" style={{ color: 'var(--accent-lime)' }} />
+                <span className="text-secondary">Loading...</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-24">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 400 }}>
+                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Section Heading Text</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={societiesData.heading}
+                    onChange={e => setSocietiesData({ ...societiesData, heading: e.target.value.toUpperCase() })}
+                  />
+                </div>
+
+                <div className="divider" style={{ margin: '4px 0' }} />
+
+                <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600 }}>
+                  Societies List <span style={{ color: 'var(--text-tertiary)', fontSize: 13, fontWeight: 400 }}>({societiesData.items.length} entries)</span>
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {societiesData.items.map((society, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <MapPin size={16} style={{ color: 'var(--accent-lime)', flexShrink: 0 }} />
+                      <input
+                        type="text"
+                        className="input-field"
+                        style={{ fontSize: 13, padding: '10px 16px', fontWeight: 600 }}
+                        value={society}
+                        onChange={e => {
+                          const updated = [...societiesData.items]
+                          updated[idx] = e.target.value.toUpperCase()
+                          setSocietiesData({ ...societiesData, items: updated })
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          const updated = societiesData.items.filter((_, sIdx) => sIdx !== idx)
+                          setSocietiesData({ ...societiesData, items: updated })
+                        }}
+                        style={{ color: 'var(--error)', padding: 8, flexShrink: 0 }}
+                        title="Remove"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={() => setSocietiesData({ ...societiesData, items: [...societiesData.items, ''] })}
+                    className="btn btn-glass btn-sm"
+                    style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Plus size={14} /> Add Society
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- 5. BANNERS --- */}
+        {activeTab === 'banners' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-24">
+            {/* Banner Editor */}
+            <div className="lg:col-span-7 flex flex-col gap-24">
+              <div>
+                <div className="flex items-center gap-12" style={{ marginBottom: 24 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(163, 255, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-lime)' }}>
+                    <Plus size={20} />
+                  </div>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Create Offer Banner</h2>
+                </div>
+
+                <div className="flex flex-col gap-20">
+                  <div className="flex flex-col gap-8">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>BANNER TITLE *</label>
+                    <input 
+                      className="input-field" 
+                      placeholder="e.g. 20% Off Elite Plan!" 
+                      value={bannerForm.title}
+                      onChange={e => setBannerForm({ ...bannerForm, title: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-8">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>DESCRIPTION</label>
+                    <textarea 
+                      className="input-field" 
+                      rows={3} 
+                      placeholder="Tell users about this offer..." 
+                      style={{ resize: 'none' }}
+                      value={bannerForm.description}
+                      onChange={e => setBannerForm({ ...bannerForm, description: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-8">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>TARGET LINK (URL)</label>
+                    <div style={{ position: 'relative' }}>
+                      <Globe size={14} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                      <input 
+                        className="input-field" 
+                        style={{ paddingLeft: 44 }}
+                        placeholder="https://cleanzo.in/offers/elite" 
+                        value={bannerForm.link}
+                        onChange={e => setBannerForm({ ...bannerForm, link: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-8">
+                    <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>BANNER IMAGE *</label>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      hidden 
+                      accept="image/*" 
+                      onChange={handleImageSelect} 
+                    />
+                    
+                    {bannerForm.imageUrl ? (
+                      <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border-glass)' }}>
+                        <img src={bannerForm.imageUrl} alt="Preview" style={{ width: '100%', height: 200, objectFit: 'cover' }} />
+                        <button 
+                          onClick={() => setBannerForm({ ...bannerForm, imageUrl: '' })}
+                          style={{ position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div 
+                        onClick={() => fileInputRef.current.click()}
+                        className="glass flex flex-col items-center justify-center gap-12" 
+                        style={{ padding: '48px 24px', borderRadius: 20, borderStyle: 'dashed', cursor: 'pointer', transition: 'all 0.2s' }}>
+                        {uploadingImage ? (
+                          <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent-lime)' }} />
+                        ) : (
+                          <>
+                            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Image size={24} style={{ color: 'var(--text-tertiary)' }} />
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: 14, fontWeight: 600 }}>Click to upload image</div>
+                              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>Recommended: 1200x400 (3:1 ratio)</div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-12" style={{ marginTop: 8 }}>
+                    <button 
+                      className="btn btn-glass" 
+                      style={{ flex: 1, padding: '14px' }} 
+                      onClick={() => setShowPreview(!showPreview)}>
+                      <Eye size={16} /> {showPreview ? 'Hide Preview' : 'Show Preview'}
+                    </button>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ flex: 1.5, padding: '14px' }}
+                      disabled={publishingBanner || uploadingImage}
+                      onClick={handlePublishBanner}>
+                      {publishingBanner ? <><Loader2 size={16} className="animate-spin" /> Publishing...</> : <><Send size={16} /> Publish Banner</>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Real-time Preview */}
+              {showPreview && (
+                <div className="animate-slide-up" style={{ marginTop: 24 }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600, marginBottom: 12, display: 'block' }}>LIVE PREVIEW</label>
+                  <div className="glass" style={{ padding: 20, borderRadius: 24, background: 'linear-gradient(to bottom, rgba(255,255,255,0.05), transparent)' }}>
+                    <div style={{ 
+                      width: '100%', borderRadius: 20, overflow: 'hidden', position: 'relative', aspectRatio: '3/1',
+                      background: bannerForm.imageUrl ? `url(${bannerForm.imageUrl}) center/cover no-repeat` : '#1a1a1a'
+                    }}>
+                      {!bannerForm.imageUrl && (
+                        <div className="flex items-center justify-center h-full text-secondary" style={{ fontSize: 14 }}>
+                          Add an image to see preview
+                        </div>
+                      )}
+                      <div style={{ 
+                        position: 'absolute', inset: 0, 
+                        background: 'linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, transparent 100%)',
+                        padding: '24px 40px', display: 'flex', flexDirection: 'column', justifyContent: 'center'
+                      }}>
+                        <h3 style={{ fontSize: 24, fontWeight: 800, color: 'white', maxWidth: '60%', lineHeight: 1.2 }}>
+                          {bannerForm.title || 'Your Banner Title Here'}
+                        </h3>
+                        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: 8, maxWidth: '50%' }}>
+                          {bannerForm.description || 'Provide a compelling description for your offer.'}
+                        </p>
+                        <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start', marginTop: 16, padding: '8px 24px' }}>
+                          Claim Offer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Active Banners List */}
+            <div className="lg:col-span-5 flex flex-col gap-24">
+              <div className="glass" style={{ padding: 32, borderRadius: 28 }}>
+                <div className="flex items-center justify-between" style={{ marginBottom: 24 }}>
+                  <div className="flex items-center gap-12">
+                    <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Image size={20} />
+                    </div>
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>Active Banners</h2>
+                  </div>
+                  <span className="chip chip-ghost" style={{ fontSize: 11 }}>{banners.length} TOTAL</span>
+                </div>
+
+                <div className="flex flex-col gap-12">
+                  {loadingBanners ? (
+                    <div className="flex flex-col items-center py-40 text-secondary">
+                      <Loader2 className="animate-spin" style={{ marginBottom: 12 }} />
+                      <span>Loading banners...</span>
+                    </div>
+                  ) : banners.length === 0 ? (
+                    <div className="text-center py-40 text-secondary" style={{ fontSize: 14 }}>
+                      No active banners found.
+                    </div>
+                  ) : banners.map(b => (
+                    <div key={b._id} className="glass" style={{ padding: 12, borderRadius: 16, background: 'rgba(255,255,255,0.02)' }}>
+                      <div className="flex gap-12">
+                        <img src={b.imageUrl} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
+                          <div className="text-secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{b.description || 'No description'}</div>
+                          <div className="flex items-center gap-12" style={{ marginTop: 6 }}>
+                            <button className="text-error flex items-center gap-4" style={{ fontSize: 11, fontWeight: 600 }} onClick={() => handleDeleteBanner(b._id)}>
+                              <Trash2 size={12} /> Delete
+                            </button>
+                            {b.link && (
+                              <a href={b.link} target="_blank" rel="noreferrer" className="text-secondary flex items-center gap-4" style={{ fontSize: 11 }}>
+                                <ExternalLink size={12} /> Link
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- 6. REVIEWS --- */}
+        {activeTab === 'reviews' && (
+          <div>
+            <TestimonialsManager />
+          </div>
+        )}
+
+        {/* --- 7. FAQS --- */}
+        {activeTab === 'faqs' && (
+          <div>
+            <FaqsManager />
+          </div>
+        )}
+
+      </div>
+    </div>
+  )
+}

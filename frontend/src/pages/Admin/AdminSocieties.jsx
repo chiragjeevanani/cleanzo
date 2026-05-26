@@ -2,16 +2,32 @@ import { useState, useEffect, useRef } from 'react'
 import { Plus, X, Search, Filter, MapPin, Building2, MoreVertical, Trash2, Edit2, Globe, Download, Wallet, Check, Ban, AlertCircle, RefreshCw, Eye } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { exportToExcel } from '../../utils/excelExporter'
+import { useToast } from '../../context/ToastContext'
 
 const STATUSES = ['all', 'active', 'inactive']
 
 export default function AdminSocieties() {
-  const [activeTab, setActiveTab] = useState('societies') // 'societies' | 'partners' | 'payouts'
+  const { showToast } = useToast()
+  const [activeTab, setActiveTab] = useState('cities') // 'cities' | 'societies' | 'partners' | 'payouts'
   const [societies, setSocieties] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   
+  // Cities management state
+  const [citiesList, setCitiesList] = useState([])
+  const [citiesLoading, setCitiesLoading] = useState(false)
+  const [showCityModal, setShowCityModal] = useState(false)
+  const [editingCity, setEditingCity] = useState(null)
+  const [citySaving, setCitySaving] = useState(false)
+  const [confirmDeleteCity, setConfirmDeleteCity] = useState(null)
+  const [cityFormData, setCityFormData] = useState({
+    name: '',
+    state: '',
+    isActive: true,
+    launchDate: ''
+  })
+
   // Societies tab states
   const [showModal, setShowModal] = useState(false)
   const [editingSociety, setEditingSociety] = useState(null)
@@ -28,15 +44,16 @@ export default function AdminSocieties() {
   // Society Towers & Blocks Form Data
   const [formData, setFormData] = useState({
     name: '',
+    state: '',
     city: '',
     area: '',
     pincode: '',
     address: '',
     isActive: true,
     slots: [
-      { slotId: '05_06_AM', timeWindow: '05:00 AM - 06:00 AM', maxVehicles: 20 },
-      { slotId: '06_07_AM', timeWindow: '06:00 AM - 07:00 AM', maxVehicles: 20 },
-      { slotId: '07_08_AM', timeWindow: '07:00 AM - 08:00 AM', maxVehicles: 20 }
+      { slotId: '05_06_AM', timeWindow: '05:00 AM - 06:00 AM', maxVehicles: 20, status: 'Open' },
+      { slotId: '06_07_AM', timeWindow: '06:00 AM - 07:00 AM', maxVehicles: 20, status: 'Open' },
+      { slotId: '07_08_AM', timeWindow: '07:00 AM - 08:00 AM', maxVehicles: 20, status: 'Open' }
     ],
     towers: []
   })
@@ -76,6 +93,19 @@ export default function AdminSocieties() {
   const [payoutAction, setPayoutAction] = useState('approve') // 'approve' | 'reject'
   const [adminRemark, setAdminRemark] = useState('')
   const [processingPayout, setProcessingPayout] = useState(false)
+
+  // Fetch all cities
+  const fetchCities = async () => {
+    try {
+      setCitiesLoading(true)
+      const res = await apiClient.get('/admin/cities')
+      setCitiesList(res.cities || [])
+    } catch {
+      setError('Failed to load cities.')
+    } finally {
+      setCitiesLoading(false)
+    }
+  }
 
   // Fetch all societies
   const fetchSocieties = async () => {
@@ -118,8 +148,11 @@ export default function AdminSocieties() {
 
   // Load correct data based on tab
   useEffect(() => {
-    if (activeTab === 'societies') {
+    if (activeTab === 'cities') {
+      fetchCities()
+    } else if (activeTab === 'societies') {
       fetchSocieties()
+      if (citiesList.length === 0) fetchCities()
     } else if (activeTab === 'partners') {
       fetchPartners()
       // also fetch societies if empty so dropdown works
@@ -145,7 +178,7 @@ export default function AdminSocieties() {
     setOpenMenu(id)
   }
 
-  const cities = [...new Set(societies.map(s => s.city).filter(Boolean))]
+  const cities = citiesList.map(c => c.name)
 
   // All societies search filter
   const filteredSocieties = societies.filter(s => {
@@ -245,13 +278,38 @@ export default function AdminSocieties() {
     })
   }
 
+  const handleSlotChange = (idx, field, value) => {
+    setFormData(prev => {
+      const copy = [...prev.slots]
+      copy[idx] = { ...copy[idx], [field]: value }
+      return { ...prev, slots: copy }
+    })
+  }
+
+  const handleAddSlot = () => {
+    setFormData(prev => {
+      const defaultId = `slot_${Date.now()}`
+      return {
+        ...prev,
+        slots: [...(prev.slots || []), { slotId: defaultId, timeWindow: '', maxVehicles: 20, status: 'Open' }]
+      }
+    })
+  }
+
+  const handleRemoveSlot = (idx) => {
+    setFormData(prev => ({
+      ...prev,
+      slots: (prev.slots || []).filter((_, i) => i !== idx)
+    }))
+  }
+
   const resetForm = () => {
     setFormData({
-      name: '', city: '', area: '', pincode: '', address: '', isActive: true,
+      name: '', state: '', city: '', area: '', pincode: '', address: '', isActive: true,
       slots: [
-        { slotId: '05_06_AM', timeWindow: '05:00 AM - 06:00 AM', maxVehicles: 20 },
-        { slotId: '06_07_AM', timeWindow: '06:00 AM - 07:00 AM', maxVehicles: 20 },
-        { slotId: '07_08_AM', timeWindow: '07:00 AM - 08:00 AM', maxVehicles: 20 }
+        { slotId: '05_06_AM', timeWindow: '05:00 AM - 06:00 AM', maxVehicles: 20, status: 'Open' },
+        { slotId: '06_07_AM', timeWindow: '06:00 AM - 07:00 AM', maxVehicles: 20, status: 'Open' },
+        { slotId: '07_08_AM', timeWindow: '07:00 AM - 08:00 AM', maxVehicles: 20, status: 'Open' }
       ],
       towers: []
     })
@@ -262,10 +320,11 @@ export default function AdminSocieties() {
     setEditingSociety(society)
     setFormData({
       name: society.name,
-      city: society.city,
-      area: society.area,
-      pincode: society.pincode,
-      address: society.address,
+      state: society.state || '',
+      city: society.city || '',
+      area: society.area || '',
+      pincode: society.pincode || '',
+      address: society.address || '',
       isActive: society.isActive,
       slots: society.slots || [],
       towers: society.towers || []
@@ -279,27 +338,44 @@ export default function AdminSocieties() {
     setSaving(true)
     setError('')
     try {
+      // Client-side guard for required fields
+      if (!formData.name?.trim() || !formData.state?.trim() || !formData.city?.trim() || !formData.area?.trim() || !formData.pincode?.trim() || !formData.address?.trim()) {
+        showToast('Please fill in all required fields including Full Address.', 'error')
+        setSaving(false)
+        return
+      }
+
       const cleanedTowers = (formData.towers || []).map(t => ({
         name: t.name.trim(),
         blocks: t.blocks ? t.blocks.map(b => b.trim()).filter(Boolean) : []
       })).filter(t => t.name)
+
+      const cleanedSlots = (formData.slots || []).map(s => ({
+        slotId: s.slotId || `slot_${Math.random().toString(36).substring(2, 9)}`,
+        timeWindow: s.timeWindow?.trim(),
+        maxVehicles: Number(s.maxVehicles) || 20,
+        status: s.status || 'Open'
+      })).filter(s => s.timeWindow)
       
       const payload = {
         ...formData,
+        slots: cleanedSlots,
         towers: cleanedTowers
       }
 
       if (editingSociety) {
         const res = await apiClient.put(`/admin/societies/${editingSociety._id}`, payload)
         setSocieties(prev => prev.map(s => s._id === editingSociety._id ? res.society : s))
+        showToast('Society updated successfully', 'success')
       } else {
         const res = await apiClient.post('/admin/societies', payload)
         setSocieties(prev => [res.society, ...prev])
+        showToast('Society added successfully', 'success')
       }
       setShowModal(false)
       resetForm()
     } catch (err) {
-      setError(err?.message || 'Failed to save society.')
+      showToast(err?.message || 'Failed to save society.', 'error')
     } finally {
       setSaving(false)
     }
@@ -313,6 +389,66 @@ export default function AdminSocieties() {
       setError('Failed to delete society.')
     }
     setConfirmDelete(null)
+  }
+
+  // ─── CITY OPERATIONS ──────────────────────────────────────────
+  const resetCityForm = () => {
+    setCityFormData({
+      name: '',
+      state: '',
+      isActive: true,
+      launchDate: ''
+    })
+    setEditingCity(null)
+  }
+
+  const handleEditCity = (city) => {
+    setEditingCity(city)
+    setCityFormData({
+      name: city.name,
+      state: city.state,
+      isActive: city.isActive,
+      launchDate: city.launchDate ? new Date(city.launchDate).toISOString().split('T')[0] : ''
+    })
+    setShowCityModal(true)
+  }
+
+  const handleSaveCity = async (e) => {
+    e.preventDefault()
+    setCitySaving(true)
+    setError('')
+    try {
+      const payload = {
+        name: cityFormData.name.trim(),
+        state: cityFormData.state.trim(),
+        isActive: cityFormData.isActive,
+        launchDate: cityFormData.launchDate || undefined
+      }
+
+      if (editingCity) {
+        const res = await apiClient.put(`/admin/cities/${editingCity._id}`, payload)
+        setCitiesList(prev => prev.map(c => c._id === editingCity._id ? res.city : c))
+      } else {
+        const res = await apiClient.post('/admin/cities', payload)
+        setCitiesList(prev => [...prev, res.city])
+      }
+      setShowCityModal(false)
+      resetCityForm()
+    } catch (err) {
+      setError(err?.message || 'Failed to save city.')
+    } finally {
+      setCitySaving(false)
+    }
+  }
+
+  const handleDeleteCity = async (id) => {
+    try {
+      await apiClient.delete(`/admin/cities/${id}`)
+      setCitiesList(prev => prev.filter(c => c._id !== id))
+    } catch {
+      setError('Failed to delete city.')
+    }
+    setConfirmDeleteCity(null)
   }
 
   // ─── PARTNER SOCIETIES OPERATIONS ─────────────────────────
@@ -467,9 +603,14 @@ export default function AdminSocieties() {
       {/* Title block */}
       <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>
-          Societies <span className="text-secondary" style={{ fontSize: 16, fontWeight: 400 }}>({societies.length})</span>
+          {activeTab === 'cities' ? 'Cities' : 'Societies'} <span className="text-secondary" style={{ fontSize: 16, fontWeight: 400 }}>({activeTab === 'cities' ? citiesList.length : societies.length})</span>
         </h1>
         <div className="flex gap-8">
+          {activeTab === 'cities' && (
+            <button className="btn btn-primary btn-sm" onClick={() => { resetCityForm(); setShowCityModal(true) }}>
+              <Plus size={16} /> Add City
+            </button>
+          )}
           {activeTab === 'societies' && (
             <>
               <button 
@@ -495,6 +636,22 @@ export default function AdminSocieties() {
 
       {/* Tabs */}
       <div className="flex gap-16" style={{ borderBottom: '1px solid var(--divider)', marginBottom: 20, paddingBottom: 0 }}>
+        <button 
+          onClick={() => { setActiveTab('cities'); setSearch(''); }} 
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            fontSize: 15, 
+            fontWeight: activeTab === 'cities' ? 700 : 500, 
+            color: activeTab === 'cities' ? 'var(--text-primary)' : 'var(--text-secondary)', 
+            cursor: 'pointer',
+            paddingBottom: 10,
+            borderBottom: activeTab === 'cities' ? '2.5px solid var(--accent-lime)' : '2.5px solid transparent',
+            outline: 'none'
+          }}
+        >
+          Cities
+        </button>
         <button 
           onClick={() => { setActiveTab('societies'); setSearch(''); }} 
           style={{ 
@@ -544,6 +701,103 @@ export default function AdminSocieties() {
           Payout Requests
         </button>
       </div>
+
+      {/* Tab: Cities (Top-Level) */}
+      {activeTab === 'cities' && (
+        <>
+          <div className="flex gap-12" style={{ marginBottom: 16 }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+              <input 
+                className="input-field" 
+                placeholder="Search by city name or state..." 
+                value={search} 
+                onChange={e => setSearch(e.target.value)} 
+                style={{ paddingLeft: 40 }} 
+              />
+            </div>
+          </div>
+
+          {citiesLoading ? (
+            <div className="skeleton-container" style={{ height: 200 }} />
+          ) : (
+            <div className="glass overflow-visible">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>City Name</th>
+                    <th>State</th>
+                    <th>Launch Date</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {citiesList.filter(c => 
+                    !search || 
+                    c.name.toLowerCase().includes(search.toLowerCase()) || 
+                    c.state.toLowerCase().includes(search.toLowerCase())
+                  ).length === 0 ? (
+                    <tr><td colSpan="5" className="text-center py-24 text-secondary">No cities found.</td></tr>
+                  ) : citiesList.filter(c => 
+                    !search || 
+                    c.name.toLowerCase().includes(search.toLowerCase()) || 
+                    c.state.toLowerCase().includes(search.toLowerCase())
+                  ).map(c => (
+                    <tr key={c._id}>
+                      <td style={{ fontWeight: 600 }}>
+                        <div className="flex items-center gap-10">
+                          <div className="icon-circle-sm" style={{ background: 'var(--bg-elevated)' }}><Globe size={14} /></div>
+                          {c.name}
+                        </div>
+                      </td>
+                      <td>{c.state}</td>
+                      <td>{c.launchDate ? new Date(c.launchDate).toLocaleDateString() : 'N/A'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const updated = await apiClient.put(`/admin/cities/${c._id}`, { isActive: !c.isActive })
+                              setCitiesList(prev => prev.map(item => item._id === c._id ? updated.city : item))
+                            } catch {
+                              setError('Failed to toggle status.')
+                            }
+                          }}
+                          className={`chip ${c.isActive ? 'chip-success' : 'chip-error'}`}
+                          style={{ border: 'none', cursor: 'pointer' }}
+                        >
+                          {c.isActive ? 'Active' : 'Inactive'}
+                        </button>
+                      </td>
+                      <td>
+                        <div className="flex justify-end gap-8">
+                          <button 
+                            type="button"
+                            className="btn-icon btn-glass text-secondary" 
+                            title="Edit City"
+                            onClick={() => handleEditCity(c)}
+                          >
+                            <Edit2 size={15} />
+                          </button>
+                          <button 
+                            type="button"
+                            className="btn-icon btn-glass text-error" 
+                            title="Delete City"
+                            onClick={() => setConfirmDeleteCity(c)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Tab: All Societies */}
       {activeTab === 'societies' && (
@@ -857,8 +1111,7 @@ export default function AdminSocieties() {
           </button>
         </div>
       )}
-
-      {/* Modal: Add/Edit Society */}
+{/* Modal: Add/Edit Society */}
       {showModal && (
         <div className="modal-overlay">
           <div className="glass-solid modal-content-lg animate-scale-in" style={{ width: 600, padding: 40, maxHeight: '90vh', overflowY: 'auto' }}>
@@ -867,25 +1120,111 @@ export default function AdminSocieties() {
                 <button className="btn-icon btn-glass" onClick={() => setShowModal(false)}><X size={20} /></button>
              </div>
              <form onSubmit={handleSave} className="grid-2 gap-20">
-                <div className="flex flex-col gap-8 span-2">
-                   <label className="text-label-xs">SOCIETY NAME *</label>
-                   <input required className="input-field" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Marvel Fria" />
+                <div className="flex flex-col gap-8">
+                   <label className="text-label-xs">STATE *</label>
+                   <select 
+                      required 
+                      className="input-field" 
+                      value={formData.state} 
+                      onChange={e => setFormData({...formData, state: e.target.value, city: ''})}
+                   >
+                      <option value="">-- Select State --</option>
+                      {[...new Set(citiesList.filter(c => c.isActive).map(c => c.state).filter(Boolean))].sort().map(st => (
+                         <option key={st} value={st}>{st}</option>
+                      ))}
+                   </select>
                 </div>
                 <div className="flex flex-col gap-8">
                    <label className="text-label-xs">CITY *</label>
-                   <input required className="input-field" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} placeholder="e.g. Pune" />
+                   <select 
+                      required 
+                      disabled={!formData.state}
+                      className="input-field" 
+                      value={formData.city} 
+                      onChange={e => setFormData({...formData, city: e.target.value})}
+                   >
+                      <option value="">-- Select City --</option>
+                      {citiesList.filter(c => c.isActive && c.state === formData.state).map(c => (
+                         <option key={c._id} value={c.name}>{c.name}</option>
+                      ))}
+                   </select>
+                </div>
+                <div className="flex flex-col gap-8 span-2">
+                   <label className="text-label-xs">SOCIETY NAME *</label>
+                   <input required className="input-field" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Gokuldham Society" />
+                </div>
+                <div className="flex flex-col gap-8 span-2">
+                   <label className="text-label-xs">AREA / LOCALITY *</label>
+                   <input required className="input-field" value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} placeholder="e.g. Wagholi" />
                 </div>
                 <div className="flex flex-col gap-8">
                    <label className="text-label-xs">PINCODE *</label>
                    <input required className="input-field" value={formData.pincode} onChange={e => setFormData({...formData, pincode: e.target.value})} placeholder="6 digits" maxLength={6} />
                 </div>
                 <div className="flex flex-col gap-8 span-2">
-                   <label className="text-label-xs">AREA / LOCALITY *</label>
-                   <input required className="input-field" value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} placeholder="e.g. Wagholi" />
+                   <label className="text-label-xs">FULL ADDRESS *</label>
+                   <textarea required className="input-field" style={{ minHeight: 80, padding: 12 }} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Full physical address..." />
                 </div>
-                <div className="flex flex-col gap-8 span-2">
-                   <label className="text-label-xs">FULL ADDRESS</label>
-                   <textarea className="input-field" style={{ minHeight: 80, padding: 12 }} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Full physical address..." />
+
+                <div className="flex items-center gap-10 span-2 pt-4">
+                   <input 
+                      type="checkbox" 
+                      id="societyIsActive" 
+                      checked={formData.isActive} 
+                      onChange={e => setFormData({...formData, isActive: e.target.checked})} 
+                      style={{ width: 18, height: 18, accentColor: 'var(--accent-lime)', cursor: 'pointer' }}
+                   />
+                   <label htmlFor="societyIsActive" style={{ fontSize: 14, fontWeight: 600, cursor: 'pointer', color: 'var(--text-primary)' }}>Active Operational</label>
+                </div>
+
+                {/* Time Slots Configuration Section */}
+                <div className="flex flex-col gap-8 span-2" style={{ borderTop: '1px solid var(--divider)', paddingTop: 16, marginTop: 8 }}>
+                   <div className="flex justify-between items-center">
+                      <label className="text-label-xs" style={{ letterSpacing: '0.05em' }}>TIME SLOTS CONFIGURATION</label>
+                      <button type="button" className="btn btn-glass btn-sm" onClick={handleAddSlot} style={{ padding: '4px 8px', fontSize: 11 }}>
+                         <Plus size={12} style={{ marginRight: 4 }} /> Add Slot
+                      </button>
+                   </div>
+                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+                      {(formData.slots || []).map((slot, idx) => (
+                         <div key={idx} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input 
+                               required 
+                               className="input-field" 
+                               style={{ flex: 2, minWidth: 150 }} 
+                               value={slot.timeWindow} 
+                               onChange={e => handleSlotChange(idx, 'timeWindow', e.target.value)} 
+                               placeholder="Time Window (e.g. 05:00 AM - 06:00 AM)" 
+                            />
+                            <input 
+                               required 
+                               type="number" 
+                               className="input-field" 
+                               style={{ flex: 0.8, minWidth: 80 }} 
+                               value={slot.maxVehicles} 
+                               onChange={e => handleSlotChange(idx, 'maxVehicles', Number(e.target.value))} 
+                               placeholder="Max Vehicles" 
+                               title="Max Vehicles capacity"
+                            />
+                            <select 
+                               className="input-field" 
+                               style={{ flex: 1.2, minWidth: 110, background: '#1c1c1e', color: '#fff', cursor: 'pointer' }} 
+                               value={slot.status || 'Open'} 
+                               onChange={e => handleSlotChange(idx, 'status', e.target.value)}
+                            >
+                               <option value="Open">🟢 Open</option>
+                               <option value="Closed">🔴 Closed</option>
+                               <option value="Blocked">🚫 Blocked</option>
+                            </select>
+                            <button type="button" className="btn-icon btn-glass text-error" onClick={() => handleRemoveSlot(idx)}>
+                               <X size={14} />
+                            </button>
+                         </div>
+                      ))}
+                      {(formData.slots || []).length === 0 && (
+                         <span className="text-secondary" style={{ fontSize: 13, fontStyle: 'italic', marginTop: 4 }}>No time slots configured yet.</span>
+                      )}
+                   </div>
                 </div>
 
                 {/* Towers and Blocks Section */}
@@ -912,9 +1251,9 @@ export default function AdminSocieties() {
                    </div>
                 </div>
 
-                <div className="span-2 pt-16 flex justify-end gap-12" style={{ borderTop: '1px solid var(--divider)', marginTop: 16 }}>
-                   <button type="button" className="btn btn-glass" onClick={() => setShowModal(false)}>Cancel</button>
-                   <button disabled={saving} type="submit" className="btn btn-primary">{saving ? 'Saving...' : 'Save Society'}</button>
+                <div className="span-2 pt-16 flex justify-end gap-12" style={{ borderTop: '1px solid var(--divider)', marginTop: 16, display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                   <button type="button" className="btn btn-glass" style={{ padding: '10px 24px', borderRadius: 12, fontSize: 14, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowModal(false)}>Cancel</button>
+                   <button disabled={saving} type="submit" className="btn btn-primary" style={{ padding: '10px 24px', borderRadius: 12, fontSize: 14, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent-lime)', color: '#000', fontWeight: 600 }}>{saving ? 'Saving...' : 'Save Society'}</button>
                 </div>
              </form>
           </div>
@@ -1194,6 +1533,61 @@ export default function AdminSocieties() {
             <div className="flex gap-12">
               <button className="btn btn-glass w-full" onClick={() => setConfirmDeletePartner(null)}>Cancel</button>
               <button className="btn btn-error w-full" onClick={() => handleDeletePartner(confirmDeletePartner._id)}>Remove Partner</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add/Edit City */}
+      {showCityModal && (
+        <div className="modal-overlay">
+          <div className="glass-solid modal-content animate-scale-in" style={{ width: 450, padding: 32, borderRadius: 24 }}>
+             <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
+                <h2 className="text-display-sm" style={{ fontSize: 20, fontWeight: 700 }}>{editingCity ? 'Edit City' : 'Add New City'}</h2>
+                <button type="button" className="btn-icon btn-glass" onClick={() => setShowCityModal(false)}><X size={20} /></button>
+             </div>
+             <form onSubmit={handleSaveCity} className="flex flex-col gap-16">
+                <div className="flex flex-col gap-6">
+                   <label className="text-label-xs">CITY NAME *</label>
+                   <input required className="input-field" value={cityFormData.name} onChange={e => setCityFormData({...cityFormData, name: e.target.value})} placeholder="e.g. Pune" />
+                </div>
+                <div className="flex flex-col gap-6">
+                   <label className="text-label-xs">STATE *</label>
+                   <input required className="input-field" value={cityFormData.state} onChange={e => setCityFormData({...cityFormData, state: e.target.value})} placeholder="e.g. Maharashtra" />
+                </div>
+                <div className="flex flex-col gap-6">
+                   <label className="text-label-xs">LAUNCH DATE (OPTIONAL)</label>
+                   <input type="date" className="input-field" value={cityFormData.launchDate} onChange={e => setCityFormData({...cityFormData, launchDate: e.target.value})} />
+                </div>
+                <div className="flex items-center gap-10 pt-8">
+                   <input 
+                      type="checkbox" 
+                      id="cityIsActive" 
+                      checked={cityFormData.isActive} 
+                      onChange={e => setCityFormData({...cityFormData, isActive: e.target.checked})} 
+                   />
+                   <label htmlFor="cityIsActive" style={{ fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Active Operational</label>
+                </div>
+
+                <div className="pt-16 flex justify-end gap-12" style={{ borderTop: '1px solid var(--divider)', marginTop: 8 }}>
+                   <button type="button" className="btn btn-glass" onClick={() => setShowCityModal(false)}>Cancel</button>
+                   <button disabled={citySaving} type="submit" className="btn btn-primary">{citySaving ? 'Saving...' : 'Save City'}</button>
+                </div>
+             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirm Delete City */}
+      {confirmDeleteCity && (
+        <div className="modal-overlay">
+          <div className="glass animate-scale-in" style={{ width: 400, padding: 32, textAlign: 'center' }}>
+            <div className="icon-circle-lg bg-error-light" style={{ margin: '0 auto 20px' }}><Trash2 size={24} color="var(--error)" /></div>
+            <h3 className="text-display-xs">Delete City?</h3>
+            <p className="text-secondary" style={{ margin: '8px 0 24px' }}>Are you sure you want to delete <strong>{confirmDeleteCity.name}</strong>? This action cannot be undone.</p>
+            <div className="flex gap-12">
+              <button className="btn btn-glass w-full" onClick={() => setConfirmDeleteCity(null)}>Cancel</button>
+              <button className="btn btn-error w-full" onClick={() => handleDeleteCity(confirmDeleteCity._id)}>Delete</button>
             </div>
           </div>
         </div>

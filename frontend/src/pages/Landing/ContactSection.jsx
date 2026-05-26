@@ -51,7 +51,7 @@ export default function ContactSection() {
                 </div>
                 <div className="info-item">
                   <Mail size={18} color="var(--primary-blue)" />
-                  <p>HQ@CLEANZO.PRO</p>
+                  <p>hq@cleanzo.pro</p>
                 </div>
               </div>
 

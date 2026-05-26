@@ -6,6 +6,7 @@ import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileT
 import PageLoader from '../../components/PageLoader'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import apiClient from '../../services/apiClient'
+import { getAppLogo } from '../../utils/helpers'
 
 const AdminDashboard    = lazy(() => import('./AdminDashboard'))
 const AdminUsers        = lazy(() => import('./AdminUsers'))
@@ -15,7 +16,7 @@ const AdminCleanerDetails= lazy(() => import('./AdminCleanerDetails'))
 const AdminPackages     = lazy(() => import('./AdminPackages'))
 const AdminSubscriptions= lazy(() => import('./AdminSubscriptions'))
 const AdminRevenue      = lazy(() => import('./AdminRevenue'))
-const AdminContent      = lazy(() => import('./AdminContent'))
+const AdminCMS          = lazy(() => import('./AdminCMS'))
 const AdminSettings     = lazy(() => import('./AdminSettings'))
 const AdminApplications = lazy(() => import('./AdminApplications'))
 const AdminSocieties    = lazy(() => import('./AdminSocieties'))
@@ -45,7 +46,7 @@ const navItems = [
   { path: '/admin/marketplace', icon: ShoppingCart, label: 'Marketplace' },
   { path: '/admin/subscriptions', icon: CreditCard, label: 'Subscriptions' },
   { path: '/admin/revenue', icon: TrendingUp, label: 'Revenue' },
-  { path: '/admin/content', icon: FileText, label: 'Content' },
+  { path: '/admin/cms', icon: FileText, label: 'CMS' },
   { path: '/admin/notifications', icon: Bell, label: 'Notifications' },
   { path: '/admin/settings', icon: Settings, label: 'Settings' },
 ]
@@ -127,7 +128,7 @@ export default function AdminPanel() {
       {/* Sidebar */}
       <aside className="admin-sidebar" style={{ transform: sidebarOpen ? 'none' : 'translateX(-100%)', zIndex: isMobile ? 100 : undefined }}>
         <div className="sidebar-logo">
-          <img src="/logo.png" alt="Cleanzo" />
+          <img src={getAppLogo()} alt="Cleanzo" />
           <span>Cleanzo</span>
         </div>
         <div className="sidebar-nav">
@@ -262,7 +263,7 @@ export default function AdminPanel() {
             <Route path="packages" element={<AdminPackages />} />
             <Route path="subscriptions" element={<AdminSubscriptions />} />
             <Route path="revenue" element={<AdminRevenue />} />
-            <Route path="content" element={<AdminContent />} />
+            <Route path="cms" element={<AdminCMS />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="marketplace" element={<AdminMarketplace />} />
             <Route path="vehicle-categories" element={<AdminVehicleCategories />} />

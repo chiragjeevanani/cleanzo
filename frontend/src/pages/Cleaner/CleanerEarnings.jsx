@@ -40,7 +40,7 @@ export default function CleanerEarnings() {
         "July", "August", "September", "October", "November", "December"
       ]
       
-      let csvContent = "CLEANZO PARTNER EARNINGS STATEMENT\n"
+      let csvContent = "Cleanzo Partner Earnings Statement\n"
       csvContent += `Partner Name,${user?.name || 'Partner'}\n`
       csvContent += `Month,${monthNames[month]} ${year}\n`
       csvContent += `Daily Rate,INR ${data?.dailyRate || 500}\n`

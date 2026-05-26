@@ -6,6 +6,7 @@ const slotSchema = new Schema({
   timeWindow:  { type: String, required: true },
   maxVehicles: { type: Number, default: 20 },
   currentCount:{ type: Number, default: 0 },
+  status:      { type: String, default: 'Open', enum: ['Open', 'Closed', 'Blocked'] },
 });
 
 const towerSchema = new Schema({
@@ -15,10 +16,11 @@ const towerSchema = new Schema({
 
 const societySchema = new Schema({
   name:     { type: String, required: true, trim: true },
+  state:    { type: String, required: true, trim: true, default: 'Maharashtra' },
   city:     { type: String, required: true, trim: true },
   area:     { type: String, required: true, trim: true },
   pincode:  { type: String, required: true, trim: true },
-  address:  { type: String, required: true },
+  address:  { type: String, required: true, trim: true },
   slots:    [slotSchema],
   towers:   [towerSchema],
   cleaners: [{ type: Schema.Types.ObjectId, ref: 'Cleaner' }],

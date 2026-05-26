@@ -5,8 +5,8 @@ import {
   Lock, Mail, Tag, Eye, EyeOff, ChevronDown
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { getAppLogo } from '../../utils/helpers'
 import apiClient from '../../services/apiClient'
-import { INDIA_CITIES } from '../../data/cities'
 
 // ─── Auth Confirm Dialog ─────────────────────────
 function AuthConfirmDialog({ config, onClose }) {
@@ -52,7 +52,7 @@ function Field({ label, icon: Icon, children, action }) {
 // ─── Main Component ──────────────────────────────
 export default function CustomerAuth() {
   const navigate = useNavigate()
-  const { user, loading: authLoading, login, loginWithPassword } = useAuth()
+  const { user, loading: authLoading, login, completeCustomerSignup, loginWithPassword } = useAuth()
 
   // Redirect already-authenticated users to their portal
   useEffect(() => {
@@ -66,6 +66,8 @@ export default function CustomerAuth() {
   const [role, setRole] = useState('customer')   // customer | crew
   const [mode, setMode] = useState('login')       // login | signup
   const [step, setStep] = useState('form')        // form | otp | success | lead
+  const [signupStep, setSignupStep] = useState(1) // 1: First Name, 2: Last Name, 3: Phone, 4: OTP, 5: Post-OTP
+  const [signupToken, setSignupToken] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [useOtp, setUseOtp] = useState(true)      // OTP vs password login
 
@@ -90,17 +92,23 @@ export default function CustomerAuth() {
     otp: ['', '', '', '', '', ''],
   })
 
-  // Fetch societies
+  const [cities, setCities] = useState([])
+
+  // Fetch societies and active cities dynamically
   useEffect(() => {
-    const fetchSocieties = async () => {
+    const fetchInitialData = async () => {
       try {
-        const res = await apiClient.get('/public/societies/active')
-        setSocieties(res.societies || [])
+        const [socRes, cityRes] = await Promise.all([
+          apiClient.get('/public/societies/active'),
+          apiClient.get('/public/cities')
+        ])
+        setSocieties(socRes.societies || [])
+        setCities(cityRes.cities || [])
       } catch (err) {
-        console.error('Failed to fetch societies', err)
+        console.error('Failed to fetch initial data', err)
       }
     }
-    fetchSocieties()
+    fetchInitialData()
   }, [])
 
   useEffect(() => {
@@ -165,46 +173,34 @@ export default function CustomerAuth() {
       return
     }
 
-    // If user selected "Other" society, submit as a lead instead
-    if (mode === 'signup' && isOtherSociety) {
-      if (!formData.societyName) {
-        setErrorMsg('Please enter your society name')
-        return
-      }
-      setLoading(true)
-      try {
-        await apiClient.post('/public/leads', {
-          name: `${formData.firstName} ${formData.lastName}`.trim() || 'Unknown',
-          phone: formData.phone,
-          email: formData.email,
-          city: formData.city,
-          requestedArea: formData.area,
-          requestedSociety: formData.societyName,
-        })
-        setStep('success')
-      } catch (err) {
-        setErrorMsg(err.message || 'Failed to submit interest.')
-      } finally {
-        setLoading(false)
-      }
-      return
-    }
-
-    if (mode === 'signup' && !formData.society) {
-      setErrorMsg('Please select your society to continue')
-      return
-    }
-
     setLoading(true)
     try {
       await apiClient.post('/auth/send-otp', { phone: formData.phone, role, mode })
       setStep('otp')
       setTimer(30)
+      if (mode === 'signup') {
+        setSignupStep(4)
+      }
     } catch (err) {
       if (err.type === 'USER_NOT_FOUND') {
-        setConfirmDialog({ type: 'not_found', message: err.message, action: () => { setMode('signup'); setConfirmDialog(null) } })
+        setConfirmDialog({ 
+          type: 'not_found', 
+          message: err.message, 
+          action: () => { 
+            setMode('signup'); 
+            setSignupStep(1); 
+            setConfirmDialog(null); 
+          } 
+        })
       } else if (err.type === 'USER_ALREADY_EXISTS') {
-        setConfirmDialog({ type: 'already_exists', message: err.message, action: () => { setMode('login'); setConfirmDialog(null) } })
+        setConfirmDialog({ 
+          type: 'already_exists', 
+          message: err.message, 
+          action: () => { 
+            setMode('login'); 
+            setConfirmDialog(null); 
+          } 
+        })
       } else {
         setErrorMsg(err.message || 'Failed to send OTP. Please try again.')
       }
@@ -219,22 +215,80 @@ export default function CustomerAuth() {
     setErrorMsg('')
     setLoading(true)
     try {
-      const extra = mode === 'signup' ? {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
-        city: formData.city,
-        society: formData.society,
-        referralCode: formData.referralCode || undefined,
-      } : {}
-
-      const res = await login(formData.phone, formData.otp.join(''), role, extra)
-      if (res.success) {
-        setStep('success')
-        setTimeout(() => navigate(role === 'crew' ? '/cleaner' : '/customer'), 1500)
+      if (mode === 'signup') {
+        const res = await apiClient.post('/auth/verify-otp-signup', {
+          phone: formData.phone,
+          code: formData.otp.join(''),
+          role,
+        })
+        if (res.success && res.signupToken) {
+          setSignupToken(res.signupToken)
+          setStep('form')
+          setSignupStep(5)
+        } else {
+          setErrorMsg(res.message || 'Verification failed')
+        }
       } else {
-        setErrorMsg(res.message || 'Verification failed')
+        const res = await login(formData.phone, formData.otp.join(''), role, {})
+        if (res.success) {
+          setStep('success')
+          setTimeout(() => navigate(role === 'crew' ? '/cleaner' : '/customer'), 1500)
+        } else {
+          setErrorMsg(res.message || 'Verification failed')
+        }
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Complete Customer Signup ──
+  const handleCompleteSignupClick = async (e) => {
+    e.preventDefault()
+    setErrorMsg('')
+    setLoading(true)
+
+    try {
+      if (isOtherSociety) {
+        if (!formData.societyName) {
+          setErrorMsg('Please enter your society name')
+          setLoading(false)
+          return
+        }
+        await apiClient.post('/public/leads', {
+          name: `${formData.firstName} ${formData.lastName}`.trim() || 'Unknown',
+          phone: formData.phone,
+          email: formData.email,
+          city: formData.city,
+          requestedArea: formData.area,
+          requestedSociety: formData.societyName,
+        })
+        setStep('success')
+      } else {
+        if (!formData.society) {
+          setErrorMsg('Please select your society to continue')
+          setLoading(false)
+          return
+        }
+
+        const res = await completeCustomerSignup({
+          signupToken,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          city: formData.city,
+          society: formData.society,
+          referralCode: formData.referralCode || undefined,
+        })
+
+        if (res.success) {
+          setStep('success')
+          setTimeout(() => navigate('/customer'), 1500)
+        } else {
+          setErrorMsg(res.message || 'Failed to complete signup')
+        }
       }
     } catch (err) {
       setErrorMsg(err.message || 'An unexpected error occurred')
@@ -295,6 +349,56 @@ export default function CustomerAuth() {
   const inputStyle = { paddingLeft: 48, width: '100%', boxSizing: 'border-box' }
   const selectStyle = { ...inputStyle, appearance: 'none', cursor: 'pointer' }
 
+  const renderSignupProgress = () => {
+    if (mode !== 'signup' || step !== 'form') return null
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid var(--border-glass)' }}>
+        {[1, 2, 3, 4, 5].map((s) => {
+          const isActive = signupStep === s
+          const isCompleted = signupStep > s
+          return (
+            <div key={s} style={{ display: 'flex', alignItems: 'center' }}>
+              <div 
+                style={{ 
+                  width: 28, 
+                  height: 28, 
+                  borderRadius: '50%', 
+                  background: isCompleted 
+                    ? 'var(--accent-lime)' 
+                    : isActive 
+                      ? 'rgba(var(--accent-lime-rgb), 0.2)' 
+                      : 'var(--bg-secondary)', 
+                  border: isActive ? '2px solid var(--accent-lime)' : '2px solid var(--border-glass)',
+                  color: isCompleted ? '#000' : isActive ? 'var(--accent-lime)' : 'var(--text-secondary)',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  fontSize: 12, 
+                  fontWeight: 800,
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                {s}
+              </div>
+              {s < 5 && (
+                <div 
+                  style={{ 
+                    width: 30, 
+                    height: 2, 
+                    background: isCompleted ? 'var(--accent-lime)' : 'var(--border-glass)',
+                    marginLeft: 8,
+                    transition: 'all 0.3s ease'
+                  }} 
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+
   // ── Lead Capture Screen ──
   if (step === 'lead') return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden' }}>
@@ -313,7 +417,7 @@ export default function CustomerAuth() {
               <Field label="City" icon={MapPin}>
                 <select required className="input-field" style={selectStyle} value={formData.city} onChange={set('city')}>
                   <option value="" disabled>Select City</option>
-                  {INDIA_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  {cities.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
                 </select>
               </Field>
               <Field label="Society Name" icon={Building2}><input required className="input-field" style={inputStyle} value={formData.societyName} onChange={set('societyName')} /></Field>
@@ -365,8 +469,8 @@ export default function CustomerAuth() {
         
         {/* Logo */}
         <header style={{ padding: '24px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <img src="/logo.png" alt="Cleanzo Logo" style={{ height: 40, width: 'auto' }} />
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>CLEANZO</span>
+          <img src={getAppLogo()} alt="Cleanzo Logo" style={{ height: 40, width: 'auto' }} />
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Cleanzo</span>
         </header>
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingBottom: 40 }}>
@@ -399,12 +503,15 @@ export default function CustomerAuth() {
           <div className="glass" style={{ padding: 28, borderRadius: 28, border: '1px solid var(--border-glass)', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             
             {/* Mode toggle */}
-            {step === 'form' && (
+            {renderSignupProgress()}
+
+            {/* Mode toggle */}
+            {step === 'form' && (mode === 'login' || signupStep === 1) && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, borderBottom: '1px solid var(--border-glass)', width: '100%' }}>
                 <div style={{ display: 'flex', gap: 24 }}>
                   <button onClick={() => { setMode('login'); setErrorMsg(''); setUseOtp(true) }} style={{ paddingBottom: 12, color: mode === 'login' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none', cursor: 'pointer', borderBottom: mode === 'login' ? '2px solid var(--accent-lime)' : 'none' }}>Login</button>
                   {role === 'customer' && (
-                    <button onClick={() => { setMode('signup'); setErrorMsg(''); setUseOtp(true) }} style={{ paddingBottom: 12, color: mode === 'signup' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none', cursor: 'pointer', borderBottom: mode === 'signup' ? '2px solid var(--accent-lime)' : 'none' }}>Sign Up</button>
+                    <button onClick={() => { setMode('signup'); setErrorMsg(''); setUseOtp(true); setSignupStep(1); }} style={{ paddingBottom: 12, color: mode === 'signup' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none', cursor: 'pointer', borderBottom: mode === 'signup' ? '2px solid var(--accent-lime)' : 'none' }}>Sign Up</button>
                   )}
                 </div>
                 {role === 'crew' && (
@@ -424,7 +531,7 @@ export default function CustomerAuth() {
             {/* OTP Step */}
             {step === 'otp' ? (
               <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <button type="button" onClick={() => { setStep('form'); setFormData(p => ({ ...p, otp: ['', '', '', '', '', ''] })) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', padding: 0, width: 'fit-content' }}>
+                <button type="button" onClick={() => { setStep('form'); if (mode === 'signup') { setSignupStep(3); } setFormData(p => ({ ...p, otp: ['', '', '', '', '', ''] })) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', padding: 0, width: 'fit-content' }}>
                   ← Edit number
                 </button>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', width: '100%' }}>
@@ -492,41 +599,67 @@ export default function CustomerAuth() {
                 </p>
               </form>
 
-            ) : (
-              /* OTP REQUEST / SIGNUP FORM */
-              <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            ) : mode === 'signup' ? (
+              /* SIGNUP WIZARD FORM */
+              <>
+                {signupStep === 1 && (
+                  /* Step 1: First Name */
+                  <form onSubmit={(e) => { e.preventDefault(); if (formData.firstName.trim().length >= 2) setSignupStep(2); else setErrorMsg('First name must be at least 2 characters.'); }} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <Field label="First Name" icon={User}>
+                      <input required className="input-field" style={inputStyle} placeholder="First name"
+                        value={formData.firstName}
+                        onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, firstName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })) }} />
+                    </Field>
+                    <button type="submit" className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16 }}>
+                      Next
+                    </button>
+                  </form>
+                )}
 
-                {/* SIGNUP FIELDS */}
-                {mode === 'signup' && (
-                  <>
+                {signupStep === 2 && (
+                  /* Step 2: Last Name */
+                  <form onSubmit={(e) => { e.preventDefault(); if (formData.lastName.trim().length >= 1) setSignupStep(3); else setErrorMsg('Last name is required.'); }} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <Field label="Last Name" icon={User}>
+                      <input required className="input-field" style={inputStyle} placeholder="Last name"
+                        value={formData.lastName}
+                        onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, lastName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })) }} />
+                    </Field>
                     <div style={{ display: 'flex', gap: 12 }}>
-                      <Field label="First Name" icon={User}>
-                        <input required className="input-field" style={inputStyle} placeholder="First name"
-                          value={formData.firstName}
-                          onChange={e => setFormData(p => ({ ...p, firstName: e.target.value.replace(/[^a-zA-Z\s]/g, '') }))} />
-                      </Field>
-                      <Field label="Last Name" icon={null}>
-                        <input required className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} placeholder="Last name"
-                          value={formData.lastName}
-                          onChange={e => setFormData(p => ({ ...p, lastName: e.target.value.replace(/[^a-zA-Z\s]/g, '') }))} />
-                      </Field>
+                      <button type="button" className="btn-glass" style={{ flex: 1, padding: 14, borderRadius: 12 }} onClick={() => setSignupStep(1)}>Back</button>
+                      <button type="submit" className="btn-primary" style={{ flex: 1, padding: 14, borderRadius: 12 }}>Next</button>
                     </div>
+                  </form>
+                )}
 
+                {signupStep === 3 && (
+                  /* Step 3: Phone Number */
+                  <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <Field label="Phone Number" icon={Phone}>
+                      <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={10}
+                        value={formData.phone}
+                        onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') })) }} />
+                    </Field>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <button type="button" className="btn-glass" style={{ flex: 1, padding: 14, borderRadius: 12 }} onClick={() => setSignupStep(2)}>Back</button>
+                      <button type="submit" disabled={loading} className="btn-primary" style={{ flex: 2, padding: 14, borderRadius: 12 }}>
+                        {loading ? 'Sending…' : 'Send OTP'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {signupStep === 5 && (
+                  /* Step 5: Post-OTP Details */
+                  <form onSubmit={handleCompleteSignupClick} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <Field label="Email Address" icon={Mail}>
                       <input required type="email" className="input-field" style={inputStyle} placeholder="you@example.com"
                         value={formData.email} onChange={set('email')} />
                     </Field>
 
-                    <Field label="Password" icon={Lock}
-                      action={<button type="button" onClick={() => setShowPwd(v => !v)} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontSize: 13, cursor: 'pointer' }}>{showPwd ? 'Hide' : 'Show'}</button>}>
-                      <input required className="input-field" style={{ ...inputStyle, paddingRight: 48 }} placeholder="Min 8 characters" type={showPwd ? 'text' : 'password'} minLength={8}
-                        value={formData.password} onChange={set('password')} />
-                    </Field>
-
                     <Field label="City" icon={MapPin}>
                       <select required className="input-field" style={selectStyle} value={formData.city} onChange={set('city')}>
                         <option value="" disabled>Select your city</option>
-                        {INDIA_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        {cities.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
                       </select>
                       <ChevronDown size={16} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', opacity: 0.4, pointerEvents: 'none' }} />
                     </Field>
@@ -615,13 +748,20 @@ export default function CustomerAuth() {
                       )}
                     </Field>
 
-                    <Field label="Referral Code (optional)" icon={Tag}>
+                    <Field label="Referral Code (Optional)" icon={Tag}>
                       <input className="input-field" style={inputStyle} placeholder="Enter referral code"
                         value={formData.referralCode} onChange={set('referralCode')} />
                     </Field>
-                  </>
-                )}
 
+                    <button type="submit" disabled={loading} className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
+                      {loading ? 'Submitting…' : isOtherSociety ? 'Submit Request' : 'Complete Sign Up'}
+                    </button>
+                  </form>
+                )}
+              </>
+            ) : (
+              /* OTP REQUEST / LOGIN FORM */
+              <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {/* PHONE FIELD */}
                 <Field label="Phone Number" icon={Phone}
                   action={mode === 'login' && (
@@ -635,7 +775,7 @@ export default function CustomerAuth() {
                 </Field>
 
                 <button type="submit" disabled={loading} className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
-                  {loading ? 'Sending…' : mode === 'login' ? 'Send OTP' : 'Create Account'}
+                  {loading ? 'Sending…' : 'Send OTP'}
                 </button>
 
                 {role === 'crew' && mode === 'login' && (

@@ -41,7 +41,7 @@ export default function LoadingScreen({ onComplete }) {
         </div>
 
         <div className="brand-minimal">
-          <h1 className="brand-name-simple">CLEANZO</h1>
+          <h1 className="brand-name-simple">Cleanzo</h1>
           <div className="status-line">
             <span className="status-dot" /> {statusMessages[statusIdx]}
           </div>

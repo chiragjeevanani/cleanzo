@@ -5,6 +5,7 @@ import { useTheme } from '../../context/ThemeContext'
 import { LayoutDashboard, CreditCard, User, LogOut, Moon, Sun, Menu, X, ShieldCheck } from 'lucide-react'
 import PageLoader from '../../components/PageLoader'
 import ErrorBoundary from '../../components/ErrorBoundary'
+import { getAppLogo } from '../../utils/helpers'
 
 const SocietyDashboard = lazy(() => import('./SocietyDashboard'))
 const SocietyCommissions = lazy(() => import('./SocietyCommissions'))
@@ -50,7 +51,7 @@ export default function SocietyApp() {
       {/* Sidebar */}
       <aside className="admin-sidebar" style={{ transform: sidebarOpen ? 'none' : 'translateX(-100%)', zIndex: isMobile ? 100 : undefined }}>
         <div className="sidebar-logo">
-          <img src="/logo.png" alt="Cleanzo" />
+          <img src={getAppLogo()} alt="Cleanzo" />
           <span>Cleanzo Partner</span>
         </div>
         <div className="sidebar-nav">

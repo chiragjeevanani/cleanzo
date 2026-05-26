@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { SocietyAuthProvider } from './context/SocietyAuthContext'
@@ -16,8 +17,61 @@ import ForgotPassword from './pages/Customer/ForgotPassword'
 import JoinAsCleaner from './pages/Landing/JoinAsCleaner'
 import SocietyLogin from './pages/Society/SocietyLogin'
 import SocietyApp from './pages/Society/SocietyApp'
+import Warranty from './pages/Landing/Warranty'
+import NetworkStatus from './pages/Landing/NetworkStatus'
 
 export default function App() {
+  useEffect(() => {
+    // 1. Mobile Keyboard Shift Guide
+    const handleFocus = (e) => {
+      const target = e.target;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        const type = target.getAttribute('type') || 'text';
+        if (!['email', 'password', 'number', 'tel', 'checkbox', 'radio', 'file'].includes(type)) {
+          target.setAttribute('autocapitalize', 'sentences');
+        }
+      }
+    };
+
+    // 2. Desktop & Mobile Universal Casing State Sync
+    const handleInput = (e) => {
+      const target = e.target;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        const type = target.getAttribute('type') || 'text';
+        const name = target.getAttribute('name') || '';
+        const id = target.getAttribute('id') || '';
+        
+        // Safety checks & exclusions
+        if (['email', 'password', 'number', 'tel', 'checkbox', 'radio', 'file'].includes(type)) return;
+        if (name.toLowerCase().includes('email') || name.toLowerCase().includes('password')) return;
+        if (id.toLowerCase().includes('email') || id.toLowerCase().includes('password')) return;
+        
+        const val = target.value;
+        if (val && val.length > 0) {
+          const firstChar = val.charAt(0);
+          if (firstChar !== firstChar.toUpperCase()) {
+            const capitalized = firstChar.toUpperCase() + val.slice(1);
+            
+            // Imperatively update value
+            target.value = capitalized;
+            
+            // Dispatch synthetic event to let React's onChange sync state correctly
+            const event = new Event('input', { bubbles: true });
+            target.dispatchEvent(event);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('focusin', handleFocus, true);
+    document.addEventListener('input', handleInput, true);
+
+    return () => {
+      document.removeEventListener('focusin', handleFocus, true);
+      document.removeEventListener('input', handleInput, true);
+    };
+  }, []);
+
   return (
     <AuthProvider>
       <SocietyAuthProvider>
@@ -32,6 +86,8 @@ export default function App() {
             <Route path="/join-crew" element={<JoinAsCleaner />} />
             <Route path="/" element={<LandingPage />} />
             <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/warranty" element={<Warranty />} />
+            <Route path="/network-status" element={<NetworkStatus />} />
 
             {/* Protected: Customer Portal */}
             <Route
@@ -81,4 +137,3 @@ export default function App() {
     </AuthProvider>
   )
 }
-

@@ -242,7 +242,7 @@ export const getSocieties = asyncHandler(async (req, res) => {
 });
 
 export const createSubscription = asyncHandler(async (req, res) => {
-  const { vehicleId, packageId, paymentId, societyId, slotId, specialInstructions, isTrial, startDate } = req.body;
+  const { vehicleId, packageId, paymentId, societyId, slotId, specialInstructions, isTrial, startDate, isPremiumOverride, overrideReason } = req.body;
   if (!vehicleId || !societyId || !slotId) {
     throw new ApiError(400, 'Vehicle, society, and slot are required');
   }
@@ -356,20 +356,44 @@ export const createSubscription = asyncHandler(async (req, res) => {
   let basePrice = isTrial ? trialPrice : pkg.price;
   let priorityFee = 0;
 
-  // Atomic slot increment: only succeeds if currentCount < maxVehicles
-  const updatedSociety = await Society.findOneAndUpdate(
-    { _id: societyId, slots: { $elemMatch: { slotId, currentCount: { $lt: slot.maxVehicles } } } },
-    { $inc: { 'slots.$.currentCount': 1 } },
-    { new: true }
-  );
-
-  if (!updatedSociety) {
-    // Slot was full — apply priority fee (only for non-trial) and increment unconditionally
-    if (!isTrial) priorityFee = prioritySlotFee;
+  if (isPremiumOverride) {
+    if (!overrideReason || !overrideReason.trim()) {
+      throw new ApiError(400, 'Override reason is required for premium override bookings');
+    }
+    priorityFee = prioritySlotFee;
     await Society.updateOne(
       { _id: societyId, 'slots.slotId': slotId },
       { $inc: { 'slots.$.currentCount': 1 } }
     );
+  } else {
+    // Standard booking slot status and capacity verification
+    const slotStatus = slot.status || 'Open';
+    if (slotStatus !== 'Open') {
+      throw new ApiError(400, `Standard booking is closed for this time slot. Current status: ${slotStatus}.`);
+    }
+    if (slot.currentCount >= slot.maxVehicles) {
+      throw new ApiError(400, 'Standard capacity for this slot is full. Please use Premium Override Booking to schedule.');
+    }
+
+    // Atomic slot increment: only succeeds if currentCount < maxVehicles and status is Open
+    const updatedSociety = await Society.findOneAndUpdate(
+      { 
+        _id: societyId, 
+        slots: { 
+          $elemMatch: { 
+            slotId, 
+            status: 'Open',
+            currentCount: { $lt: slot.maxVehicles } 
+          } 
+        } 
+      },
+      { $inc: { 'slots.$.currentCount': 1 } },
+      { new: true }
+    );
+
+    if (!updatedSociety) {
+      throw new ApiError(400, 'Slot status changed or capacity filled during booking. Please try again.');
+    }
   }
 
   // Calculate final amount
@@ -421,6 +445,8 @@ export const createSubscription = asyncHandler(async (req, res) => {
     nextWash: nextWashVal,
     amount: finalAmount,
     priorityFee,
+    isPremiumOverride: isPremiumOverride || false,
+    overrideReason: isPremiumOverride ? overrideReason : undefined,
     specialInstructions,
     paymentId,
   });

@@ -55,6 +55,12 @@ router.post('/societies', ctrl.createSociety);
 router.put('/societies/:id', ctrl.updateSociety);
 router.delete('/societies/:id', ctrl.deleteSociety);
 
+// Cities
+router.get('/cities', ctrl.getCities);
+router.post('/cities', ctrl.createCity);
+router.put('/cities/:id', ctrl.updateCity);
+router.delete('/cities/:id', ctrl.deleteCity);
+
 // Cleaner Applications
 router.get('/cleaner-applications', ctrl.getCleanerApplications);
 router.put('/cleaner-applications/:id', ctrl.updateCleanerApplicationStatus);
@@ -128,6 +134,10 @@ router.get('/partner-societies/:id/commissions', ctrl.getPartnerSocietyCommissio
 // Payout Requests (Admin manages society payout requests)
 router.get('/payout-requests', ctrl.getPayoutRequests);
 router.put('/payout-requests/:id', ctrl.processPayoutRequest);
+
+// Trusted Societies CMS
+router.get('/trusted-societies', ctrl.getTrustedSocieties);
+router.put('/trusted-societies', ctrl.updateTrustedSocieties);
 
 export default router;
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { Menu, X, Sun, Moon } from 'lucide-react'
 import './Navbar.css'
+import { getAppLogo } from '../../utils/helpers'
 
 const navLinks = [
   { label: 'Services', href: '#services' },
@@ -40,8 +41,8 @@ export default function Navbar() {
       <nav className={`landing-nav ${scrolled ? 'nav-scrolled' : ''} ${hidden ? 'nav-hidden' : ''} ${mobileOpen ? 'nav-mobile-open' : ''}`}>
         <div className="nav-inner">
           <Link to="/" className="nav-logo">
-            <img src="/logo.png" alt="Cleanzo" className="nav-logo-img" />
-            <span className="nav-logo-text">CLEANZO</span>
+            <img src={getAppLogo()} alt="Cleanzo" className="nav-logo-img" />
+            <span className="nav-logo-text">Cleanzo</span>
           </Link>
 
           <div className="nav-links hide-mobile" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
