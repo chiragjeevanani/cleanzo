@@ -76,7 +76,7 @@ export const captureLead = asyncHandler(async (req, res) => {
  */
 export const listActivePackages = asyncHandler(async (req, res) => {
   const { default: Package } = await import('../models/Package.js');
-  const packages = await Package.find({ isActive: true }).sort('sortOrder');
+  const packages = await Package.find({ isActive: true, showOnLanding: true }).sort('sortOrder');
   res.json({ success: true, packages });
 });
 

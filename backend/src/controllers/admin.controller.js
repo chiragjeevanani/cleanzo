@@ -533,18 +533,18 @@ export const getAllPackages = asyncHandler(async (req, res) => {
 });
 
 export const createPackage = asyncHandler(async (req, res) => {
-  const { name, tier, price, trialPrice, category, features, popular, sortOrder, applicableModels } = req.body;
+  const { name, tier, price, trialPrice, category, features, popular, sortOrder, applicableModels, showOnLanding } = req.body;
   if (!name || !price) throw new ApiError(400, 'Name and price are required');
-  const pkg = await Package.create({ name, tier, price, trialPrice, category, features, popular, sortOrder, applicableModels });
+  const pkg = await Package.create({ name, tier, price, trialPrice, category, features, popular, sortOrder, applicableModels, showOnLanding });
   await clearCache('cache:global:*');
   res.status(201).json({ success: true, package: pkg });
 });
 
 export const updatePackage = asyncHandler(async (req, res) => {
-  const { name, tier, price, trialPrice, category, features, popular, sortOrder, isActive, applicableModels } = req.body;
+  const { name, tier, price, trialPrice, category, features, popular, sortOrder, isActive, applicableModels, showOnLanding } = req.body;
   const pkg = await Package.findByIdAndUpdate(
     req.params.id,
-    { name, tier, price, trialPrice, category, features, popular, sortOrder, isActive, applicableModels },
+    { name, tier, price, trialPrice, category, features, popular, sortOrder, isActive, applicableModels, showOnLanding },
     { new: true, runValidators: true }
   );
   if (!pkg) throw new ApiError(404, 'Package not found');

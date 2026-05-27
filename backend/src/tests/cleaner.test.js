@@ -229,7 +229,10 @@ describe('CLEAN-8..10 | Attendance and earnings', () => {
     const { cleaner, token } = await createCleaner();
     const future = new Date();
     future.setDate(future.getDate() + 5);
-    const dateStr = future.toISOString().split('T')[0];
+    const year = future.getFullYear();
+    const month = String(future.getMonth() + 1).padStart(2, '0');
+    const day = String(future.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
 
     const res = await api.post('/api/cleaner/leave').set(authHeader(token)).send({ date: dateStr, reason: 'Family event' });
     expect(res.status).toBe(200);

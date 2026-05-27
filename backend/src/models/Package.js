@@ -20,6 +20,7 @@ const packageSchema = new Schema({
   }],
   popular:   { type: Boolean, default: false },
   isActive:  { type: Boolean, default: true },
+  showOnLanding: { type: Boolean, default: true },
   sortOrder: { type: Number, default: 0 },
 }, { timestamps: true });
 

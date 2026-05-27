@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { FileText, Shield, Activity, HelpCircle, Save, Plus, Trash2, CheckCircle, RefreshCw, Star, MapPin, Image, Eye, Loader2, Globe, ExternalLink, X, Send } from 'lucide-react'
+import { FileText, Shield, Activity, HelpCircle, Save, Plus, Trash2, CheckCircle, RefreshCw, Star, MapPin, Image, Eye, Loader2, Globe, ExternalLink, X, Send, Package } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
 import FaqsManager from './FaqsManager'
 import TestimonialsManager from './TestimonialsManager'
+import LandingPlansManager from './LandingPlansManager'
 import apiClient from '../../services/apiClient'
 
 export default function AdminCMS() {
@@ -246,6 +247,7 @@ export default function AdminCMS() {
           { id: 'network', icon: Activity, label: 'Network Status' },
           { id: 'societies', icon: MapPin, label: 'Trusted Societies' },
           { id: 'banners', icon: Image, label: 'Banners' },
+          { id: 'landingPlans', icon: Package, label: 'Landing Page Plans' },
           { id: 'reviews', icon: Star, label: 'Reviews' },
           { id: 'faqs', icon: HelpCircle, label: 'FAQs' }
         ].map(tab => (
@@ -879,7 +881,14 @@ export default function AdminCMS() {
           </div>
         )}
 
-        {/* --- 6. REVIEWS --- */}
+        {/* --- 6. LANDING PLANS --- */}
+        {activeTab === 'landingPlans' && (
+          <div>
+            <LandingPlansManager />
+          </div>
+        )}
+
+        {/* --- 7. REVIEWS --- */}
         {activeTab === 'reviews' && (
           <div>
             <TestimonialsManager />
