@@ -7,6 +7,7 @@ import adminRoutes from './admin.routes.js';
 import paymentRoutes from './payment.routes.js';
 import publicRoutes from './public.routes.js';
 import societyRoutes from './society.routes.js';
+import pushRoutes from './push.routes.js';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.use('/admin', adminRoutes);
 router.use('/payment', paymentRoutes);
 router.use('/public', publicRoutes);
 router.use('/society', societyRoutes);
+router.use('/push', pushRoutes);
 
 export default router;
 

@@ -14,15 +14,6 @@ import apiClient from './apiClient.js';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
-// Role → API endpoint prefix map
-const ROLE_ENDPOINT = {
-  customer:   '/customer/fcm-token',
-  cleaner:    '/cleaner/fcm-token',
-  admin:      '/admin/fcm-token',
-  superadmin: '/admin/fcm-token',
-  society:    '/society/fcm-token',
-};
-
 // ─── Register FCM service worker ─────────────────────────────────────────────
 let swRegistration = null;
 
@@ -71,10 +62,8 @@ export async function getFcmToken() {
 
 // ─── Save FCM token to backend ───────────────────────────────────────────────
 export async function saveFcmTokenToServer(token, role) {
-  const endpoint = ROLE_ENDPOINT[role];
-  if (!endpoint) return;
   try {
-    await apiClient.post(endpoint, { token });
+    await apiClient.post('/push/save', { token, platform: 'web' });
   } catch (err) {
     console.error('[FCM] Failed to save token to server:', err);
   }
@@ -82,10 +71,9 @@ export async function saveFcmTokenToServer(token, role) {
 
 // ─── Remove FCM token from backend ───────────────────────────────────────────
 export async function removeFcmTokenFromServer(token, role) {
-  const endpoint = ROLE_ENDPOINT[role];
-  if (!endpoint || !token) return;
+  if (!token) return;
   try {
-    await apiClient.delete(endpoint, { data: { token } });
+    await apiClient.delete('/push/save', { data: { token } });
   } catch { /* non-fatal on logout */ }
 }
 
