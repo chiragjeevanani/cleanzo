@@ -13,7 +13,6 @@ import LegalTerms from './pages/Customer/Profile/LegalTerms'
 import LegalPrivacy from './pages/Customer/Profile/LegalPrivacy'
 import HelpSupport from './pages/Customer/Profile/HelpSupport'
 import CustomerAuth from './pages/Customer/CustomerAuth'
-import ForgotPassword from './pages/Customer/ForgotPassword'
 import JoinAsCleaner from './pages/Landing/JoinAsCleaner'
 import SocietyLogin from './pages/Society/SocietyLogin'
 import SocietyApp from './pages/Society/SocietyApp'
@@ -90,7 +89,6 @@ export default function App() {
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<CustomerAuth />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/terms" element={<LegalTerms />} />
             <Route path="/privacy" element={<LegalPrivacy />} />
             <Route path="/help" element={<HelpSupport />} />

@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 const { Schema } = mongoose;
 
@@ -14,7 +13,6 @@ const customerSchema = new Schema({
   // Virtual 'name' field for backward compatibility
   phone:        { type: String, required: true, unique: true, index: true },
   email:        { type: String, required: true, unique: true, trim: true, lowercase: true, maxlength: 100 },
-  password:     { type: String, required: true, select: false },
   avatar:       { type: String, default: null },
   city:         { type: String, required: true, trim: true, maxlength: 50 },
   role:         { type: String, default: 'customer', enum: ['customer'] },
@@ -48,14 +46,6 @@ customerSchema.virtual('name').get(function () {
   return `${this.firstName} ${this.lastName}`;
 });
 
-// Hash password before save
-customerSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-  const salt = await bcrypt.genSalt(12);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
-
 // Generate referral code before first save
 customerSchema.pre('save', function (next) {
   if (!this.referralCode) {
@@ -64,16 +54,8 @@ customerSchema.pre('save', function (next) {
   next();
 });
 
-
-// Compare password method
-customerSchema.methods.comparePassword = async function (candidatePassword) {
-  if (!this.password) return false; // No password set (OTP-only account or missing field)
-  return bcrypt.compare(candidatePassword, this.password);
-};
-
 // Set JSON to include virtuals
 customerSchema.set('toJSON', { virtuals: true });
 customerSchema.set('toObject', { virtuals: true });
 
 export default mongoose.model('Customer', customerSchema);
-

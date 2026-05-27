@@ -379,7 +379,7 @@ export const getUserById = asyncHandler(async (req, res) => {
 });
 
 export const createUser = asyncHandler(async (req, res) => {
-  const { firstName, lastName, phone, email, city, password } = req.body;
+  const { firstName, lastName, phone, email, city } = req.body;
   if (!firstName || !phone || !email || !city) {
     throw new ApiError(400, 'First name, phone, email, and city are required');
   }
@@ -387,11 +387,7 @@ export const createUser = asyncHandler(async (req, res) => {
   const existing = await Customer.findOne({ phone: normalized });
   if (existing) throw new ApiError(409, 'A user with this phone number already exists');
 
-  // Admin must supply a temporary password, or we generate one
-  const { randomBytes } = await import('crypto');
-  const tempPassword = password || randomBytes(6).toString('hex'); // 12-char hex
-
-  const user = await Customer.create({ firstName, lastName, phone: normalized, email, city, password: tempPassword });
+  const user = await Customer.create({ firstName, lastName, phone: normalized, email, city });
   
   await logActivity({
     type: 'user_created',
@@ -400,7 +396,7 @@ export const createUser = asyncHandler(async (req, res) => {
     metadata: { userId: user._id }
   });
 
-  res.status(201).json({ success: true, user, tempPassword: password ? undefined : tempPassword });
+  res.status(201).json({ success: true, user });
 });
 
 export const updateUser = asyncHandler(async (req, res) => {
@@ -529,25 +525,6 @@ export const deleteCleaner = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Cleaner deactivated successfully' });
 });
 
-export const setCleanerPassword = asyncHandler(async (req, res) => {
-  const { password } = req.body;
-  if (!password || password.length < 6) throw new ApiError(400, 'Password must be at least 6 characters');
-
-  const cleaner = await Cleaner.findById(req.params.id);
-  if (!cleaner) throw new ApiError(404, 'Cleaner not found');
-
-  cleaner.password = password; // pre-save hook will bcrypt it
-  await cleaner.save({ validateModifiedOnly: true });
-
-  await logActivity({
-    type: 'cleaner_password_set',
-    message: `Admin set password for cleaner: ${cleaner.name}`,
-    performer: req.user._id,
-    metadata: { cleanerId: cleaner._id }
-  });
-
-  res.json({ success: true, message: `Password set successfully for ${cleaner.name}. They can now log in with phone + password.` });
-});
 
 // ─── PACKAGES (Admin CRUD) ──────────────────────
 export const getAllPackages = asyncHandler(async (req, res) => {

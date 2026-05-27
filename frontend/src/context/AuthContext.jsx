@@ -97,19 +97,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const loginWithPassword = async (phone, password, role) => {
-    try {
-      const res = await apiClient.post('/auth/login-password', { phone, password, role });
-      localStorage.setItem('token', res.token);
-      localStorage.setItem('refreshToken', res.refreshToken);
-      localStorage.setItem('userRole', res.user.role);
-      setUser(res.user);
-      return { success: true };
-    } catch (error) {
-      const message = error.message || 'Invalid credentials';
-      return { success: false, message };
-    }
-  };
 
   const adminLogin = async (email, password) => {
     try {
@@ -146,7 +133,7 @@ export const AuthProvider = ({ children }) => {
   const updateUser = (updates) => setUser(prev => ({ ...prev, ...updates }));
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, completeCustomerSignup, loginWithPassword, adminLogin, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, completeCustomerSignup, adminLogin, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -44,7 +44,6 @@ describe('AUTH-3 | verify-otp new customer signup', () => {
       firstName: 'Jane',
       lastName: 'Doe',
       email: 'jane@example.com',
-      password: 'Secret123',
       city: 'Delhi',
     });
     expect(res.status).toBe(200);
@@ -79,26 +78,14 @@ describe('AUTH-4 | verify-otp wrong code / brute-force lockout', () => {
   });
 });
 
-describe('AUTH-5..6 | password login', () => {
-  it('returns JWT on valid credentials', async () => {
-    const { customer } = await createCustomer({ phone: '9000000030', password: 'MyPass123' });
-    const res = await api.post('/api/auth/login-password').send({ phone: '9000000030', password: 'MyPass123', role: 'customer' });
-    expect(res.status).toBe(200);
-    expect(res.body.token).toBeTruthy();
-    expect(res.body.refreshToken).toBeTruthy();
-  });
-
-  it('returns 401 on wrong password', async () => {
-    await createCustomer({ phone: '9000000031', password: 'MyPass123' });
-    const res = await api.post('/api/auth/login-password').send({ phone: '9000000031', password: 'WrongPass', role: 'customer' });
-    expect(res.status).toBe(401);
-  });
-});
-
 describe('AUTH-7..8 | refresh token rotation', () => {
   it('issues new tokens and deletes the old refresh token', async () => {
-    const { customer, token } = await createCustomer();
-    const loginRes = await api.post('/api/auth/login-password').send({ phone: customer.phone, password: 'Password123', role: 'customer' });
+    const { customer, token } = await createCustomer({ phone: '9000000030' });
+    // Obtain a refresh token via OTP login
+    await seedOtp('9000000030', '555555');
+    const loginRes = await api.post('/api/auth/verify-otp').send({
+      phone: '9000000030', code: '555555', role: 'customer'
+    });
     const oldRefreshToken = loginRes.body.refreshToken;
 
     const refreshRes = await api.post('/api/auth/refresh-token').send({ refreshToken: oldRefreshToken });
@@ -113,12 +100,15 @@ describe('AUTH-7..8 | refresh token rotation', () => {
   });
 
   it('rejects an already-rotated (reused) refresh token', async () => {
-    const { customer } = await createCustomer();
-    const loginRes = await api.post('/api/auth/login-password').send({ phone: customer.phone, password: 'Password123', role: 'customer' });
+    const { customer } = await createCustomer({ phone: '9000000031' });
+    await seedOtp('9000000031', '666666');
+    const loginRes = await api.post('/api/auth/verify-otp').send({
+      phone: '9000000031', code: '666666', role: 'customer'
+    });
     const oldRefreshToken = loginRes.body.refreshToken;
-    // Rotate once — this deletes oldRefreshToken from DB
+    // Rotate once
     await api.post('/api/auth/refresh-token').send({ refreshToken: oldRefreshToken });
-    // Second use of the same token should fail
+    // Second use of same token should fail
     const res = await api.post('/api/auth/refresh-token').send({ refreshToken: oldRefreshToken });
     expect(res.status).toBe(401);
   });
@@ -126,8 +116,11 @@ describe('AUTH-7..8 | refresh token rotation', () => {
 
 describe('AUTH-9 | logout revokes refresh token', () => {
   it('deletes the refresh token from DB on logout', async () => {
-    const { customer } = await createCustomer();
-    const loginRes = await api.post('/api/auth/login-password').send({ phone: customer.phone, password: 'Password123', role: 'customer' });
+    const { customer } = await createCustomer({ phone: '9000000040' });
+    await seedOtp('9000000040', '444444');
+    const loginRes = await api.post('/api/auth/verify-otp').send({
+      phone: '9000000040', code: '444444', role: 'customer'
+    });
     const refreshToken = loginRes.body.refreshToken;
 
     await api.post('/api/auth/logout').send({ refreshToken });
@@ -135,7 +128,7 @@ describe('AUTH-9 | logout revokes refresh token', () => {
     const stored = await RefreshToken.findOne({ token: refreshToken });
     expect(stored).toBeNull();
 
-    // Subsequent refresh with the same token should fail
+    // Subsequent refresh with same token should fail
     const refreshRes = await api.post('/api/auth/refresh-token').send({ refreshToken });
     expect(refreshRes.status).toBe(401);
   });
@@ -189,58 +182,6 @@ describe('AUTH | role isolation', () => {
   });
 });
 
-describe('AUTH | forgot password', () => {
-  it('sends OTP and returns 200 for a registered phone', async () => {
-    await createCustomer({ phone: '9000000085' });
-    const res = await api.post('/api/auth/forgot-password').send({ phone: '9000000085' });
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-  });
-
-  it('returns 404 when phone is not registered', async () => {
-    const res = await api.post('/api/auth/forgot-password').send({ phone: '9999999999' });
-    expect(res.status).toBe(404);
-  });
-
-  it('returns 400 when phone field is missing', async () => {
-    const res = await api.post('/api/auth/forgot-password').send({});
-    expect(res.status).toBe(400);
-  });
-});
-
-describe('AUTH | forgot / reset password', () => {
-  it('resets password with valid OTP', async () => {
-    const { customer } = await createCustomer({ phone: '9000000090', password: 'OldPass123' });
-    await seedOtp('9000000090', '777777');
-
-    const res = await api.post('/api/auth/reset-password').send({
-      phone: '9000000090',
-      code: '777777',
-      newPassword: 'NewPass456',
-    });
-    expect(res.status).toBe(200);
-
-    // Verify old password no longer works
-    const bad = await api.post('/api/auth/login-password').send({ phone: '9000000090', password: 'OldPass123', role: 'customer' });
-    expect(bad.status).toBe(401);
-
-    // Verify new password works
-    const good = await api.post('/api/auth/login-password').send({ phone: '9000000090', password: 'NewPass456', role: 'customer' });
-    expect(good.status).toBe(200);
-  });
-
-  it('returns 400 if new password is less than 8 characters', async () => {
-    await createCustomer({ phone: '9000000091' });
-    await seedOtp('9000000091', '888888');
-    const res = await api.post('/api/auth/reset-password').send({
-      phone: '9000000091',
-      code: '888888',
-      newPassword: 'abc',
-    });
-    expect(res.status).toBe(400);
-  });
-});
-
 describe('AUTH | multi-phase customer signup flow', () => {
   it('verifies OTP and completes signup successfully', async () => {
     const phone = '9000000100';
@@ -288,4 +229,3 @@ describe('AUTH | multi-phase customer signup flow', () => {
     expect(res.status).toBe(401);
   });
 });
-

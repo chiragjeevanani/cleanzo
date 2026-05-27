@@ -24,7 +24,6 @@ export async function createCustomer(overrides = {}) {
     lastName: 'User',
     phone: `9${Math.floor(Math.random() * 1e9).toString().padStart(9, '0')}`,
     email: `test_${Date.now()}@example.com`,
-    password: 'Password123',
     city: 'Mumbai',
     ...overrides,
   });

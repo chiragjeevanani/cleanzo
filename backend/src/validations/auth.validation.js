@@ -57,11 +57,6 @@ export const verifyOtpSchema = Joi.object({
     .optional()
     .allow('', null),
 
-  password: Joi.string()
-    .min(8)
-    .optional()
-    .messages({ 'string.min': 'Password must be at least 8 characters.' }),
-
   city: Joi.string()
     .min(2)
     .max(100)
@@ -71,18 +66,6 @@ export const verifyOtpSchema = Joi.object({
     .max(20)
     .optional()
     .allow('', null),
-});
-
-/**
- * Schema for phone + password login
- */
-export const passwordLoginSchema = Joi.object({
-  phone: Joi.string()
-    .pattern(/^[0-9]{10}$/)
-    .required()
-    .messages({ 'string.pattern.base': 'Phone number must be exactly 10 digits.' }),
-  password: Joi.string().required(),
-  role: Joi.string().valid('customer', 'crew', 'cleaner').required(),
 });
 
 /**

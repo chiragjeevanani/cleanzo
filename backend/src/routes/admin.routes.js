@@ -26,7 +26,6 @@ router.put('/cleaners/attendance', ctrl.updateCleanerAttendance);
 router.get('/cleaners/:id', ctrl.getCleanerById);
 router.put('/cleaners/:id', ctrl.updateCleaner);
 router.delete('/cleaners/:id', ctrl.deleteCleaner);
-router.put('/cleaners/:id/set-password', ctrl.setCleanerPassword);
 
 router.get('/leaves', ctrl.getLeaveRequests);
 router.put('/leaves/:id/review', ctrl.reviewLeaveRequest);

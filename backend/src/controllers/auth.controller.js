@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import Customer from '../models/Customer.js';
 import Cleaner from '../models/Cleaner.js';
 import Admin from '../models/Admin.js';
@@ -150,7 +149,7 @@ export const handleSendOtp = asyncHandler(async (req, res) => {
  * Body: { phone, code, role, firstName?, lastName?, email?, password?, city?, referralCode? }
  */
 export const handleVerifyOtp = asyncHandler(async (req, res) => {
-  const { phone, code, role, firstName, lastName, email, password, city, referralCode } = req.body;
+  const { phone, code, role, firstName, lastName, email, city, referralCode } = req.body;
 
   if (!phone || !code || !role) {
     throw new ApiError(400, 'Phone, code, and role are required');
@@ -171,8 +170,8 @@ export const handleVerifyOtp = asyncHandler(async (req, res) => {
     user = await Customer.findOne({ phone: normalized });
     if (!user) {
       // New signup — all fields required
-      if (!firstName || !lastName || !email || !password || !city) {
-        throw new ApiError(400, 'First name, last name, email, password, and city are required for signup');
+      if (!firstName || !lastName || !email || !city) {
+        throw new ApiError(400, 'First name, last name, email, and city are required for signup');
       }
 
       // Handle referral — load discount config from admin-controlled Settings
@@ -193,7 +192,6 @@ export const handleVerifyOtp = asyncHandler(async (req, res) => {
         lastName,
         phone: normalized,
         email,
-        password,
         city,
         referredBy: referredByCustomer?._id || null,
         referralDiscount: referredByCustomer ? {
@@ -234,44 +232,6 @@ export const handleVerifyOtp = asyncHandler(async (req, res) => {
     user.lastLogin = new Date();
     await user.save({ validateModifiedOnly: true });
   }
-
-  await sendTokenResponse(user, targetRole, res);
-});
-
-// ─── PHONE + PASSWORD LOGIN ────────────────────────
-/**
- * POST /api/auth/login-password
- * Body: { phone, password, role }
- */
-export const handlePasswordLogin = asyncHandler(async (req, res) => {
-  const { phone, password, role } = req.body;
-
-  if (!phone || !password || !role) {
-    throw new ApiError(400, 'Phone, password, and role are required');
-  }
-
-  const targetRole = role === 'crew' ? 'cleaner' : role;
-  const normalized = normalizePhone(phone);
-  let user;
-
-  if (targetRole === 'customer') {
-    user = await Customer.findOne({ phone: normalized }).select('+password');
-    if (!user) throw new ApiError(404, 'No account found with this phone number');
-    if (!user.password) throw new ApiError(401, 'This account uses OTP login. Please use OTP to sign in.');
-    if (!(await user.comparePassword(password))) throw new ApiError(401, 'Invalid phone number or password');
-
-  } else if (targetRole === 'cleaner') {
-    user = await Cleaner.findOne({ phone: normalized }).select('+password');
-    if (!user) throw new ApiError(404, 'No crew account found with this phone number');
-    if (!user.password) throw new ApiError(401, 'Password not set for this account. Please use OTP login or contact your admin.');
-    if (!(await user.comparePassword(password))) throw new ApiError(401, 'Invalid phone number or password');
-
-  } else {
-    throw new ApiError(400, 'Invalid role. Must be customer or crew.');
-  }
-
-  user.lastLogin = new Date();
-  await user.save({ validateModifiedOnly: true });
 
   await sendTokenResponse(user, targetRole, res);
 });
@@ -337,54 +297,6 @@ export const handleLogout = asyncHandler(async (req, res) => {
   res.clearCookie('refreshToken');
 
   res.json({ success: true, message: 'Logged out successfully' });
-});
-
-// ─── FORGOT PASSWORD ───────────────────────────────
-/**
- * POST /api/auth/forgot-password
- * Body: { phone }
- */
-export const handleForgotPassword = asyncHandler(async (req, res) => {
-  const { phone } = req.body;
-  if (!phone) throw new ApiError(400, 'Phone number is required');
-
-  const normalized = normalizePhone(phone);
-  const customer = await Customer.findOne({ phone: normalized });
-  if (!customer) throw new ApiError(404, 'No account found with this phone number');
-
-  const result = await sendOtp(normalized, 'customer');
-  if (!result.success) {
-    return res.status(400).json({ success: false, message: result.message });
-  }
-
-  res.json({ success: true, message: 'OTP sent to your registered phone number' });
-});
-
-// ─── RESET PASSWORD ────────────────────────────────
-/**
- * POST /api/auth/reset-password
- * Body: { phone, code, newPassword }
- */
-export const handleResetPassword = asyncHandler(async (req, res) => {
-  const { phone, code, newPassword } = req.body;
-  if (!phone || !code || !newPassword) {
-    throw new ApiError(400, 'Phone, OTP code, and new password are required');
-  }
-  if (newPassword.length < 8) {
-    throw new ApiError(400, 'Password must be at least 8 characters');
-  }
-
-  const normalized = normalizePhone(phone);
-  const result = await verifyOtp(normalized, code, 'customer');
-  if (!result.success) throw new ApiError(400, result.message);
-
-  const customer = await Customer.findOne({ phone: normalized }).select('+password');
-  if (!customer) throw new ApiError(404, 'Customer not found');
-
-  customer.password = newPassword;
-  await customer.save({ validateModifiedOnly: true }); // pre-save hook bcrypts the password
-
-  res.json({ success: true, message: 'Password reset successfully. Please log in with your new password.' });
 });
 
 // ─── GET ME ────────────────────────────────────────
@@ -563,9 +475,6 @@ export const handleCompleteSignup = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'An account already exists with this email address.');
   }
 
-  // Generate a random secure password since they use OTP authentication primarily
-  const randomPassword = crypto.randomBytes(16).toString('hex');
-
   // Handle referral — load discount config from admin-controlled Settings
   let referredByCustomer = null;
   if (referralCode) {
@@ -602,7 +511,6 @@ export const handleCompleteSignup = asyncHandler(async (req, res) => {
     lastName,
     phone,
     email,
-    password: randomPassword,
     city,
     addresses,
     referredBy: referredByCustomer?._id || null,

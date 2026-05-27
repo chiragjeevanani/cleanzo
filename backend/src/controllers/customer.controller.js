@@ -371,28 +371,37 @@ export const createSubscription = asyncHandler(async (req, res) => {
     if (slotStatus !== 'Open') {
       throw new ApiError(400, `Standard booking is closed for this time slot. Current status: ${slotStatus}.`);
     }
-    if (slot.currentCount >= slot.maxVehicles) {
-      throw new ApiError(400, 'Standard capacity for this slot is full. Please use Premium Override Booking to schedule.');
-    }
 
-    // Atomic slot increment: only succeeds if currentCount < maxVehicles and status is Open
-    const updatedSociety = await Society.findOneAndUpdate(
-      { 
-        _id: societyId, 
-        slots: { 
-          $elemMatch: { 
-            slotId, 
-            status: 'Open',
-            currentCount: { $lt: slot.maxVehicles } 
+    if (isTrial) {
+      // Trial bypasses capacity check
+      await Society.updateOne(
+        { _id: societyId, 'slots.slotId': slotId },
+        { $inc: { 'slots.$.currentCount': 1 } }
+      );
+    } else {
+      if (slot.currentCount >= slot.maxVehicles) {
+        throw new ApiError(400, 'Standard capacity for this slot is full. Please use Premium Override Booking to schedule.');
+      }
+
+      // Atomic slot increment: only succeeds if currentCount < maxVehicles and status is Open
+      const updatedSociety = await Society.findOneAndUpdate(
+        { 
+          _id: societyId, 
+          slots: { 
+            $elemMatch: { 
+              slotId, 
+              status: 'Open',
+              currentCount: { $lt: slot.maxVehicles } 
+            } 
           } 
-        } 
-      },
-      { $inc: { 'slots.$.currentCount': 1 } },
-      { new: true }
-    );
+        },
+        { $inc: { 'slots.$.currentCount': 1 } },
+        { new: true }
+      );
 
-    if (!updatedSociety) {
-      throw new ApiError(400, 'Slot status changed or capacity filled during booking. Please try again.');
+      if (!updatedSociety) {
+        throw new ApiError(400, 'Slot status changed or capacity filled during booking. Please try again.');
+      }
     }
   }
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Phone, User, ShieldCheck, CheckCircle2, MapPin, Building2,
-  Lock, Mail, Tag, Eye, EyeOff, ChevronDown
+  Mail, Tag, ChevronDown
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getAppLogo } from '../../utils/helpers'
@@ -52,7 +52,7 @@ function Field({ label, icon: Icon, children, action }) {
 // ─── Main Component ──────────────────────────────
 export default function CustomerAuth() {
   const navigate = useNavigate()
-  const { user, loading: authLoading, login, completeCustomerSignup, loginWithPassword } = useAuth()
+  const { user, loading: authLoading, login, completeCustomerSignup } = useAuth()
 
   // Redirect already-authenticated users to their portal
   useEffect(() => {
@@ -69,7 +69,6 @@ export default function CustomerAuth() {
   const [signupStep, setSignupStep] = useState(1) // 1: First Name, 2: Last Name, 3: Phone, 4: OTP, 5: Post-OTP
   const [signupToken, setSignupToken] = useState('')
   const [showPwd, setShowPwd] = useState(false)
-  const [useOtp, setUseOtp] = useState(true)      // OTP vs password login
 
   const [societies, setSocieties] = useState([])
   const [filteredSocieties, setFilteredSocieties] = useState([])
@@ -82,7 +81,6 @@ export default function CustomerAuth() {
     lastName: '',
     email: '',
     phone: '',
-    password: '',
     city: '',
     society: '', // Society ID
     societyName: '', // For lead capture
@@ -326,34 +324,6 @@ export default function CustomerAuth() {
     }
   }
 
-  // ── Password Login ──
-  const handlePasswordLogin = async (e) => {
-    e.preventDefault()
-    setErrorMsg('')
-    const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^91/, '')
-    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
-      setErrorMsg('Enter a valid 10-digit Indian mobile number')
-      return
-    }
-    if (!formData.password || formData.password.length < 8) {
-      setErrorMsg('Password must be at least 8 characters long')
-      return
-    }
-    setLoading(true)
-    try {
-      const res = await loginWithPassword(formData.phone, formData.password, role)
-      if (res.success) {
-        setStep('success')
-        setTimeout(() => navigate(role === 'crew' ? '/cleaner' : '/customer'), 1500)
-      } else {
-        setErrorMsg(res.message || 'Invalid credentials')
-      }
-    } catch (err) {
-      setErrorMsg(err.message || 'An unexpected error occurred')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleOtpInput = (val, i) => {
     if (!/^\d*$/.test(val)) return
@@ -613,27 +583,6 @@ export default function CustomerAuth() {
                 </p>
               </form>
 
-            ) : mode === 'login' && !useOtp ? (
-              /* PASSWORD LOGIN FORM */
-              <form onSubmit={handlePasswordLogin} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <Field label="Phone Number" icon={Phone}>
-                  <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={10}
-                    value={formData.phone} onChange={e => setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') }))} />
-                </Field>
-                <Field label="Password" icon={Lock}
-                  action={<button type="button" onClick={() => setShowPwd(v => !v)} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontSize: 13, cursor: 'pointer' }}>{showPwd ? 'Hide' : 'Show'}</button>}>
-                  <input required className="input-field" style={{ ...inputStyle, paddingRight: 48 }} placeholder="Your password" type={showPwd ? 'text' : 'password'}
-                    value={formData.password} onChange={set('password')} />
-                </Field>
-                <button type="submit" disabled={loading} className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16, opacity: loading ? 0.7 : 1 }}>
-                  {loading ? 'Signing in…' : 'Sign In'}
-                </button>
-                <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
-                  <button type="button" onClick={() => setUseOtp(true)} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontWeight: 600, cursor: 'pointer' }}>Use OTP instead</button>
-                  {' · '}
-                  <button type="button" onClick={() => navigate('/forgot-password')} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontWeight: 500, cursor: 'pointer', fontSize: 13 }}>Forgot password?</button>
-                </p>
-              </form>
 
             ) : mode === 'signup' ? (
               /* SIGNUP WIZARD FORM */
@@ -799,12 +748,7 @@ export default function CustomerAuth() {
               /* OTP REQUEST / LOGIN FORM */
               <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {/* PHONE FIELD */}
-                <Field label="Phone Number" icon={Phone}
-                  action={mode === 'login' && (
-                    <button type="button" onClick={() => setUseOtp(false)} style={{ background: 'none', border: 'none', color: 'var(--primary-blue)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                      Use Password
-                    </button>
-                  )}>
+                <Field label="Phone Number" icon={Phone}>
                   <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={10}
                     value={formData.phone}
                     onChange={e => setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') }))} />

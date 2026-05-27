@@ -26,13 +26,12 @@ function renderWithAuth(ui) {
 
 // A component that exposes auth state for assertions
 function AuthReadout() {
-  const { user, loading, login, loginWithPassword, logout } = useAuth();
+  const { user, loading, login, logout } = useAuth();
   return (
     <div>
       <span data-testid="user">{user ? JSON.stringify(user) : 'null'}</span>
       <span data-testid="loading">{loading ? 'true' : 'false'}</span>
       <button onClick={() => login('9000000001', '123456', 'customer')}>Login OTP</button>
-      <button onClick={() => loginWithPassword('9000000001', 'Pass123', 'customer')}>Login PW</button>
       <button onClick={() => logout()}>Logout</button>
     </div>
   );
@@ -78,21 +77,6 @@ describe('AuthContext — login (OTP)', () => {
       expect(localStorage.getItem('token')).toBe('access_tok');
       expect(localStorage.getItem('refreshToken')).toBe('refresh_tok');
       expect(localStorage.getItem('userRole')).toBe('customer');
-      expect(screen.getByTestId('user').textContent).toContain('u1');
-    });
-  });
-});
-
-describe('AuthContext — loginWithPassword', () => {
-  it('stores tokens and sets user state', async () => {
-    renderWithAuth(<AuthReadout />);
-    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
-
-    await userEvent.click(screen.getByText('Login PW'));
-
-    await waitFor(() => {
-      expect(localStorage.getItem('token')).toBe('access_tok');
-      expect(localStorage.getItem('refreshToken')).toBe('refresh_tok');
       expect(screen.getByTestId('user').textContent).toContain('u1');
     });
   });

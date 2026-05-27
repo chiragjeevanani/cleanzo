@@ -428,7 +428,7 @@ describe('ADMIN | Society CRUD', () => {
   it('POST /societies creates a society', async () => {
     const { token } = await createAdmin();
     const res = await api.post('/api/admin/societies').set(authHeader(token)).send({
-      name: 'New Colony', city: 'Bangalore', area: 'Whitefield', pincode: '560066', address: '1 Tech Park',
+      name: 'New Colony', state: 'Karnataka', city: 'Bangalore', area: 'Whitefield', pincode: '560066', address: '1 Tech Park',
       slots: [{ slotId: '06_07_AM', timeWindow: '06:00-07:00', maxVehicles: 10, currentCount: 0 }],
     });
     expect(res.status).toBe(201);
