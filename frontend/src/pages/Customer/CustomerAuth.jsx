@@ -540,6 +540,35 @@ export default function CustomerAuth() {
                 <button type="button" onClick={() => { setStep('form'); if (mode === 'signup') { setSignupStep(3); } setFormData(p => ({ ...p, otp: ['', '', '', '', '', ''] })) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer', padding: 0, width: 'fit-content' }}>
                   ← Edit number
                 </button>
+
+                {import.meta.env.VITE_TESTING_MODE === 'true' && (
+                  <div style={{
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    background: 'rgba(223, 255, 0, 0.05)',
+                    border: '1px solid rgba(223, 255, 0, 0.2)',
+                    color: 'var(--accent-lime)',
+                    fontSize: 13,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    lineHeight: 1.4,
+                    animation: 'fadeIn 0.3s ease-out'
+                  }}>
+                    <style>{`
+                      @keyframes testingPulse {
+                        0%, 100% { opacity: 0.6; }
+                        50% { opacity: 1; }
+                      }
+                    `}</style>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: 11 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-lime)', boxShadow: '0 0 8px var(--accent-lime)', animation: 'testingPulse 1.5s infinite' }} />
+                      Testing Mode Active
+                    </div>
+                    <div>Please use mock OTP code <span style={{ fontWeight: 800, textDecoration: 'underline' }}>123456</span> to complete authentication.</div>
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', width: '100%' }}>
                   {formData.otp.map((d, i) => (
                     <input

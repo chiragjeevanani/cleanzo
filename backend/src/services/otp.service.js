@@ -17,8 +17,14 @@ export async function sendOtp(phone, role) {
   // Delete any existing OTP for this phone
   await Otp.deleteMany({ phone: normalized });
 
-  // Generate OTP (use bypass for dev phone in non-production only)
-  const code = (isDev && normalized === DEV_BYPASS_PHONE) ? DEV_BYPASS_OTP : generateOtp();
+  // Generate OTP
+  let code;
+  const isTestingMode = process.env.TESTING_MODE === 'true';
+  if (isTestingMode) {
+    code = '123456';
+  } else {
+    code = (isDev && normalized === DEV_BYPASS_PHONE) ? DEV_BYPASS_OTP : generateOtp();
+  }
 
   // Hash before storing
   const hashedCode = await bcrypt.hash(code, 10);
@@ -30,6 +36,12 @@ export async function sendOtp(phone, role) {
     role,
     expiresAt: new Date(Date.now() + 5 * 60 * 1000),
   });
+
+  // Skip SMS for testing mode
+  if (isTestingMode) {
+    console.log(`[TESTING MODE OTP] ${normalized} → ${code}`);
+    return { success: true, message: 'OTP sent (testing mode)' };
+  }
 
   // Skip SMS for dev bypass phone in non-production
   if (isDev && normalized === DEV_BYPASS_PHONE) {
@@ -82,6 +94,12 @@ export async function sendOtp(phone, role) {
  */
 export async function verifyOtp(phone, code, role) {
   const normalized = normalizePhone(phone);
+
+  const isTestingMode = process.env.TESTING_MODE === 'true';
+  if (isTestingMode && code === '123456') {
+    await Otp.deleteMany({ phone: normalized });
+    return { success: true, message: 'OTP verified' };
+  }
 
   const otpRecord = await Otp.findOne({ phone: normalized, role, expiresAt: { $gt: new Date() } });
 
