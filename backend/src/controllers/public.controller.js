@@ -102,3 +102,12 @@ export const listActiveCities = asyncHandler(async (req, res) => {
   res.json({ success: true, cities });
 });
 
+/**
+ * GET /api/public/marketplace/categories
+ */
+export const listMarketplaceCategories = asyncHandler(async (req, res) => {
+  const { default: MarketplaceCategory } = await import('../models/MarketplaceCategory.js');
+  const categories = await MarketplaceCategory.find({ isActive: true }).sort('sortOrder name');
+  res.json({ success: true, categories });
+});
+

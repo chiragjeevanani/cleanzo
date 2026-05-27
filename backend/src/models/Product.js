@@ -26,7 +26,6 @@ const productSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['Microfiber Cloths', 'Waterless Wash', 'Interior Care', 'Exterior Polish', 'Perfumes', 'Kits', 'Other'],
     default: 'Other'
   },
   stock: {

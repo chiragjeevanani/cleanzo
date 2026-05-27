@@ -90,6 +90,11 @@ router.post('/products', ctrl.createProduct);
 router.put('/products/:id', ctrl.updateProduct);
 router.delete('/products/:id', ctrl.deleteProduct);
 
+router.get('/marketplace/categories', ctrl.getMarketplaceCategories);
+router.post('/marketplace/categories', ctrl.createMarketplaceCategory);
+router.put('/marketplace/categories/:id', ctrl.updateMarketplaceCategory);
+router.delete('/marketplace/categories/:id', ctrl.deleteMarketplaceCategory);
+
 router.get('/marketplace/orders', ctrl.getMarketplaceOrders);
 router.put('/marketplace/orders/:id', ctrl.updateOrderStatus);
 

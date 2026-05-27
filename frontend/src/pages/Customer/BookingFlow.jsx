@@ -1,7 +1,7 @@
 import Skeleton from '../../components/Skeleton'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Check, Car, CreditCard, ShieldCheck, MapPin, Clock, Info } from 'lucide-react'
+import { ArrowLeft, Check, Car, CreditCard, ShieldCheck, MapPin, Clock, Info, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
@@ -85,6 +85,7 @@ export default function BookingFlow() {
   }
   
   const [step, setStep] = useState(0)
+  const [countdown, setCountdown] = useState(5)
 
   // Selections
   const [selectedSociety, setSelectedSociety] = useState(null)
@@ -95,6 +96,23 @@ export default function BookingFlow() {
   const [specialInstructions, setSpecialInstructions] = useState('')
   const [isPremiumOverride, setIsPremiumOverride] = useState(false)
   const [overrideReason, setOverrideReason] = useState('')
+
+  useEffect(() => {
+    if (step === 4 || step === 5) {
+      setCountdown(5)
+      const timer = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            navigate('/customer')
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [step, navigate])
 
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -224,10 +242,12 @@ export default function BookingFlow() {
             })
 
             refreshAll() // Refresh global data to reflect new subscription
-            navigate('/customer/subscriptions')
+            setStep(4)
           } catch (verifyErr) {
             setProcessing(false)
-            setPaymentError('Payment verification or subscription creation failed. Please contact support.')
+            const errMsg = verifyErr.response?.data?.message || verifyErr.response?.data?.error || verifyErr.message || 'Payment verification or subscription creation failed. Please contact support.'
+            setPaymentError(errMsg)
+            setStep(5)
           }
         },
         prefill: {
@@ -249,12 +269,15 @@ export default function BookingFlow() {
       rzp.on('payment.failed', function (response) {
         setProcessing(false)
         setPaymentError(`Payment failed: ${response.error.description}`)
+        setStep(5)
       })
       rzp.open()
 
     } catch (err) {
       setProcessing(false)
-      setPaymentError(err?.message || 'Failed to initiate payment. Please try again.')
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to initiate payment. Please try again.'
+      setPaymentError(errMsg)
+      setStep(5)
     }
   }
 
@@ -262,7 +285,7 @@ export default function BookingFlow() {
   
   if (isLoading) return (
     <div className="app-shell">
-      <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
+      <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent', position: 'relative' }}>
         <div className="skeleton" style={{ width: 40, height: 40, borderRadius: 14 }} />
         <div className="skeleton" style={{ width: 140, height: 24, borderRadius: 8 }} />
         <div style={{ width: 40 }} />
@@ -304,33 +327,37 @@ export default function BookingFlow() {
 
   return (
     <div className="app-shell animate-fade-in" style={{ paddingBottom: 120 }}>
-      <div className="app-header" style={{ background: 'transparent', border: 'none' }}>
-        <button onClick={() => step > 0 ? setStep(step - 1) : navigate(-1)} className="btn-icon glass" style={{ borderRadius: 14 }}>
-          <ArrowLeft size={20} />
-        </button>
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em' }}>Secure Booking</span>
-        <div style={{ width: 40 }} />
-      </div>
+      {step < 4 && (
+        <div className="app-header" style={{ background: 'transparent', border: 'none', position: 'relative' }}>
+          <button onClick={() => step > 0 ? setStep(step - 1) : navigate(-1)} className="btn-icon glass" style={{ borderRadius: 14 }}>
+            <ArrowLeft size={20} />
+          </button>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em' }}>Secure Booking</span>
+          <div style={{ width: 40 }} />
+        </div>
+      )}
 
       <div className="container">
         {/* Step indicator */}
-        <div className="flex items-center gap-12" style={{ margin: '12px 0 32px' }}>
-          {steps.map((s, i) => (
-            <div key={i} className="flex items-center gap-12" style={{ flex: i < steps.length - 1 ? 1 : 'none' }}>
-              <div style={{ 
-                width: 32, height: 32, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-display)',
-                background: i <= step ? 'var(--accent-lime)' : 'var(--bg-glass)', 
-                color: i <= step ? '#000' : 'var(--text-tertiary)', 
-                border: `1px solid ${i <= step ? 'transparent' : 'var(--border-glass)'}`,
-                boxShadow: i === step ? 'var(--shadow-glow-lime)' : 'none',
-                transition: 'all 0.4s var(--ease-out)'
-              }}>
-                {i < step ? <Check size={16} strokeWidth={3} /> : i + 1}
+        {step < 4 && (
+          <div className="flex items-center gap-12" style={{ margin: '12px 0 32px' }}>
+            {steps.map((s, i) => (
+              <div key={i} className="flex items-center gap-12" style={{ flex: i < steps.length - 1 ? 1 : 'none' }}>
+                <div style={{ 
+                  width: 32, height: 32, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-display)',
+                  background: i <= step ? 'var(--accent-lime)' : 'var(--bg-glass)', 
+                  color: i <= step ? '#000' : 'var(--text-tertiary)', 
+                  border: `1px solid ${i <= step ? 'transparent' : 'var(--border-glass)'}`,
+                  boxShadow: i === step ? 'var(--shadow-glow-lime)' : 'none',
+                  transition: 'all 0.4s var(--ease-out)'
+                }}>
+                  {i < step ? <Check size={16} strokeWidth={3} /> : i + 1}
+                </div>
+                {i < steps.length - 1 && <div style={{ flex: 1, height: 3, background: i < step ? 'var(--accent-lime)' : 'var(--divider)', borderRadius: 4 }} />}
               </div>
-              {i < steps.length - 1 && <div style={{ flex: 1, height: 3, background: i < step ? 'var(--accent-lime)' : 'var(--divider)', borderRadius: 4 }} />}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Step 0: Vehicle */}
         {step === 0 && (
@@ -905,6 +932,80 @@ export default function BookingFlow() {
                 {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${finalAmount}`}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Step 4: Payment Successful */}
+        {step === 4 && (
+          <div className="flex flex-col items-center justify-center text-center gap-24 py-40 animate-fade-in">
+            <div style={{ 
+              width: 80, height: 80, borderRadius: '50%', background: 'rgba(50,215,75,0.1)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '2px solid var(--success)', boxShadow: '0 0 30px rgba(50,215,75,0.25)',
+              margin: '0 auto'
+            }}>
+              <Check size={40} color="var(--success)" strokeWidth={3} />
+            </div>
+            
+            <div>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, color: 'var(--success)', marginBottom: 8 }}>
+                Payment Successful!
+              </h2>
+              <p className="text-secondary text-body-md" style={{ maxWidth: 360, margin: '0 auto' }}>
+                Your service booking has been confirmed and subscription is now active.
+              </p>
+            </div>
+
+            <div className="glass" style={{ padding: '16px 24px', borderRadius: 16, border: '1px solid var(--border-glass)', width: '100%' }}>
+              <p className="text-secondary text-body-sm">
+                Redirecting to dashboard in <span style={{ color: 'var(--accent-lime)', fontWeight: 800 }}>{countdown}s</span>...
+              </p>
+            </div>
+
+            <button 
+              className="btn btn-primary w-full" 
+              style={{ borderRadius: 18, padding: 18, fontWeight: 800 }}
+              onClick={() => navigate('/customer')}
+            >
+              Go to Homepage
+            </button>
+          </div>
+        )}
+
+        {/* Step 5: Payment Failed */}
+        {step === 5 && (
+          <div className="flex flex-col items-center justify-center text-center gap-24 py-40 animate-fade-in">
+            <div style={{ 
+              width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,69,58,0.1)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '2px solid var(--error)', boxShadow: '0 0 30px rgba(255,69,58,0.25)',
+              margin: '0 auto'
+            }}>
+              <X size={40} color="var(--error)" strokeWidth={3} />
+            </div>
+            
+            <div>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, color: 'var(--error)', marginBottom: 8 }}>
+                Payment Failed
+              </h2>
+              <p className="text-secondary text-body-md" style={{ maxWidth: 360, margin: '0 auto', wordBreak: 'break-word' }}>
+                {paymentError || 'Something went wrong during the checkout process. Please try again.'}
+              </p>
+            </div>
+
+            <div className="glass" style={{ padding: '16px 24px', borderRadius: 16, border: '1px solid var(--border-glass)', width: '100%' }}>
+              <p className="text-secondary text-body-sm">
+                Redirecting to dashboard in <span style={{ color: 'var(--accent-lime)', fontWeight: 800 }}>{countdown}s</span>...
+              </p>
+            </div>
+
+            <button 
+              className="btn btn-primary w-full" 
+              style={{ borderRadius: 18, padding: 18, fontWeight: 800 }}
+              onClick={() => navigate('/customer')}
+            >
+              Go to Homepage
+            </button>
           </div>
         )}
       </div>

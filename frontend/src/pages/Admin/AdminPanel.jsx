@@ -2,7 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut, User, MapPin, ShoppingCart, Car, LifeBuoy, CalendarDays, FileClock } from 'lucide-react'
+import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut, User, MapPin, ShoppingCart, Car, LifeBuoy, CalendarDays, FileClock, Layers } from 'lucide-react'
 import PageLoader from '../../components/PageLoader'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import apiClient from '../../services/apiClient'
@@ -24,6 +24,7 @@ const AdminLeads        = lazy(() => import('./AdminLeads'))
 const AdminProfile      = lazy(() => import('./AdminProfile'))
 const AdminNotifications= lazy(() => import('./AdminNotifications'))
 const AdminMarketplace  = lazy(() => import('./AdminMarketplace'))
+const AdminCategories   = lazy(() => import('./AdminCategories'))
 const AdminVehicleCategories = lazy(() => import('./AdminVehicleCategories'))
 const AdminBrands = lazy(() => import('./AdminBrands'))
 const AdminGrievances = lazy(() => import('./AdminGrievances'))
@@ -44,6 +45,7 @@ const navItems = [
   { path: '/admin/brands', icon: Car, label: 'Brands & Models' },
   { path: '/admin/packages', icon: Package, label: 'Packages' },
   { path: '/admin/marketplace', icon: ShoppingCart, label: 'Marketplace' },
+  { path: '/admin/marketplace/categories', icon: Layers, label: 'Categories' },
   { path: '/admin/subscriptions', icon: CreditCard, label: 'Subscriptions' },
   { path: '/admin/revenue', icon: TrendingUp, label: 'Revenue' },
   { path: '/admin/cms', icon: FileText, label: 'CMS' },
@@ -266,6 +268,7 @@ export default function AdminPanel() {
             <Route path="cms" element={<AdminCMS />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="marketplace" element={<AdminMarketplace />} />
+            <Route path="marketplace/categories" element={<AdminCategories />} />
             <Route path="vehicle-categories" element={<AdminVehicleCategories />} />
             <Route path="brands" element={<AdminBrands />} />
             <Route path="settings" element={<AdminSettings />} />

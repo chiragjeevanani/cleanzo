@@ -25,11 +25,24 @@ export default function AdminMarketplace() {
     category: 'Other', stock: '', images: [], specifications: []
   });
 
-  const categories = ['Microfiber Cloths', 'Waterless Wash', 'Interior Care', 'Exterior Polish', 'Perfumes', 'Kits', 'Other'];
+  const [categories, setCategories] = useState(['Other']);
 
   useEffect(() => {
     fetchData();
+    fetchCategories();
   }, [activeTab]);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await apiClient.get('/admin/marketplace/categories');
+      const activeCats = (res.categories || []).filter(c => c.isActive).map(c => c.name);
+      // 'Other' should always be an option in the select dropdown to allow reverting or handling products default 'Other' state
+      const uniqueCats = Array.from(new Set(['Other', ...activeCats]));
+      setCategories(uniqueCats);
+    } catch (err) {
+      console.error('Failed to fetch categories:', err);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -368,7 +381,7 @@ export default function AdminMarketplace() {
                     <select className="input-field cursor-pointer" 
                       style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 16, appearance: 'none' }}
                       value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                      {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                      {categories.map(c => <option key={c} value={c} style={{ backgroundColor: '#1C1C1E', color: '#FFFFFF' }}>{c}</option>)}
                     </select>
                   </div>
                   <div className="flex flex-col gap-12">

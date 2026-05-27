@@ -15,6 +15,7 @@ export const CustomerDataProvider = ({ children }) => {
   const [banners, setBanners] = useState([]);
   const [history, setHistory] = useState([]);
   const [products, setProducts] = useState([]);
+  const [marketplaceCategories, setMarketplaceCategories] = useState([]);
   const [settings, setSettings] = useState({});
   
   const [loading, setLoading] = useState({
@@ -27,6 +28,7 @@ export const CustomerDataProvider = ({ children }) => {
     banners: false,
     history: false,
     products: false,
+    marketplaceCategories: false,
     settings: false,
   });
 
@@ -40,6 +42,7 @@ export const CustomerDataProvider = ({ children }) => {
     banners: false,
     history: false,
     products: false,
+    marketplaceCategories: false,
     settings: false,
   });
 
@@ -60,6 +63,7 @@ export const CustomerDataProvider = ({ children }) => {
       if (key === 'banners') data = res.banners || [];
       if (key === 'history') data = res.tasks || [];
       if (key === 'products') data = res.products || [];
+      if (key === 'marketplaceCategories') data = res.categories || [];
       
       setter(data);
       initialized.current[key] = true;
@@ -79,6 +83,7 @@ export const CustomerDataProvider = ({ children }) => {
   const refreshBanners = useCallback((force = true) => fetchData('banners', '/public/banners', setBanners, force), [fetchData]);
   const refreshHistory = useCallback((force = true) => fetchData('history', '/customer/history', setHistory, force), [fetchData]);
   const refreshProducts = useCallback((force = true) => fetchData('products', '/public/products', setProducts, force), [fetchData]);
+  const refreshMarketplaceCategories = useCallback((force = true) => fetchData('marketplaceCategories', '/public/marketplace/categories', setMarketplaceCategories, force), [fetchData]);
   const refreshSettings = useCallback((force = true) => fetchData('settings', '/public/settings', (data) => setSettings(data || {}), force), [fetchData]);
 
   const refreshAll = useCallback(() => {
@@ -91,8 +96,9 @@ export const CustomerDataProvider = ({ children }) => {
     refreshBanners(true);
     refreshHistory(true);
     refreshProducts(true);
+    refreshMarketplaceCategories(true);
     refreshSettings(true);
-  }, [refreshVehicles, refreshCategories, refreshPackages, refreshSocieties, refreshSubscriptions, refreshNotifications, refreshBanners, refreshHistory, refreshProducts, refreshSettings]);
+  }, [refreshVehicles, refreshCategories, refreshPackages, refreshSocieties, refreshSubscriptions, refreshNotifications, refreshBanners, refreshHistory, refreshProducts, refreshMarketplaceCategories, refreshSettings]);
 
   // Initial load
   useEffect(() => {
@@ -105,15 +111,16 @@ export const CustomerDataProvider = ({ children }) => {
     fetchData('banners', '/public/banners', setBanners);
     fetchData('history', '/customer/history', setHistory);
     fetchData('products', '/public/products', setProducts);
+    fetchData('marketplaceCategories', '/public/marketplace/categories', setMarketplaceCategories);
     fetchData('settings', '/public/settings', (data) => setSettings(data || {}));
   }, [fetchData]);
 
   return (
     <CustomerDataContext.Provider value={{
-      vehicles, categories, packages, societies, subscriptions, notifications, banners, history, products, settings,
+      vehicles, categories, packages, societies, subscriptions, notifications, banners, history, products, marketplaceCategories, settings,
       loading,
       refreshVehicles, refreshCategories, refreshPackages, refreshSocieties, refreshSubscriptions, 
-      refreshNotifications, refreshBanners, refreshHistory, refreshProducts, refreshSettings, refreshAll
+      refreshNotifications, refreshBanners, refreshHistory, refreshProducts, refreshMarketplaceCategories, refreshSettings, refreshAll
     }}>
       {children}
     </CustomerDataContext.Provider>

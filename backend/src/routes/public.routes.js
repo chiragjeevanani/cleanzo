@@ -122,6 +122,7 @@ router.get('/banners', cacheMiddleware(3600), asyncHandler(async (req, res) => {
 
 router.get('/products', cacheMiddleware(3600), publicCtrl.listProducts);
 router.get('/products/:id', cacheMiddleware(3600), publicCtrl.getProductById);
+router.get('/marketplace/categories', cacheMiddleware(3600), publicCtrl.listMarketplaceCategories);
 
 // ─── TESTIMONIALS ─────────────────────────────────
 router.get('/testimonials', cacheMiddleware(3600), asyncHandler(async (req, res) => {

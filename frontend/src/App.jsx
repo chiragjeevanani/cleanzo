@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { SocietyAuthProvider } from './context/SocietyAuthContext'
 import { PushNotificationProvider } from './context/PushNotificationContext'
@@ -19,6 +19,16 @@ import SocietyLogin from './pages/Society/SocietyLogin'
 import SocietyApp from './pages/Society/SocietyApp'
 import Warranty from './pages/Landing/Warranty'
 import NetworkStatus from './pages/Landing/NetworkStatus'
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
 
 export default function App() {
   useEffect(() => {
@@ -76,6 +86,7 @@ export default function App() {
     <AuthProvider>
       <SocietyAuthProvider>
         <PushNotificationProvider>
+          <ScrollToTop />
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<CustomerAuth />} />

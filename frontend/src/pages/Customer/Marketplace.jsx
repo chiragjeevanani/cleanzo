@@ -8,17 +8,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { useCustomerData } from '../../context/CustomerDataContext';
-
 export default function Marketplace() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { products, loading: dataLoading } = useCustomerData();
+  const { products, marketplaceCategories, loading: dataLoading } = useCustomerData();
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
   const [category, setCategory] = useState('All');
   const [orderStatus, setOrderStatus] = useState(null); // 'success' | 'loading'
 
-  const categories = ['All', 'Microfiber Cloths', 'Waterless Wash', 'Interior Care', 'Exterior Polish', 'Perfumes', 'Kits'];
+  const categories = ['All', ...marketplaceCategories.map(c => c.name)];
 
   useEffect(() => {
     const savedCart = localStorage.getItem('cleanzo_cart');
@@ -276,7 +275,7 @@ export default function Marketplace() {
                         <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-accent)' }}>₹{p.discountPrice || p.price}</span>
                         {p.discountPrice && <span style={{ fontSize: 11, textDecoration: 'line-through', opacity: 0.5 }}>₹{p.price}</span>}
                       </div>
-                      <span className="text-[10px] text-secondary font-bold uppercase">{p.category.split(' ')[0]}</span>
+                      <span className="text-[10px] text-secondary font-bold uppercase">{p.category}</span>
                     </div>
                   </div>
                 </div>

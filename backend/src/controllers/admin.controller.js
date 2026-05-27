@@ -1879,3 +1879,87 @@ export const deleteCity = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'City deleted successfully' });
 });
 
+// ─── MARKETPLACE CATEGORIES ───────────────────────
+export const getMarketplaceCategories = asyncHandler(async (req, res) => {
+  const { default: MarketplaceCategory } = await import('../models/MarketplaceCategory.js');
+  const categories = await MarketplaceCategory.find().sort('sortOrder name');
+  res.json({ success: true, categories });
+});
+
+export const createMarketplaceCategory = asyncHandler(async (req, res) => {
+  const { default: MarketplaceCategory } = await import('../models/MarketplaceCategory.js');
+  const { name, icon, description, isActive, sortOrder } = req.body;
+  if (!name || !icon) throw new ApiError(400, 'Category Name and Icon are required');
+
+  const existing = await MarketplaceCategory.findOne({ name: { $regex: new RegExp(`^${name.trim()}$`, 'i') } });
+  if (existing) throw new ApiError(400, `Category "${name}" already exists`);
+
+  const category = await MarketplaceCategory.create({
+    name: name.trim(),
+    icon: icon.trim(),
+    description: description || '',
+    isActive: isActive !== false,
+    sortOrder: sortOrder ? Number(sortOrder) : 0
+  });
+
+  await logActivity({
+    type: 'system',
+    message: `Admin created marketplace category: ${name}`,
+    performer: req.user._id,
+    metadata: { categoryId: category._id }
+  });
+
+  await clearCache('cache:global:*');
+  res.status(201).json({ success: true, category });
+});
+
+export const updateMarketplaceCategory = asyncHandler(async (req, res) => {
+  const { default: MarketplaceCategory } = await import('../models/MarketplaceCategory.js');
+  const { name, icon, description, isActive, sortOrder } = req.body;
+
+  const category = await MarketplaceCategory.findById(req.params.id);
+  if (!category) throw new ApiError(404, 'Category not found');
+
+  if (name) {
+    const existing = await MarketplaceCategory.findOne({ 
+      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+      _id: { $ne: req.params.id }
+    });
+    if (existing) throw new ApiError(400, `Category "${name}" already exists`);
+    category.name = name.trim();
+  }
+  if (icon) category.icon = icon.trim();
+  if (description !== undefined) category.description = description;
+  if (isActive !== undefined) category.isActive = isActive;
+  if (sortOrder !== undefined) category.sortOrder = Number(sortOrder);
+
+  await category.save();
+
+  await logActivity({
+    type: 'system',
+    message: `Admin updated marketplace category: ${category.name}`,
+    performer: req.user._id,
+    metadata: { categoryId: category._id }
+  });
+
+  await clearCache('cache:global:*');
+  res.json({ success: true, category });
+});
+
+export const deleteMarketplaceCategory = asyncHandler(async (req, res) => {
+  const { default: MarketplaceCategory } = await import('../models/MarketplaceCategory.js');
+  const category = await MarketplaceCategory.findByIdAndDelete(req.params.id);
+  if (!category) throw new ApiError(404, 'Category not found');
+
+  await logActivity({
+    type: 'system',
+    message: `Admin deleted marketplace category: ${category.name}`,
+    performer: req.user._id,
+    metadata: { categoryId: category._id }
+  });
+
+  await clearCache('cache:global:*');
+  res.json({ success: true, message: 'Category deleted successfully' });
+});
+
+
