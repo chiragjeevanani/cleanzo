@@ -143,6 +143,26 @@ export default function CustomerAuth() {
   // ── Lead Capture ──
   const handleCaptureLead = async (e) => {
     e.preventDefault()
+
+    // Validations
+    const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^91/, '')
+    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setErrorMsg('Enter a valid 10-digit Indian mobile number')
+      return
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (formData.email && !emailRegex.test(formData.email)) {
+      setErrorMsg('Please enter a valid email address')
+      return
+    }
+
+    const pinRegex = /^[1-9][0-9]{5}$/
+    if (!pinRegex.test(formData.pincode)) {
+      setErrorMsg('Please enter a valid 6-digit Indian pincode')
+      return
+    }
+
     setLoading(true)
     setErrorMsg('')
     try {
@@ -220,6 +240,8 @@ export default function CustomerAuth() {
           phone: formData.phone,
           code: formData.otp.join(''),
           role,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
         })
         if (res.success && res.signupToken) {
           setSignupToken(res.signupToken)
@@ -248,8 +270,15 @@ export default function CustomerAuth() {
   const handleCompleteSignupClick = async (e) => {
     e.preventDefault()
     setErrorMsg('')
-    setLoading(true)
 
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setErrorMsg('Please enter a valid email address')
+      return
+    }
+
+    setLoading(true)
     try {
       if (isOtherSociety) {
         if (!formData.societyName) {
@@ -304,6 +333,10 @@ export default function CustomerAuth() {
     const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^91/, '')
     if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
       setErrorMsg('Enter a valid 10-digit Indian mobile number')
+      return
+    }
+    if (!formData.password || formData.password.length < 8) {
+      setErrorMsg('Password must be at least 8 characters long')
       return
     }
     setLoading(true)
@@ -423,7 +456,10 @@ export default function CustomerAuth() {
               <Field label="Society Name" icon={Building2}><input required className="input-field" style={inputStyle} value={formData.societyName} onChange={set('societyName')} /></Field>
               <div style={{ display: 'flex', gap: 12 }}>
                 <Field label="Area" icon={MapPin}><input required className="input-field" style={inputStyle} value={formData.area} onChange={set('area')} /></Field>
-                <Field label="Pincode"><input required className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={formData.pincode} onChange={set('pincode')} maxLength={6} /></Field>
+                <Field label="Pincode">
+                  <input required className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} placeholder="6 digits" inputMode="numeric" maxLength={6}
+                    value={formData.pincode} onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '') })) }} />
+                </Field>
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
                 <button type="button" className="btn-glass" style={{ flex: 1, padding: 14, borderRadius: 12 }} onClick={() => setStep('form')}>Cancel</button>

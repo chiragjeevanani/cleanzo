@@ -2,6 +2,7 @@ import Society from '../models/Society.js';
 import Lead from '../models/Lead.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
+import { normalizePhone } from '../utils/helpers.js';
 
 /**
  * GET /api/public/societies/search
@@ -47,15 +48,21 @@ export const captureLead = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Name, phone and city are required');
   }
 
-  const lead = await Lead.create({
-    name,
-    phone,
-    email,
-    city,
-    requestedArea,
-    requestedSociety,
-    pincode
-  });
+  const normalized = normalizePhone(phone);
+
+  const lead = await Lead.findOneAndUpdate(
+    { phone: normalized },
+    {
+      name,
+      email: email ? email.toLowerCase() : undefined,
+      city,
+      requestedArea,
+      requestedSociety,
+      pincode,
+      status: 'pending'
+    },
+    { upsert: true, new: true }
+  );
 
   res.status(201).json({ 
     success: true, 

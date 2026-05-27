@@ -100,6 +100,18 @@ export const verifyOtpSignupSchema = Joi.object({
   role: Joi.string()
     .valid('customer')
     .required(),
+  firstName: Joi.string()
+    .min(2)
+    .max(50)
+    .pattern(/^[a-zA-Z\s]+$/)
+    .optional()
+    .messages({ 'string.pattern.base': 'First name should only contain letters.' }),
+  lastName: Joi.string()
+    .min(1)
+    .max(50)
+    .pattern(/^[a-zA-Z\s]+$/)
+    .optional()
+    .messages({ 'string.pattern.base': 'Last name should only contain letters.' }),
 });
 
 /**

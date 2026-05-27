@@ -490,7 +490,7 @@ export const handleSocietyLogin = asyncHandler(async (req, res) => {
  * Body: { phone, code, role }
  */
 export const handleVerifyOtpSignup = asyncHandler(async (req, res) => {
-  const { phone, code, role } = req.body;
+  const { phone, code, role, firstName, lastName } = req.body;
 
   if (role !== 'customer') {
     throw new ApiError(400, 'Signup flow is only available for customer role.');
@@ -508,6 +508,19 @@ export const handleVerifyOtpSignup = asyncHandler(async (req, res) => {
     { phone: normalized, signup: true },
     process.env.JWT_SECRET,
     { expiresIn: '15m' }
+  );
+
+  // Capture user as a Lead in the database
+  const { default: Lead } = await import('../models/Lead.js');
+  await Lead.findOneAndUpdate(
+    { phone: normalized },
+    {
+      name: `${firstName || ''} ${lastName || ''}`.trim() || 'Unknown Lead',
+      city: 'Pending Signup',
+      status: 'pending',
+      notes: 'OTP verified, pending Step 5 details'
+    },
+    { upsert: true, new: true }
   );
 
   res.json({
@@ -605,6 +618,21 @@ export const handleCompleteSignup = asyncHandler(async (req, res) => {
     message: `New customer signed up: ${firstName} ${lastName}`,
     metadata: { userId: user._id }
   });
+
+  // Convert the Lead in the database
+  const { default: Lead } = await import('../models/Lead.js');
+  const matchingSociety = society ? await Society.findById(society) : null;
+  await Lead.findOneAndUpdate(
+    { phone },
+    {
+      status: 'converted',
+      email: email.toLowerCase(),
+      city,
+      requestedSociety: matchingSociety ? matchingSociety.name : (societyName || undefined),
+      requestedArea: matchingSociety ? matchingSociety.area : (area || undefined),
+      notes: 'Converted to full customer account successfully.'
+    }
+  );
 
   user.lastLogin = new Date();
   await user.save({ validateModifiedOnly: true });
