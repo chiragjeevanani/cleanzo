@@ -63,25 +63,20 @@ export default function LandingPage() {
 
   return (
     <div className={`landing-page-root theme-${theme}`}>
-      {loading ? (
-        <LoadingScreen onComplete={handleLoadComplete} />
-      ) : (
-        <>
-          <div className="scroll-progress-bar" id="scroll-progress" />
-          <Navbar />
-          <main ref={mainRef} className="landing-main">
-            <HeroSection bgImageUrl={HERO_IMAGE_URL} heroReady={true} />
-            <PrecisionSection />
-            <ServicesSection />
-            <PricingSection />
-            <ProcessSection />
-            <TestimonialsSection />
-            <AppDownloadSection />
-            <FAQSection />
-            <Footer />
-          </main>
-        </>
-      )}
+      {loading && <LoadingScreen onComplete={handleLoadComplete} />}
+      <div className="scroll-progress-bar" id="scroll-progress" />
+      <Navbar />
+      <main ref={mainRef} className="landing-main">
+        <HeroSection bgImageUrl={HERO_IMAGE_URL} heroReady={!loading} />
+        <PrecisionSection />
+        <ServicesSection />
+        <PricingSection />
+        <ProcessSection />
+        <TestimonialsSection />
+        <AppDownloadSection />
+        <FAQSection />
+        <Footer />
+      </main>
     </div>
   )
 }

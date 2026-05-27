@@ -53,60 +53,55 @@ export default function PricingSection() {
           <h2 className="section-title-premium">SUBSCRIPTION<br />PRICING.</h2>
         </div>
 
-        {loading ? (
-          <div className="pricing-grid-premium">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="skeleton-card">
-                <div className="skeleton-shimmer"></div>
-                <div className="skeleton-element skeleton-title"></div>
-                <div className="skeleton-element skeleton-desc"></div>
-                <div className="skeleton-element skeleton-price"></div>
-                <div className="skeleton-element skeleton-btn"></div>
-                <div className="skeleton-element skeleton-features-title"></div>
-                <div className="skeleton-element skeleton-feature"></div>
-                <div className="skeleton-element skeleton-feature" style={{ width: '75%' }}></div>
-                <div className="skeleton-element skeleton-feature" style={{ width: '85%' }}></div>
+        <div className="pricing-grid-premium reveal">
+          {loading ? (
+            [1, 2, 3].map((i) => (
+              <div key={i} className="skeleton-card" style={{ border: '1px solid var(--border-glass)' }}>
+                <div className="skeleton" style={{ height: 28, width: '60%', marginBottom: 12 }} />
+                <div className="skeleton" style={{ height: 16, width: '80%', marginBottom: 40 }} />
+                <div className="skeleton" style={{ height: 64, width: '50%', marginBottom: 40 }} />
+                <div className="skeleton" style={{ height: 48, width: '100%', borderRadius: 8, marginBottom: 48 }} />
+                <div className="skeleton" style={{ height: 12, width: '30%', marginBottom: 24 }} />
+                <div className="skeleton" style={{ height: 16, width: '90%', marginBottom: 16 }} />
+                <div className="skeleton" style={{ height: 16, width: '75%', marginBottom: 16 }} />
+                <div className="skeleton" style={{ height: 16, width: '85%', marginBottom: 16 }} />
               </div>
-            ))}
-          </div>
-        ) : (
-            <div className="pricing-grid-premium reveal">
-              {packages.length === 0 ? (
-                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', background: 'var(--bg-glass)', borderRadius: '24px', border: '1px dashed var(--border-glass)' }}>
-                  <p className="text-secondary">No active subscription plans available at the moment. Please check back later.</p>
-                </div>
-              ) : packages.map((pkg) => (
-                <div key={pkg._id || pkg.id} className={`pricing-card-premium ${pkg.popular ? 'featured' : ''}`}>
-                  {pkg.popular && <div className="popular-tag">MOST REQUESTED</div>}
-                  
-                  <div className="card-top">
-                    <h3 className="tier-name">{pkg.name}</h3>
-                    <p className="tier-desc" style={{ textTransform: 'capitalize' }}>Tier: {pkg.tier} • For {(pkg.category || 'vehicle').replace('_', ' ')}s</p>
-                  </div>
-
-                  <div className="tier-price">
-                    <span className="currency">₹</span>
-                    <span className="amount">{pkg.price}</span>
-                    <span className="period">/mo</span>
-                  </div>
-
-                  <Link to="/login" className={`btn btn-lg pricing-btn ${pkg.popular ? 'btn-primary' : 'btn-glass'}`}>
-                    {pkg.popular ? 'GET STARTED' : 'START SUBSCRIPTION'}
-                  </Link>
-
-                  <div className="features-list">
-                    <span className="features-title">INCLUSIONS</span>
-                    {pkg.features?.map((feature, idx) => (
-                      <div key={idx} className="feature-item">
-                        <Check size={14} className="feature-icon" />
-                        <span>{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            ))
+          ) : packages.length === 0 ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', background: 'var(--bg-glass)', borderRadius: '24px', border: '1px dashed var(--border-glass)' }}>
+              <p className="text-secondary">No active subscription plans available at the moment. Please check back later.</p>
             </div>
-        )}
+          ) : packages.map((pkg) => (
+            <div key={pkg._id || pkg.id} className={`pricing-card-premium ${pkg.popular ? 'featured' : ''}`}>
+              {pkg.popular && <div className="popular-tag">MOST REQUESTED</div>}
+              
+              <div className="card-top">
+                <h3 className="tier-name">{pkg.name}</h3>
+                <p className="tier-desc" style={{ textTransform: 'capitalize' }}>Tier: {pkg.tier} • For {(pkg.category || 'vehicle').replace('_', ' ')}s</p>
+              </div>
+
+              <div className="tier-price">
+                <span className="currency">₹</span>
+                <span className="amount">{pkg.price}</span>
+                <span className="period">/mo</span>
+              </div>
+
+              <Link to="/login" className={`btn btn-lg pricing-btn ${pkg.popular ? 'btn-primary' : 'btn-glass'}`}>
+                {pkg.popular ? 'GET STARTED' : 'START SUBSCRIPTION'}
+              </Link>
+
+              <div className="features-list">
+                <span className="features-title">INCLUSIONS</span>
+                {pkg.features?.map((feature, idx) => (
+                  <div key={idx} className="feature-item">
+                    <Check size={14} className="feature-icon" />
+                    <span>{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
         
         <div className="pricing-note-container reveal">
           <span className="pricing-note-asterisk">*</span>

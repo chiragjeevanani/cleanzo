@@ -15,13 +15,14 @@ export default function HeroSection({ bgImageUrl, heroReady }) {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const widgetRef = useRef(null)
 
-  // CMS: Trusted Societies — fetched from backend so admin changes are live for all users
-  const [societiesData, setSocietiesData] = useState({ heading: '', items: [] })
+  const [societiesLoading, setSocietiesLoading] = useState(true)
+  const [societiesData, setSocietiesData] = useState({ heading: 'TRUSTED BY RESIDENTS OF', items: [] })
 
   useEffect(() => {
     apiClient.get('/public/trusted-societies')
       .then(res => { if (res?.data) setSocietiesData(res.data) })
       .catch(err => console.error('Failed to fetch trusted societies:', err))
+      .finally(() => setSocietiesLoading(false))
   }, [])
 
 
@@ -208,7 +209,18 @@ export default function HeroSection({ bgImageUrl, heroReady }) {
             </div>
           </div>
 
-          {societiesData.items.length > 0 && (
+          {societiesLoading ? (
+            <div className="hero-trust-bar animate-fade-in-up delay-5" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <span className="trust-label" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div className="skeleton" style={{ width: 140, height: 11, borderRadius: 6 }} />
+              </span>
+              <div className="trust-logos" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div className="skeleton" style={{ width: 80, height: 16, borderRadius: 8 }} />
+                <div className="skeleton" style={{ width: 100, height: 16, borderRadius: 8 }} />
+                <div className="skeleton" style={{ width: 90, height: 16, borderRadius: 8 }} />
+              </div>
+            </div>
+          ) : societiesData.items.length > 0 ? (
             <div className="hero-trust-bar animate-fade-in-up delay-5">
               <span className="trust-label">{societiesData.heading}</span>
               <div className="trust-logos">
@@ -217,7 +229,7 @@ export default function HeroSection({ bgImageUrl, heroReady }) {
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
         </div>
 

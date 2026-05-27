@@ -28,7 +28,8 @@ const FALLBACK_FAQS = [
 
 export default function FAQSection() {
   const [openIdx, setOpenIdx] = useState(0)
-  const [faqs, setFaqs] = useState(FALLBACK_FAQS)
+  const [faqs, setFaqs] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let active = true
@@ -36,9 +37,16 @@ export default function FAQSection() {
       .then(res => {
         if (active && res.success && res.faqs && res.faqs.length > 0) {
           setFaqs(res.faqs)
+        } else {
+          setFaqs(FALLBACK_FAQS)
         }
       })
-      .catch(() => {/* silent — fallback already set */})
+      .catch(() => {
+        if (active) setFaqs(FALLBACK_FAQS)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
     return () => { active = false }
   }, [])
 
@@ -50,26 +58,35 @@ export default function FAQSection() {
           <h2 className="section-title-premium">FREQUENTLY ASKED</h2>
         </div>
 
-        <div className="faq-grid">
-          {faqs.map((faq, i) => (
-            <div 
-              key={faq._id || i} 
-              className={`faq-item ${openIdx === i ? 'faq-open' : ''}`}
-              onClick={() => setOpenIdx(openIdx === i ? -1 : i)}
-            >
-              <div className="faq-question">
-                <span>{faq.question}</span>
-                <div className="faq-toggle">
-                  {openIdx === i ? <Minus size={18} /> : <Plus size={18} />}
+        <div className="faq-grid reveal">
+          {loading ? (
+            [1, 2, 3, 4].map((i) => (
+              <div key={i} className="faq-item glass" style={{ cursor: 'default', pointerEvents: 'none', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 16 }}>
+                <div className="skeleton" style={{ height: 16, width: '70%', borderRadius: 4 }} />
+                <div className="skeleton" style={{ height: 18, width: 18, borderRadius: 4 }} />
+              </div>
+            ))
+          ) : (
+            faqs.map((faq, i) => (
+              <div 
+                key={faq._id || i} 
+                className={`faq-item ${openIdx === i ? 'faq-open' : ''}`}
+                onClick={() => setOpenIdx(openIdx === i ? -1 : i)}
+              >
+                <div className="faq-question">
+                  <span>{faq.question}</span>
+                  <div className="faq-toggle">
+                    {openIdx === i ? <Minus size={18} /> : <Plus size={18} />}
+                  </div>
+                </div>
+                <div className="faq-answer">
+                  <div className="answer-content">
+                    {faq.answer}
+                  </div>
                 </div>
               </div>
-              <div className="faq-answer">
-                <div className="answer-content">
-                  {faq.answer}
-                </div>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </section>
