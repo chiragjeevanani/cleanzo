@@ -2,15 +2,17 @@ import { Link } from 'react-router-dom'
 import { Instagram, Facebook, Linkedin } from 'lucide-react'
 import './Footer.css'
 import { getAppLogo } from '../../utils/helpers'
+import { useTheme } from '../../context/ThemeContext'
 
 export default function Footer() {
+  const { theme } = useTheme()
   return (
     <footer className="site-footer">
       <div className="container">
         <div className="footer-grid">
           <div className="footer-brand">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img src={getAppLogo()} alt="Cleanzo Logo" style={{ height: 46, width: 'auto' }} />
+              <img src={getAppLogo(theme)} alt="Cleanzo Logo" style={{ height: 46, width: 'auto' }} />
               <h2 className="footer-logo-text" style={{ margin: 0 }}>Cleanzo</h2>
             </div>
             <p className="text-body-sm text-secondary" style={{ maxWidth: 320, marginTop: 16 }}>

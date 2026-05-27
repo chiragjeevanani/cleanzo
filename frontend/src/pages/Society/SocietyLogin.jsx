@@ -190,7 +190,7 @@ export default function SocietyLogin() {
 
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'auto', position: 'relative', zIndex: 1 }}>
-            <img src={getAppLogo()} alt="Cleanzo Logo" style={{ height: 36, width: 'auto' }} />
+            <img src={getAppLogo('dark')} alt="Cleanzo Logo" style={{ height: 36, width: 'auto' }} />
             <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 18, color: '#fff', letterSpacing: '0.08em' }}>Cleanzo</span>
             <span style={{
               marginLeft: 2, padding: '2px 9px', borderRadius: 6,

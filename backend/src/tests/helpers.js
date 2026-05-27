@@ -98,5 +98,7 @@ export async function seedSettings() {
     { key: 'prioritySlotFee', value: 99 },
     { key: 'referralDiscountPercent', value: 25 },
     { key: 'referralExpiryDays', value: 7 },
+    { key: 'darkLogoUrl', value: '/logo.png' },
+    { key: 'lightLogoUrl', value: '/logo.png' },
   ]);
 }

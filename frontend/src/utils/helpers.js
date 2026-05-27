@@ -26,18 +26,18 @@ export function formatINR(amount) {
 }
 
 /**
- * Retrieve the current application logo URL from configuration settings
+ * Retrieve the current application logo URL based on theme
  */
-export function getAppLogo() {
-  try {
-    const config = localStorage.getItem('cleanzo_logo_config');
-    if (config) {
-      const parsed = JSON.parse(config);
-      if (parsed.currentUrl) return parsed.currentUrl;
-    }
-  } catch (e) {
-    console.error(e);
+export function getAppLogo(theme) {
+  let activeTheme = theme;
+  if (!activeTheme && typeof document !== 'undefined') {
+    activeTheme = document.documentElement.classList.contains('theme-light') ? 'light' : 'dark';
   }
-  return '/logo.png';
+  if (!activeTheme) activeTheme = 'dark';
+
+  if (activeTheme === 'light') {
+    return localStorage.getItem('cleanzo_light_logo') || '/logo.png';
+  }
+  return localStorage.getItem('cleanzo_dark_logo') || '/logo.png';
 }
 

@@ -17,6 +17,30 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener('auth:session-expired', handler);
   }, [showToast]);
 
+  // Fetch public settings on mount to retrieve brand logos and trigger rerender
+  const [logoUrls, setLogoUrls] = useState({
+    dark: localStorage.getItem('cleanzo_dark_logo') || '/logo.png',
+    light: localStorage.getItem('cleanzo_light_logo') || '/logo.png',
+  });
+
+  useEffect(() => {
+    const fetchGlobalSettings = async () => {
+      try {
+        const res = await apiClient.get('/public/settings');
+        if (res.success) {
+          const dark = res.darkLogoUrl || '/logo.png';
+          const light = res.lightLogoUrl || '/logo.png';
+          setLogoUrls({ dark, light });
+          localStorage.setItem('cleanzo_dark_logo', dark);
+          localStorage.setItem('cleanzo_light_logo', light);
+        }
+      } catch (err) {
+        console.error('Failed to load settings:', err);
+      }
+    };
+    fetchGlobalSettings();
+  }, []);
+
   // Initialize auth state
   useEffect(() => {
     const initAuth = async () => {
@@ -133,7 +157,7 @@ export const AuthProvider = ({ children }) => {
   const updateUser = (updates) => setUser(prev => ({ ...prev, ...updates }));
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, completeCustomerSignup, adminLogin, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, completeCustomerSignup, adminLogin, logout, updateUser, logoUrls, setLogoUrls }}>
       {children}
     </AuthContext.Provider>
   );

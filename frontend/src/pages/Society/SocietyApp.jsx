@@ -51,7 +51,7 @@ export default function SocietyApp() {
       {/* Sidebar */}
       <aside className="admin-sidebar" style={{ transform: sidebarOpen ? 'none' : 'translateX(-100%)', zIndex: isMobile ? 100 : undefined }}>
         <div className="sidebar-logo">
-          <img src={getAppLogo()} alt="Cleanzo" />
+          <img src={getAppLogo(theme)} alt="Cleanzo" />
           <span>Cleanzo Partner</span>
         </div>
         <div className="sidebar-nav">

@@ -101,14 +101,18 @@ router.post('/cleaner-apply', upload.fields([
  */
 router.get('/settings', cacheMiddleware(3600), asyncHandler(async (req, res) => {
   const { default: Settings } = await import('../models/Settings.js');
-  const [trialSetting, prioritySetting] = await Promise.all([
+  const [trialSetting, prioritySetting, darkLogoSetting, lightLogoSetting] = await Promise.all([
     Settings.findOne({ key: 'trialPrice' }),
     Settings.findOne({ key: 'prioritySlotFee' }),
+    Settings.findOne({ key: 'darkLogoUrl' }),
+    Settings.findOne({ key: 'lightLogoUrl' }),
   ]);
   res.json({
     success: true,
     trialPrice: trialSetting?.value ?? 30,
     prioritySlotFee: prioritySetting?.value ?? 99,
+    darkLogoUrl: darkLogoSetting?.value ?? '/logo.png',
+    lightLogoUrl: lightLogoSetting?.value ?? '/logo.png',
   });
 }));
 

@@ -46,6 +46,8 @@ const seedSettingsOnStartup = async () => {
     { key: 'referralDiscountPercent', value: 25,  description: 'Discount % applied to new user on referral' },
     { key: 'referralExpiryDays',      value: 7,   description: 'Days the referral discount stays valid' },
     { key: 'globalCleanerPayoutRate', value: 500, description: 'Default global daily payout rate for cleaners (₹)' },
+    { key: 'darkLogoUrl',             value: '/logo.png', description: 'Logo URL for dark theme' },
+    { key: 'lightLogoUrl',            value: '/logo.png', description: 'Logo URL for light theme' },
   ];
   try {
     for (const s of defaults) {

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getAppLogo } from '../../utils/helpers'
+import { useTheme } from '../../context/ThemeContext'
 import apiClient from '../../services/apiClient'
 
 // ─── Auth Confirm Dialog ─────────────────────────
@@ -53,6 +54,7 @@ function Field({ label, icon: Icon, children, action }) {
 export default function CustomerAuth() {
   const navigate = useNavigate()
   const { user, loading: authLoading, login, completeCustomerSignup } = useAuth()
+  const { theme } = useTheme()
 
   // Redirect already-authenticated users to their portal
   useEffect(() => {
@@ -475,7 +477,7 @@ export default function CustomerAuth() {
         
         {/* Logo */}
         <header style={{ padding: '24px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <img src={getAppLogo()} alt="Cleanzo Logo" style={{ height: 40, width: 'auto' }} />
+          <img src={getAppLogo(theme)} alt="Cleanzo Logo" style={{ height: 40, width: 'auto' }} />
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Cleanzo</span>
         </header>
 
