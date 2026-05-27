@@ -6,6 +6,7 @@ import { normalizePhone, generateOtp } from '../utils/helpers.js';
 // Dev bypass — only active in non-production environments
 const DEV_BYPASS_PHONE = '9111966732';
 const DEV_BYPASS_OTP = '123456';
+const appname = 'Cleanzo';
 
 /**
  * Send OTP via SMSIndiaHub
@@ -66,7 +67,7 @@ export async function sendOtp(phone, role) {
         DCS: 0,
         flashsms: 0,
         number: `91${normalized}`,
-        text: `Welcome to the Cleanzo powered by SMSINDIAHUB. Your OTP for registration is ${code}`,
+        text: `Welcome to ${appname} Powered by IIDMTB. Use OTP ${code} to verify your login.`,
         route: '2', // Often 2 is for Transactional
         EntityId: process.env.SMS_ENTITY_ID || '',
         TemplateId: process.env.SMS_DLT_TEMPLATE_ID,
@@ -75,11 +76,11 @@ export async function sendOtp(phone, role) {
 
     // Check if the response indicates failure
     if (response.data && response.data.ErrorCode !== '000') {
-       return {
-         success: false,
-         message: `SMS Error: ${response.data.ErrorMessage || 'Unknown API Error'}`,
-         debug: response.data
-       };
+      return {
+        success: false,
+        message: `SMS Error: ${response.data.ErrorMessage || 'Unknown API Error'}`,
+        debug: response.data
+      };
     }
 
     return { success: true, message: 'OTP sent successfully' };
