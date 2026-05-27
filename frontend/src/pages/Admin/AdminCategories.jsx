@@ -40,7 +40,7 @@ export default function AdminCategories() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      showToast('Category name is required', 'error');
+      showToast('Marketplace category name is required', 'error');
       return;
     }
 
@@ -52,10 +52,10 @@ export default function AdminCategories() {
 
       if (editingCategory) {
         await apiClient.put(`/admin/marketplace/categories/${editingCategory._id}`, payload);
-        showToast('Category updated successfully');
+        showToast('Marketplace category updated successfully');
       } else {
         await apiClient.post('/admin/marketplace/categories', payload);
-        showToast('Category created successfully');
+        showToast('Marketplace category created successfully');
       }
 
       setShowModal(false);
@@ -66,10 +66,10 @@ export default function AdminCategories() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this category? All products using it may lose their categorization.')) return;
+    if (!confirm('Are you sure you want to delete this marketplace category? All products using it may lose their categorization.')) return;
     try {
       await apiClient.delete(`/admin/marketplace/categories/${id}`);
-      showToast('Category deleted successfully');
+      showToast('Marketplace category deleted successfully');
       fetchCategories();
     } catch (err) {
       showToast(err.message || 'Delete failed', 'error');
@@ -79,7 +79,7 @@ export default function AdminCategories() {
   const handleToggleActive = async (category) => {
     try {
       await apiClient.put(`/admin/marketplace/categories/${category._id}`, { isActive: !category.isActive });
-      showToast(`Category ${!category.isActive ? 'activated' : 'deactivated'}`);
+      showToast(`Marketplace category ${!category.isActive ? 'activated' : 'deactivated'}`);
       fetchCategories();
     } catch (err) {
       showToast(err.message || 'Toggle status failed', 'error');
@@ -92,7 +92,7 @@ export default function AdminCategories() {
       <div className="flex justify-between items-center" style={{ marginBottom: 40 }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Marketplace Categories</h1>
-          <p className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>Manage product and service categories shown dynamically on the app store</p>
+          <p className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>Manage marketplace product and service categories shown dynamically on the app store</p>
         </div>
         <button 
           className="btn btn-primary" 
@@ -103,21 +103,21 @@ export default function AdminCategories() {
           }} 
           style={{ padding: '12px 24px', borderRadius: 14 }}
         >
-          <Plus size={18} /> Add Category
+          <Plus size={18} /> Add Marketplace Category
         </button>
       </div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-100">
           <div className="animate-spin rounded-full h-40 w-40 border-b-2 border-primary mb-16" />
-          <p className="text-tertiary font-medium">Loading categories...</p>
+          <p className="text-tertiary font-medium">Loading marketplace categories...</p>
         </div>
       ) : (
         <div className="glass overflow-hidden" style={{ borderRadius: 28, border: '1px solid var(--border-glass)' }}>
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--divider)' }}>
-                <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>CATEGORY NAME</th>
+                <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>MARKETPLACE CATEGORY NAME</th>
                 <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>ICON</th>
                 <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>DESCRIPTION</th>
                 <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>SORT ORDER</th>
@@ -170,7 +170,7 @@ export default function AdminCategories() {
           {categories.length === 0 && (
             <div className="py-100 flex flex-col items-center justify-center text-center">
               <Layers size={48} className="text-tertiary mb-16 opacity-20 mx-auto" />
-              <div className="text-secondary font-bold text-lg mb-4">No Categories Found</div>
+              <div className="text-secondary font-bold text-lg mb-4">No Marketplace Categories Found</div>
               <p className="text-tertiary text-sm">Get started by launching your first marketplace category.</p>
             </div>
           )}
@@ -208,9 +208,9 @@ export default function AdminCategories() {
             <div className="flex justify-between items-start" style={{ marginBottom: 40 }}>
               <div>
                 <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 900, letterSpacing: '-0.03em', color: 'var(--text-primary)' }}>
-                  {editingCategory ? 'Edit Category' : 'Add Category'}
+                  {editingCategory ? 'Edit Marketplace Category' : 'Add Marketplace Category'}
                 </h2>
-                <p className="text-secondary" style={{ fontSize: 15, marginTop: 4, opacity: 0.8 }}>Define category identity and sort parameters</p>
+                <p className="text-secondary" style={{ fontSize: 15, marginTop: 4, opacity: 0.8 }}>Define marketplace category identity and sort parameters</p>
               </div>
               <button className="glass flex items-center justify-center hover:scale-110 transition-all hover:bg-white/10"
                 onClick={() => setShowModal(false)}
@@ -221,7 +221,7 @@ export default function AdminCategories() {
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-28">
               <div className="flex flex-col gap-8">
-                <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>CATEGORY NAME *</label>
+                <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>MARKETPLACE CATEGORY NAME *</label>
                 <input 
                   required 
                   className="input-field" 
@@ -253,7 +253,7 @@ export default function AdminCategories() {
                   style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', minHeight: 80, fontSize: 14, resize: 'none' }}
                   value={formData.description} 
                   onChange={e => setFormData({ ...formData, description: e.target.value })} 
-                  placeholder="Describe what items belong in this category..." 
+                  placeholder="Describe what items belong in this marketplace category..." 
                 />
               </div>
 
@@ -281,7 +281,7 @@ export default function AdminCategories() {
                       onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
                     />
                     <label htmlFor="isActiveToggle" style={{ fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                      Publish Category
+                      Publish Marketplace Category
                     </label>
                   </div>
                 </div>
@@ -290,7 +290,7 @@ export default function AdminCategories() {
               <div className="flex gap-16" style={{ marginTop: 24 }}>
                 <button type="button" className="btn btn-glass flex-1 py-18 rounded-20 font-bold" onClick={() => setShowModal(false)}>Discard</button>
                 <button type="submit" className="btn btn-primary flex-[2] py-18 rounded-20 font-extrabold text-md shadow-xl shadow-primary/30">
-                  {editingCategory ? 'Save Changes' : 'Create Category'}
+                  {editingCategory ? 'Save Changes' : 'Create Marketplace Category'}
                 </button>
               </div>
             </form>

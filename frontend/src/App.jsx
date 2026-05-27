@@ -17,7 +17,6 @@ import JoinAsCleaner from './pages/Landing/JoinAsCleaner'
 import SocietyLogin from './pages/Society/SocietyLogin'
 import SocietyApp from './pages/Society/SocietyApp'
 import Warranty from './pages/Landing/Warranty'
-import NetworkStatus from './pages/Landing/NetworkStatus'
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -96,7 +95,6 @@ export default function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/warranty" element={<Warranty />} />
-            <Route path="/network-status" element={<NetworkStatus />} />
 
             {/* Protected: Customer Portal */}
             <Route

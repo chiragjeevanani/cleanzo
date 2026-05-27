@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { FileText, Shield, Activity, HelpCircle, Save, Plus, Trash2, CheckCircle, RefreshCw, Star, MapPin, Image, Eye, Loader2, Globe, ExternalLink, X, Send, Package } from 'lucide-react'
+import { FileText, Shield, HelpCircle, Save, Plus, Trash2, CheckCircle, RefreshCw, Star, MapPin, Image, Eye, Loader2, Globe, ExternalLink, X, Send, Package } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
 import FaqsManager from './FaqsManager'
 import TestimonialsManager from './TestimonialsManager'
@@ -57,21 +57,6 @@ export default function AdminCMS() {
     ]
   })
 
-  // --- Network Status State ---
-  const [networkData, setNetworkData] = useState({
-    overallStatus: 'ALL SYSTEMS OPERATIONAL',
-    statusColor: 'success', // success, warning, error
-    nodes: [
-      { id: 1, name: 'Core API & Database Cluster', status: 'Operational' },
-      { id: 2, name: 'Customer Booking & Payments', status: 'Operational' },
-      { id: 3, name: 'Cleaner Dispatch & Real-Time Sync', status: 'Operational' },
-      { id: 4, name: 'Standby Operations Support Nodes', status: 'Active' }
-    ],
-    updates: [
-      { id: 1, date: 'May 24, 2026 - Maintenance Resolved', message: 'Standard scheduled database cluster performance optimization successfully finalized at 04:00 UTC. System telemetry indicates zero disruption to active customer dispatch routines.' },
-      { id: 2, date: 'April 12, 2026 - Incident Resolved', message: 'Minor performance latency observed with the cleaner SMS notification gateway. Fully resolved in 14 minutes by standby engineering.' }
-    ]
-  })
 
 
   // --- Trusted Societies State ---
@@ -100,10 +85,7 @@ export default function AdminCMS() {
       try { setWarrantyData(JSON.parse(cachedWarranty)) } catch (e) { console.error(e) }
     }
 
-    const cachedNetwork = localStorage.getItem('cleanzo_cms_network_status')
-    if (cachedNetwork) {
-      try { setNetworkData(JSON.parse(cachedNetwork)) } catch (e) { console.error(e) }
-    }
+
 
 
   }, [])
@@ -222,10 +204,7 @@ export default function AdminCMS() {
     showToast('Warranty policy saved and updated!', 'success')
   }
 
-  const saveNetworkStatus = () => {
-    localStorage.setItem('cleanzo_cms_network_status', JSON.stringify(networkData))
-    showToast('Network Status dashboard updated!', 'success')
-  }
+
 
 
 
@@ -244,7 +223,6 @@ export default function AdminCMS() {
         {[
           { id: 'terms', icon: FileText, label: 'Terms of Service' },
           { id: 'warranty', icon: Shield, label: 'Warranty Policy' },
-          { id: 'network', icon: Activity, label: 'Network Status' },
           { id: 'societies', icon: MapPin, label: 'Trusted Societies' },
           { id: 'banners', icon: Image, label: 'Banners' },
           { id: 'landingPlans', icon: Package, label: 'Landing Page Plans' },
@@ -487,120 +465,7 @@ export default function AdminCMS() {
           </div>
         )}
 
-        {/* --- 3. NETWORK STATUS --- */}
-        {activeTab === 'network' && (
-          <div>
-            <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Manage Network Status</h3>
-              <button onClick={saveNetworkStatus} className="btn btn-primary btn-sm flex items-center gap-8">
-                <Save size={14} /> Save Status
-              </button>
-            </div>
 
-            <div className="flex flex-col gap-24">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Overall Health Status Headline</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={networkData.overallStatus}
-                    onChange={e => setNetworkData({ ...networkData, overallStatus: e.target.value.toUpperCase() })}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Status Indicator Glow</label>
-                  <select
-                    className="input-field"
-                    style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-                    value={networkData.statusColor}
-                    onChange={e => setNetworkData({ ...networkData, statusColor: e.target.value })}
-                  >
-                    <option value="success">Green (All Systems Normal)</option>
-                    <option value="warning">Yellow (Degraded Performance)</option>
-                    <option value="error">Red (Outage / Heavy Incident)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="divider" style={{ margin: '12px 0' }} />
-
-              <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600 }}>Core Service Nodes</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-                {networkData.nodes.map((node, idx) => (
-                  <div key={node.id} className="glass" style={{ padding: '16px 20px', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justify: 'space-between', gap: 16 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14 }}>{node.name}</span>
-                    <input
-                      type="text"
-                      className="input-field"
-                      style={{ maxWidth: 200, padding: '8px 12px', fontSize: 13 }}
-                      value={node.status}
-                      onChange={e => {
-                        const updated = [...networkData.nodes]
-                        updated[idx].status = e.target.value
-                        setNetworkData({ ...networkData, nodes: updated })
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="divider" style={{ margin: '12px 0' }} />
-
-              <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600 }}>Operational Updates Log</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {networkData.updates.map((update, idx) => (
-                  <div key={update.id} className="glass" style={{ padding: 20, borderRadius: 'var(--radius-sm)', position: 'relative' }}>
-                    <button
-                      onClick={() => {
-                        const filtered = networkData.updates.filter(u => u.id !== update.id)
-                        setNetworkData({ ...networkData, updates: filtered })
-                      }}
-                      style={{ position: 'absolute', top: 16, right: 16, color: 'var(--error)', cursor: 'pointer' }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <input
-                        type="text"
-                        className="input-field"
-                        style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary-blue)', background: 'rgba(255,255,255,0.02)', border: 'none' }}
-                        value={update.date}
-                        onChange={e => {
-                          const updated = [...networkData.updates]
-                          updated[idx].date = e.target.value
-                          setNetworkData({ ...networkData, updates: updated })
-                        }}
-                      />
-                      <textarea
-                        className="input-field"
-                        rows={2}
-                        style={{ fontSize: 13, resize: 'vertical' }}
-                        value={update.message}
-                        onChange={e => {
-                          const updated = [...networkData.updates]
-                          updated[idx].message = e.target.value
-                          setNetworkData({ ...networkData, updates: updated })
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                <button
-                  onClick={() => {
-                    const newUpdate = { id: Date.now(), date: 'New Date Label - Status Update', message: 'Describe status changes or resolutions here...' }
-                    setNetworkData({ ...networkData, updates: [newUpdate, ...networkData.updates] })
-                  }}
-                  className="btn btn-glass btn-sm"
-                  style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6 }}
-                >
-                  <Plus size={14} /> Add Incident Update Log
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
 
 

@@ -377,7 +377,7 @@ export default function AdminMarketplace() {
 
                 <div className="grid-2" style={{ gap: 32 }}>
                   <div className="flex flex-col gap-12">
-                    <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>CATEGORY</label>
+                    <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>MARKETPLACE CATEGORY</label>
                     <select className="input-field cursor-pointer" 
                       style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 16, appearance: 'none' }}
                       value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
