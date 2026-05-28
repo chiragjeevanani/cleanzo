@@ -4,6 +4,7 @@ import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import { ChevronRight, Car, Sun, Moon, LogOut, HelpCircle, Shield, Bell, MapPin, FileText, Loader2, Pencil, X, Check } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { validateName, validateEmail, formatCityState } from '../../utils/helpers'
 
 export default function CustomerProfile() {
   const { theme, toggleTheme } = useTheme()
@@ -25,10 +26,27 @@ export default function CustomerProfile() {
   }
 
   const handleSaveProfile = async () => {
-    setSaving(true)
     setEditError('')
+    if (!validateName(form.firstName) || !validateName(form.lastName)) {
+      setEditError('First and Last Name must contain only alphabetic characters (2-50 characters).')
+      return
+    }
+    if (!validateEmail(form.email)) {
+      setEditError('Please enter a valid email address.')
+      return
+    }
+    const formattedCity = formatCityState(form.city)
+    if (form.city && !formattedCity) {
+      setEditError('City name must contain only alphabetic characters.')
+      return
+    }
+
+    setSaving(true)
     try {
-      const res = await apiClient.put('/customer/profile', form)
+      const res = await apiClient.put('/customer/profile', {
+        ...form,
+        city: formattedCity
+      })
       updateUser(res.user)
       setEditing(false)
     } catch (err) {
@@ -70,11 +88,11 @@ export default function CustomerProfile() {
           <div className="flex flex-col gap-12">
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>First Name</label>
-              <input className="input-field" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })} placeholder="First name" />
+              <input className="input-field" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} placeholder="First name" />
             </div>
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Last Name</label>
-              <input className="input-field" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} placeholder="Last name" />
+              <input className="input-field" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} placeholder="Last name" />
             </div>
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Email</label>
@@ -82,7 +100,7 @@ export default function CustomerProfile() {
             </div>
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>City</label>
-              <input className="input-field" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="Your city" />
+              <input className="input-field" value={form.city} onChange={e => setForm({ ...form, city: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} placeholder="Your city" />
             </div>
             <button className="btn btn-blue w-full" onClick={handleSaveProfile} disabled={saving}>
               {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Check size={14} /> Save Changes</>}

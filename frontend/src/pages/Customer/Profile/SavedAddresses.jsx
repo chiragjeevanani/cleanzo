@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, MapPin, Home, Briefcase, ArrowRight, Check, Pencil } from 'lucide-react'
 import apiClient from '../../../services/apiClient'
+import { formatCityState } from '../../../utils/helpers'
 
 const ICON_MAP = { Home, Office: Briefcase, Other: MapPin }
 const COLOR_MAP = { Home: 'var(--primary-blue)', Office: 'var(--accent-lime)', Other: 'var(--text-secondary)' }
@@ -35,12 +36,27 @@ export default function SavedAddresses() {
 
   const handleSave = async () => {
     if (!form.city || !form.state || !form.societyName || !form.flat) return
-    setSaving(true)
     setError('')
+    
+    const formattedCity = formatCityState(form.city)
+    const formattedState = formatCityState(form.state)
+    
+    if (!formattedCity) {
+      setError('City name must contain only letters.')
+      return
+    }
+    if (!formattedState) {
+      setError('State name must contain only letters.')
+      return
+    }
+
+    setSaving(true)
     try {
       // Combine for legacy line1 support if needed, but also send granular fields
       const payload = {
         ...form,
+        city: formattedCity,
+        state: formattedState,
         line1: `${form.flat}, ${form.tower ? form.tower + ', ' : ''}${form.societyName}`
       }
       
@@ -158,11 +174,11 @@ export default function SavedAddresses() {
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <label className="text-label text-secondary mb-8 block" style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>City *</label>
-                <input className="input-field" placeholder="e.g. Bengaluru" value={form.city} onChange={e => setForm({...form, city: e.target.value})} style={{ width: '100%', padding: '14px 16px' }} />
+                <input className="input-field" placeholder="e.g. Bengaluru" value={form.city} onChange={e => setForm({...form, city: e.target.value.replace(/[^a-zA-Z\s]/g, '')})} style={{ width: '100%', padding: '14px 16px' }} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <label className="text-label text-secondary mb-8 block" style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>State *</label>
-                <input className="input-field" placeholder="e.g. Karnataka" value={form.state} onChange={e => setForm({...form, state: e.target.value})} style={{ width: '100%', padding: '14px 16px' }} />
+                <input className="input-field" placeholder="e.g. Karnataka" value={form.state} onChange={e => setForm({...form, state: e.target.value.replace(/[^a-zA-Z\s]/g, '')})} style={{ width: '100%', padding: '14px 16px' }} />
               </div>
             </div>
 

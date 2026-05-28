@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, Camera, X, CheckCircle, AlertCircle } from 'lucide-r
 import { useAuth } from '../../../context/AuthContext'
 import apiClient from '../../../services/apiClient'
 import { optimizeImage } from '../../../utils/imageOptimizer'
+import { validateName, validateEmail, validatePhone, cleanPhoneNumber } from '../../../utils/helpers'
 
 export default function GrievanceForm() {
   const navigate = useNavigate()
@@ -64,22 +65,23 @@ export default function GrievanceForm() {
     
     // Validations
     if (!form.name.trim()) return setError('Name is required')
+    if (!validateName(form.name)) return setError('Name must contain only alphabetic characters')
     
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(form.email)) return setError('Please enter a valid email address')
+    if (!validateEmail(form.email)) return setError('Please enter a valid email address')
     
-    const phoneRegex = /^[6-9]\d{9}$/
-    if (!phoneRegex.test(form.phone)) return setError('Please enter a valid 10-digit mobile number')
+    if (!validatePhone(form.phone)) return setError('Please enter a valid 10-digit mobile number (can start with 91)')
     
     if (!form.subject.trim()) return setError('Subject is required')
     if (!form.issue.trim()) return setError('Issue description is required')
+
+    const cleanedPhone = cleanPhoneNumber(form.phone)
 
     setLoading(true)
     try {
       const formData = new FormData()
       formData.append('name', form.name)
       formData.append('email', form.email)
-      formData.append('phone', form.phone)
+      formData.append('phone', cleanedPhone)
       formData.append('subject', form.subject)
       formData.append('issue', form.issue)
       if (attachment) {
@@ -129,7 +131,7 @@ export default function GrievanceForm() {
             className="input-field" 
             placeholder="e.g. John Doe" 
             value={form.name} 
-            onChange={e => setForm({...form, name: e.target.value})} 
+            onChange={e => setForm({...form, name: e.target.value.replace(/[^a-zA-Z\s]/g, '')})} 
             style={{ width: '100%', padding: '14px 16px' }} 
           />
         </div>
@@ -153,8 +155,9 @@ export default function GrievanceForm() {
               className="input-field" 
               type="tel" 
               placeholder="e.g. 9876543210" 
+              maxLength={12}
               value={form.phone} 
-              onChange={e => setForm({...form, phone: e.target.value})} 
+              onChange={e => setForm({...form, phone: e.target.value.replace(/\D/g, '')})} 
               style={{ width: '100%', padding: '14px 16px' }} 
             />
           </div>

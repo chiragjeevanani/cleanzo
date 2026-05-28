@@ -5,7 +5,7 @@ import {
   Mail, Tag, ChevronDown
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { getAppLogo } from '../../utils/helpers'
+import { getAppLogo, validateName, validatePhone, validateEmail, validatePincode, cleanPhoneNumber } from '../../utils/helpers'
 import { useTheme } from '../../context/ThemeContext'
 import apiClient from '../../services/apiClient'
 
@@ -145,20 +145,23 @@ export default function CustomerAuth() {
     e.preventDefault()
 
     // Validations
-    const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^91/, '')
-    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
-      setErrorMsg('Enter a valid 10-digit Indian mobile number')
+    if (!validateName(formData.firstName) || !validateName(formData.lastName)) {
+      setErrorMsg('First and Last Name must contain only alphabetic characters (2-50 characters)')
       return
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (formData.email && !emailRegex.test(formData.email)) {
+    if (!validatePhone(formData.phone)) {
+      setErrorMsg('Enter a valid 10-digit Indian mobile number')
+      return
+    }
+    const cleanPhone = cleanPhoneNumber(formData.phone)
+
+    if (formData.email && !validateEmail(formData.email)) {
       setErrorMsg('Please enter a valid email address')
       return
     }
 
-    const pinRegex = /^[1-9][0-9]{5}$/
-    if (!pinRegex.test(formData.pincode)) {
+    if (!validatePincode(formData.pincode)) {
       setErrorMsg('Please enter a valid 6-digit Indian pincode')
       return
     }
@@ -168,7 +171,7 @@ export default function CustomerAuth() {
     try {
       await apiClient.post('/public/leads', {
         name: `${formData.firstName} ${formData.lastName}`,
-        phone: formData.phone,
+        phone: cleanPhone,
         email: formData.email,
         city: formData.city,
         requestedArea: formData.area,
@@ -187,15 +190,15 @@ export default function CustomerAuth() {
   const handleSendOtp = async (e) => {
     e?.preventDefault()
     setErrorMsg('')
-    const cleanPhone = formData.phone.replace(/\D/g, '').replace(/^91/, '')
-    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+    if (!validatePhone(formData.phone)) {
       setErrorMsg('Enter a valid 10-digit Indian mobile number')
       return
     }
+    const cleanPhone = cleanPhoneNumber(formData.phone)
 
     setLoading(true)
     try {
-      await apiClient.post('/auth/send-otp', { phone: formData.phone, role, mode })
+      await apiClient.post('/auth/send-otp', { phone: cleanPhone, role, mode })
       setStep('otp')
       setTimer(30)
       if (mode === 'signup') {
@@ -272,8 +275,7 @@ export default function CustomerAuth() {
     setErrorMsg('')
 
     // Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(formData.email)) {
+    if (!validateEmail(formData.email)) {
       setErrorMsg('Please enter a valid email address')
       return
     }
@@ -288,7 +290,7 @@ export default function CustomerAuth() {
         }
         await apiClient.post('/public/leads', {
           name: `${formData.firstName} ${formData.lastName}`.trim() || 'Unknown',
-          phone: formData.phone,
+          phone: cleanPhoneNumber(formData.phone),
           email: formData.email,
           city: formData.city,
           requestedArea: formData.area,
@@ -415,10 +417,10 @@ export default function CustomerAuth() {
         <div className="glass" style={{ padding: 28, borderRadius: 28, border: '1px solid var(--border-glass)' }}>
            <form onSubmit={handleCaptureLead} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', gap: 12 }}>
-                <Field label="First Name" icon={User}><input required className="input-field" style={inputStyle} value={formData.firstName} onChange={set('firstName')} /></Field>
-                <Field label="Last Name"><input required className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={formData.lastName} onChange={set('lastName')} /></Field>
+                <Field label="First Name" icon={User}><input required className="input-field" style={inputStyle} placeholder="First name" value={formData.firstName} onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, firstName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })) }} /></Field>
+                <Field label="Last Name"><input required className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} placeholder="Last name" value={formData.lastName} onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, lastName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })) }} /></Field>
               </div>
-              <Field label="Phone Number" icon={Phone}><input required className="input-field" style={inputStyle} value={formData.phone} onChange={set('phone')} /></Field>
+              <Field label="Phone Number" icon={Phone}><input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={12} value={formData.phone} onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') })) }} /></Field>
               <Field label="City" icon={MapPin}>
                 <select required className="input-field" style={selectStyle} value={formData.city} onChange={set('city')}>
                   <option value="" disabled>Select City</option>
@@ -620,7 +622,7 @@ export default function CustomerAuth() {
               <>
                 {signupStep === 1 && (
                   /* Step 1: First Name */
-                  <form onSubmit={(e) => { e.preventDefault(); if (formData.firstName.trim().length >= 2) setSignupStep(2); else setErrorMsg('First name must be at least 2 characters.'); }} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <form onSubmit={(e) => { e.preventDefault(); if (validateName(formData.firstName)) setSignupStep(2); else setErrorMsg('First name must contain only letters (min 2 characters).'); }} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <Field label="First Name" icon={User}>
                       <input required className="input-field" style={inputStyle} placeholder="First name"
                         value={formData.firstName}
@@ -634,7 +636,7 @@ export default function CustomerAuth() {
 
                 {signupStep === 2 && (
                   /* Step 2: Last Name */
-                  <form onSubmit={(e) => { e.preventDefault(); if (formData.lastName.trim().length >= 1) setSignupStep(3); else setErrorMsg('Last name is required.'); }} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <form onSubmit={(e) => { e.preventDefault(); if (validateName(formData.lastName)) setSignupStep(3); else setErrorMsg('Last name must contain only letters (min 2 characters).'); }} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <Field label="Last Name" icon={User}>
                       <input required className="input-field" style={inputStyle} placeholder="Last name"
                         value={formData.lastName}
@@ -651,7 +653,7 @@ export default function CustomerAuth() {
                   /* Step 3: Phone Number */
                   <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <Field label="Phone Number" icon={Phone}>
-                      <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={10}
+                      <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={12}
                         value={formData.phone}
                         onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') })) }} />
                     </Field>
@@ -780,7 +782,7 @@ export default function CustomerAuth() {
               <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {/* PHONE FIELD */}
                 <Field label="Phone Number" icon={Phone}>
-                  <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={10}
+                  <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={12}
                     value={formData.phone}
                     onChange={e => setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') }))} />
                 </Field>

@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { Search, Filter, MoreVertical, Plus, X, Trash2, UserX, UserCheck, ChevronDown, Eye, Download } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { exportToExcel } from '../../utils/excelExporter'
+import { validateName, validateEmail, validatePhone, cleanPhoneNumber, formatCityState } from '../../utils/helpers'
 
 const STATUSES = ['all', 'active', 'inactive']
 const PLANS = ['all', 'None', 'Basic', 'Standard', 'Premium', 'Elite']
@@ -132,10 +133,27 @@ export default function AdminUsers() {
 
   const handleAdd = async (e) => {
     e.preventDefault()
-    setSaving(true)
     setError('')
+
+    if (!formData.firstName?.trim()) return setError('First Name is required')
+    if (!validateName(formData.firstName)) return setError('First Name must contain only alphabetic characters')
+    if (formData.lastName && !validateName(formData.lastName)) return setError('Last Name must contain only alphabetic characters')
+    
+    if (!formData.phone?.trim()) return setError('Phone is required')
+    if (!validatePhone(formData.phone)) return setError('Please enter a valid 10-digit phone number (can start with 91)')
+    
+    if (formData.email && !validateEmail(formData.email)) return setError('Please enter a valid email address')
+    
+    if (formData.city && !validateName(formData.city)) return setError('City must contain only alphabetic characters')
+
+    setSaving(true)
     try {
-      const res = await apiClient.post('/admin/users', formData)
+      const payload = {
+        ...formData,
+        phone: cleanPhoneNumber(formData.phone),
+        city: formData.city ? formatCityState(formData.city) : ''
+      }
+      const res = await apiClient.post('/admin/users', payload)
       setUsers(prev => [res.user, ...prev])
       setShowAddModal(false)
       setFormData({ firstName: '', lastName: '', phone: '', email: '', city: '' })
@@ -335,16 +353,16 @@ export default function AdminUsers() {
               <div className="grid-2 gap-16">
                 <div className="flex flex-col gap-8">
                   <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>FIRST NAME *</label>
-                  <input required className="input-field" placeholder="John" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} />
+                  <input required className="input-field" placeholder="John" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
                 </div>
                 <div className="flex flex-col gap-8">
                   <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>LAST NAME</label>
-                  <input className="input-field" placeholder="Doe" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} />
+                  <input className="input-field" placeholder="Doe" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
                 </div>
               </div>
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>PHONE *</label>
-                <input required className="input-field" placeholder="9876543210" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                <input required className="input-field" placeholder="9876543210" maxLength={12} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })} />
               </div>
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>EMAIL</label>
@@ -352,7 +370,7 @@ export default function AdminUsers() {
               </div>
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>CITY</label>
-                <input className="input-field" placeholder="Mumbai" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} />
+                <input className="input-field" placeholder="Mumbai" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
               </div>
               <button disabled={saving} className="btn btn-primary w-full" type="submit"
                 style={{ padding: '16px', borderRadius: 20, fontSize: 16, fontWeight: 700, marginTop: 8 }}>

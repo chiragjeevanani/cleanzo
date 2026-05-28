@@ -19,6 +19,11 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Disable double-tap and pinch-to-zoom gestures (primarily for iOS Safari)
+document.addEventListener('gesturestart', (e) => {
+  e.preventDefault();
+});
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>

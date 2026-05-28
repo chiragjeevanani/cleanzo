@@ -3,6 +3,7 @@ import { Star, MapPin, MoreVertical, Plus, X, Trash2, UserX, UserCheck, Filter, 
 import { Link } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
 import { exportToExcel } from '../../utils/excelExporter'
+import { validateName, validateEmail, validatePhone, cleanPhoneNumber, formatCityState } from '../../utils/helpers'
 
 const STATUSES = ['all', 'active', 'inactive']
 
@@ -183,13 +184,43 @@ export default function AdminCleaners() {
     }
   }
 
+  const validateCleanerForm = (data) => {
+    if (!data.name?.trim()) return 'Full Name is required'
+    if (!validateName(data.name)) return 'Full Name must contain only alphabetic characters'
+    
+    if (data.fatherName && !validateName(data.fatherName)) return 'Father Name must contain only alphabetic characters'
+    
+    if (!data.phone?.trim()) return 'Phone number is required'
+    if (!validatePhone(data.phone)) return 'Please enter a valid 10-digit phone number (can start with 91)'
+    
+    if (data.email && !validateEmail(data.email)) return 'Please enter a valid email address'
+    
+    if (!data.city?.trim()) return 'City is required'
+    if (!validateName(data.city)) return 'City name must contain only alphabetic characters'
+    
+    if (data.referenceName && !validateName(data.referenceName)) return 'Reference Name must contain only alphabetic characters'
+    
+    if (data.referencePhone && !validatePhone(data.referencePhone)) return 'Reference Phone must be a valid 10-digit number (can start with 91)'
+    
+    return null
+  }
+
   const handleAdd = async (e) => {
     e.preventDefault()
-    setSaving(true)
     setError('')
+    const validationError = validateCleanerForm(formData)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    setSaving(true)
     try {
       const payload = {
         ...formData,
+        phone: cleanPhoneNumber(formData.phone),
+        referencePhone: formData.referencePhone ? cleanPhoneNumber(formData.referencePhone) : '',
+        city: formatCityState(formData.city),
         dailyRate: formData.dailyRate !== '' && formData.dailyRate !== undefined ? Number(formData.dailyRate) : null
       }
       const res = await apiClient.post('/admin/cleaners', payload)
@@ -209,11 +240,20 @@ export default function AdminCleaners() {
 
   const handleEdit = async (e) => {
     e.preventDefault()
-    setSaving(true)
     setError('')
+    const validationError = validateCleanerForm(formData)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    setSaving(true)
     try {
       const payload = {
         ...formData,
+        phone: cleanPhoneNumber(formData.phone),
+        referencePhone: formData.referencePhone ? cleanPhoneNumber(formData.referencePhone) : '',
+        city: formatCityState(formData.city),
         dailyRate: formData.dailyRate !== '' && formData.dailyRate !== undefined ? Number(formData.dailyRate) : null
       }
       const res = await apiClient.put(`/admin/cleaners/${showEditModal._id}`, payload)
@@ -457,17 +497,17 @@ export default function AdminCleaners() {
                 <div className="grid-2 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>FULL NAME *</label>
-                    <input required className="input-field" placeholder="Ravi Kumar" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                    <input required className="input-field" placeholder="Ravi Kumar" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>FATHER'S NAME</label>
-                    <input className="input-field" placeholder="Suresh Kumar" value={formData.fatherName} onChange={e => setFormData({ ...formData, fatherName: e.target.value })} />
+                    <input className="input-field" placeholder="Suresh Kumar" value={formData.fatherName} onChange={e => setFormData({ ...formData, fatherName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
                   </div>
                 </div>
                 <div className="grid-3 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>PHONE *</label>
-                    <input required className="input-field" placeholder="9876543210" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                    <input required className="input-field" placeholder="9876543210" maxLength={12} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>EMAIL</label>
@@ -481,7 +521,7 @@ export default function AdminCleaners() {
                  <div className="grid-3 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>CITY *</label>
-                    <input required className="input-field" placeholder="Mumbai" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} />
+                    <input required className="input-field" placeholder="Mumbai" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>ASSIGNED AREA</label>
@@ -515,11 +555,11 @@ export default function AdminCleaners() {
                 <div className="grid-2 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>REFERENCE NAME</label>
-                    <input className="input-field" placeholder="Contact Person Name" value={formData.referenceName} onChange={e => setFormData({ ...formData, referenceName: e.target.value })} />
+                    <input className="input-field" placeholder="Contact Person Name" value={formData.referenceName} onChange={e => setFormData({ ...formData, referenceName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>REFERENCE PHONE</label>
-                    <input className="input-field" placeholder="Contact Person Phone" value={formData.referencePhone} onChange={e => setFormData({ ...formData, referencePhone: e.target.value })} />
+                    <input className="input-field" placeholder="Contact Person Phone" maxLength={12} value={formData.referencePhone} onChange={e => setFormData({ ...formData, referencePhone: e.target.value.replace(/\D/g, '') })} />
                   </div>
                 </div>
               </section>
@@ -586,17 +626,17 @@ export default function AdminCleaners() {
                 <div className="grid-2 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>FULL NAME *</label>
-                    <input required className="input-field" placeholder="Ravi Kumar" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                    <input required className="input-field" placeholder="Ravi Kumar" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>FATHER'S NAME</label>
-                    <input className="input-field" placeholder="Suresh Kumar" value={formData.fatherName} onChange={e => setFormData({ ...formData, fatherName: e.target.value })} />
+                    <input className="input-field" placeholder="Suresh Kumar" value={formData.fatherName} onChange={e => setFormData({ ...formData, fatherName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
                   </div>
                 </div>
                 <div className="grid-3 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>PHONE *</label>
-                    <input required className="input-field" placeholder="9876543210" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                    <input required className="input-field" placeholder="9876543210" maxLength={12} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>EMAIL</label>
@@ -610,7 +650,7 @@ export default function AdminCleaners() {
                 <div className="grid-3 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>CITY *</label>
-                    <input required className="input-field" placeholder="Mumbai" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} />
+                    <input required className="input-field" placeholder="Mumbai" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>ASSIGNED AREA</label>
@@ -644,11 +684,11 @@ export default function AdminCleaners() {
                 <div className="grid-2 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>REFERENCE NAME</label>
-                    <input className="input-field" placeholder="Contact Person Name" value={formData.referenceName} onChange={e => setFormData({ ...formData, referenceName: e.target.value })} />
+                    <input className="input-field" placeholder="Contact Person Name" value={formData.referenceName} onChange={e => setFormData({ ...formData, referenceName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>REFERENCE PHONE</label>
-                    <input className="input-field" placeholder="Contact Person Phone" value={formData.referencePhone} onChange={e => setFormData({ ...formData, referencePhone: e.target.value })} />
+                    <input className="input-field" placeholder="Contact Person Phone" maxLength={12} value={formData.referencePhone} onChange={e => setFormData({ ...formData, referencePhone: e.target.value.replace(/\D/g, '') })} />
                   </div>
                 </div>
               </section>

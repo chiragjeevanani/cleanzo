@@ -3,6 +3,7 @@ import { Plus, X, Search, Filter, MapPin, Building2, MoreVertical, Trash2, Edit2
 import apiClient from '../../services/apiClient'
 import { exportToExcel } from '../../utils/excelExporter'
 import { useToast } from '../../context/ToastContext'
+import { validateName, validateEmail, validatePhone, cleanPhoneNumber, validatePincode, formatCityState } from '../../utils/helpers'
 
 const STATUSES = ['all', 'active', 'inactive']
 
@@ -335,16 +336,21 @@ export default function AdminSocieties() {
 
   const handleSave = async (e) => {
     e.preventDefault()
-    setSaving(true)
     setError('')
-    try {
-      // Client-side guard for required fields
-      if (!formData.name?.trim() || !formData.state?.trim() || !formData.city?.trim() || !formData.area?.trim() || !formData.pincode?.trim() || !formData.address?.trim()) {
-        showToast('Please fill in all required fields including Full Address.', 'error')
-        setSaving(false)
-        return
-      }
+    
+    // Client-side guard for required fields
+    if (!formData.name?.trim() || !formData.state?.trim() || !formData.city?.trim() || !formData.area?.trim() || !formData.pincode?.trim() || !formData.address?.trim()) {
+      showToast('Please fill in all required fields including Full Address.', 'error')
+      return
+    }
 
+    if (!validatePincode(formData.pincode)) {
+      showToast('Please enter a valid 6-digit pincode.', 'error')
+      return
+    }
+
+    setSaving(true)
+    try {
       const cleanedTowers = (formData.towers || []).map(t => ({
         name: t.name.trim(),
         blocks: t.blocks ? t.blocks.map(b => b.trim()).filter(Boolean) : []
@@ -415,12 +421,22 @@ export default function AdminSocieties() {
 
   const handleSaveCity = async (e) => {
     e.preventDefault()
-    setCitySaving(true)
     setError('')
+
+    if (!cityFormData.name.trim() || !validateName(cityFormData.name)) {
+      setError('City name must contain only alphabetic characters')
+      return
+    }
+    if (!cityFormData.state.trim() || !validateName(cityFormData.state)) {
+      setError('State name must contain only alphabetic characters')
+      return
+    }
+
+    setCitySaving(true)
     try {
       const payload = {
-        name: cityFormData.name.trim(),
-        state: cityFormData.state.trim(),
+        name: formatCityState(cityFormData.name),
+        state: formatCityState(cityFormData.state),
         isActive: cityFormData.isActive,
         launchDate: cityFormData.launchDate || undefined
       }
@@ -488,13 +504,45 @@ export default function AdminSocieties() {
 
   const handleSavePartner = async (e) => {
     e.preventDefault()
-    setPartnerSaving(true)
     setPartnerError('')
+
+    if (!partnerFormData.contactName?.trim()) {
+      setPartnerError('Contact name is required')
+      return
+    }
+    if (!validateName(partnerFormData.contactName)) {
+      setPartnerError('Contact name must contain only alphabetic characters')
+      return
+    }
+    
+    if (!editingPartner) {
+      if (!partnerFormData.email?.trim() || !validateEmail(partnerFormData.email)) {
+        setPartnerError('Please enter a valid email address')
+        return
+      }
+      if (!partnerFormData.password || partnerFormData.password.length < 8) {
+        setPartnerError('Password must be at least 8 characters long')
+        return
+      }
+    } else {
+      if (partnerFormData.password && partnerFormData.password.length < 8) {
+        setPartnerError('Password must be at least 8 characters long')
+        return
+      }
+    }
+    
+    if (partnerFormData.phone && !validatePhone(partnerFormData.phone)) {
+      setPartnerError('Please enter a valid 10-digit phone number (can start with 91)')
+      return
+    }
+
+    setPartnerSaving(true)
     try {
+      const cleanedPhone = partnerFormData.phone ? cleanPhoneNumber(partnerFormData.phone) : ''
       if (editingPartner) {
         const payload = {
           contactName: partnerFormData.contactName,
-          phone: partnerFormData.phone,
+          phone: cleanedPhone,
           commissionRate: Number(partnerFormData.commissionRate),
           isActive: partnerFormData.isActive
         }
@@ -509,7 +557,7 @@ export default function AdminSocieties() {
           contactName: partnerFormData.contactName,
           email: partnerFormData.email,
           password: partnerFormData.password,
-          phone: partnerFormData.phone,
+          phone: cleanedPhone,
           commissionRate: Number(partnerFormData.commissionRate)
         }
         const res = await apiClient.post('/admin/partner-societies', payload)
@@ -1159,7 +1207,7 @@ export default function AdminSocieties() {
                 </div>
                 <div className="flex flex-col gap-8">
                    <label className="text-label-xs">PINCODE *</label>
-                   <input required className="input-field" value={formData.pincode} onChange={e => setFormData({...formData, pincode: e.target.value})} placeholder="6 digits" maxLength={6} />
+                   <input required className="input-field" value={formData.pincode} onChange={e => setFormData({...formData, pincode: e.target.value.replace(/\D/g, '')})} placeholder="6 digits" maxLength={6} />
                 </div>
                 <div className="flex flex-col gap-8 span-2">
                    <label className="text-label-xs">FULL ADDRESS *</label>
@@ -1300,7 +1348,7 @@ export default function AdminSocieties() {
 
                 <div className="flex flex-col gap-6 span-2">
                    <label className="text-label-xs">CONTACT PERSON NAME *</label>
-                   <input required className="input-field" value={partnerFormData.contactName} onChange={e => setPartnerFormData({...partnerFormData, contactName: e.target.value})} placeholder="e.g. John Doe" />
+                   <input required className="input-field" value={partnerFormData.contactName} onChange={e => setPartnerFormData({...partnerFormData, contactName: e.target.value.replace(/[^a-zA-Z\s]/g, '')})} placeholder="e.g. John Doe" />
                 </div>
 
                 <div className="flex flex-col gap-6 span-2">
@@ -1332,7 +1380,7 @@ export default function AdminSocieties() {
 
                 <div className="flex flex-col gap-6">
                    <label className="text-label-xs">PHONE NUMBER</label>
-                   <input className="input-field" value={partnerFormData.phone} onChange={e => setPartnerFormData({...partnerFormData, phone: e.target.value})} placeholder="10-digit mobile" />
+                   <input className="input-field" value={partnerFormData.phone} maxLength={12} onChange={e => setPartnerFormData({...partnerFormData, phone: e.target.value.replace(/\D/g, '')})} placeholder="10-digit mobile" />
                 </div>
 
                 <div className="flex flex-col gap-6">
@@ -1549,11 +1597,11 @@ export default function AdminSocieties() {
              <form onSubmit={handleSaveCity} className="flex flex-col gap-16">
                 <div className="flex flex-col gap-6">
                    <label className="text-label-xs">CITY NAME *</label>
-                   <input required className="input-field" value={cityFormData.name} onChange={e => setCityFormData({...cityFormData, name: e.target.value})} placeholder="e.g. Pune" />
+                   <input required className="input-field" value={cityFormData.name} onChange={e => setCityFormData({...cityFormData, name: e.target.value.replace(/[^a-zA-Z\s]/g, '')})} placeholder="e.g. Pune" />
                 </div>
                 <div className="flex flex-col gap-6">
                    <label className="text-label-xs">STATE *</label>
-                   <input required className="input-field" value={cityFormData.state} onChange={e => setCityFormData({...cityFormData, state: e.target.value})} placeholder="e.g. Maharashtra" />
+                   <input required className="input-field" value={cityFormData.state} onChange={e => setCityFormData({...cityFormData, state: e.target.value.replace(/[^a-zA-Z\s]/g, '')})} placeholder="e.g. Maharashtra" />
                 </div>
                 <div className="flex flex-col gap-6">
                    <label className="text-label-xs">LAUNCH DATE (OPTIONAL)</label>

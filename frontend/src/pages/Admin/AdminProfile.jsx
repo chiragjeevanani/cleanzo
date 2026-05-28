@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { User, Phone, Mail, Shield, Edit2, Check, X } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { validateName, validateEmail, validatePhone, cleanPhoneNumber } from '../../utils/helpers'
 
 export default function AdminProfile() {
   const { user, updateUser } = useAuth()
@@ -17,11 +18,27 @@ export default function AdminProfile() {
 
   const handleSave = async (e) => {
     e.preventDefault()
-    setSaving(true)
     setError('')
     setSuccess('')
+
+    if (!formData.name?.trim()) return setError('Name is required')
+    if (!validateName(formData.name)) return setError('Name must contain only alphabetic characters')
+    
+    if (!formData.email?.trim() || !validateEmail(formData.email)) {
+      return setError('Please enter a valid email address')
+    }
+
+    if (formData.phone && !validatePhone(formData.phone)) {
+      return setError('Please enter a valid 10-digit phone number (can start with 91)')
+    }
+
+    setSaving(true)
     try {
-      const res = await apiClient.put('/auth/me', formData)
+      const payload = {
+        ...formData,
+        phone: formData.phone ? cleanPhoneNumber(formData.phone) : ''
+      }
+      const res = await apiClient.put('/auth/me', payload)
       if (res.user) updateUser(res.user)
       setSuccess('Profile updated successfully')
       setEditing(false)
@@ -99,7 +116,7 @@ export default function AdminProfile() {
             <form onSubmit={handleSave} className="flex flex-col gap-20">
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>DISPLAY NAME</label>
-                <input className="input-field" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Admin Name" />
+                <input className="input-field" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} placeholder="Admin Name" />
               </div>
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>EMAIL</label>
@@ -107,7 +124,7 @@ export default function AdminProfile() {
               </div>
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>PHONE</label>
-                <input className="input-field" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="9876543210" />
+                <input className="input-field" value={formData.phone} maxLength={12} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })} placeholder="9876543210" />
               </div>
               <button disabled={saving} className="btn btn-primary" type="submit"
                 style={{ padding: '14px', borderRadius: 16, fontSize: 15, fontWeight: 700 }}>

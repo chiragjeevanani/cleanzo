@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2, Star, X, Loader2, Check } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
+import { validateName } from '../../utils/helpers'
 
 const EMPTY = { name: '', role: '', text: '', rating: 5, isActive: true, sortOrder: 0 }
 
@@ -29,6 +30,7 @@ export default function TestimonialsManager() {
 
   const handleSave = async () => {
     if (!form.name || !form.role || !form.text) { showToast('Name, role and review text are required', 'error'); return }
+    if (!validateName(form.name)) { showToast('Client Name must contain only alphabetic characters', 'error'); return }
     setSaving(true)
     try {
       if (editId) {
@@ -69,7 +71,7 @@ export default function TestimonialsManager() {
             <button onClick={() => setShowForm(false)}><X size={16} /></button>
           </div>
           <div className="flex flex-col gap-12">
-            <input className="input-field" placeholder="Client Name (e.g. JULIAN MARKS)" value={form.name} onChange={e => set('name', e.target.value)} />
+            <input className="input-field" placeholder="Client Name (e.g. JULIAN MARKS)" value={form.name} onChange={e => set('name', e.target.value.replace(/[^a-zA-Z\s]/g, ''))} />
             <input className="input-field" placeholder="Role / Title (e.g. PORSCHE COLLECTOR)" value={form.role} onChange={e => set('role', e.target.value)} />
             <textarea className="input-field" rows={3} placeholder="Review text..." style={{ resize: 'none' }} value={form.text} onChange={e => set('text', e.target.value)} />
             <div className="flex items-center gap-16">
