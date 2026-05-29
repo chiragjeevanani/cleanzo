@@ -23,7 +23,7 @@ export async function createCustomer(overrides = {}) {
     firstName: 'Test',
     lastName: 'User',
     phone: `9${Math.floor(Math.random() * 1e9).toString().padStart(9, '0')}`,
-    email: `test_${Date.now()}@example.com`,
+    email: `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@example.com`,
     city: 'Mumbai',
     ...overrides,
   });

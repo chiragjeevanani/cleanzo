@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import Customer from '../models/Customer.js';
+import Cleaner from '../models/Cleaner.js';
 import Subscription from '../models/Subscription.js';
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
@@ -77,7 +78,7 @@ export const createDailyTasks = async () => {
     const activeSubs = await Subscription.find({ status: 'Active' })
       .populate('package', 'name')
       .populate('assignedCleaner', '_id')
-      .populate('society', 'slots');
+      .populate('society', 'slots cleaners'); // cleaners needed for auto-assignment
 
     if (activeSubs.length === 0) {
       console.log('[CRON] No active subscriptions — skipping task creation');
@@ -130,6 +131,82 @@ export const createDailyTasks = async () => {
         packageName: sub.package?.name || (sub.isTrial ? 'Trial' : 'Standard'),
       });
     }
+
+    // ── Auto-assign cleaners to tasks that still have cleaner: null ────────────
+    // Group unassigned docs by society, then pick the least-loaded eligible
+    // cleaner (active, available, not on leave) and assign round-robin.
+    // The subscription's assignedCleaner is also persisted so the admin panel
+    // and future cron runs show the correct assignment immediately.
+    const unassignedDocs = newDocs.filter(d => !d.cleaner);
+    if (unassignedDocs.length > 0) {
+      // Build subId → sub lookup for society/cleaner access
+      const subMap = new Map(activeSubs.map(s => [s._id.toString(), s]));
+
+      // Group unassigned docs by society ID
+      const bySociety = new Map(); // societyId → { cleanerIds[], docs[] }
+      for (const doc of unassignedDocs) {
+        const sub = subMap.get(doc.subscription.toString());
+        const societyId = sub?.society?._id?.toString();
+        if (!societyId) continue;
+
+        if (!bySociety.has(societyId)) {
+          const cleanerIds = (sub.society.cleaners || []).map(c =>
+            typeof c === 'object' ? c.toString() : c.toString()
+          );
+          bySociety.set(societyId, { cleanerIds, docs: [] });
+        }
+        bySociety.get(societyId).docs.push(doc);
+      }
+
+      for (const [, { cleanerIds, docs: unassigned }] of bySociety) {
+        if (cleanerIds.length === 0) continue;
+
+        // Load only active + available cleaners from this society who aren't on leave
+        const eligible = await Cleaner.find({
+          _id: { $in: cleanerIds },
+          isActive: true,
+          isAvailable: true,
+        }).select('_id').lean();
+
+        const notOnLeave = eligible.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
+        if (notOnLeave.length === 0) continue;
+
+        // Count existing tasks today per cleaner for load-balancing
+        const taskCounts = await Task.aggregate([
+          {
+            $match: {
+              cleaner: { $in: notOnLeave.map(c => c._id) },
+              date: { $gte: today, $lt: tomorrow },
+            },
+          },
+          { $group: { _id: '$cleaner', count: { $sum: 1 } } },
+        ]);
+        const countMap = new Map(taskCounts.map(t => [t._id.toString(), t.count]));
+
+        // Sort ascending by current workload so least-busy cleaner gets assigned first
+        notOnLeave.sort(
+          (a, b) => (countMap.get(a._id.toString()) || 0) - (countMap.get(b._id.toString()) || 0)
+        );
+
+        // Round-robin assign across eligible cleaners
+        for (let i = 0; i < unassigned.length; i++) {
+          const cleaner = notOnLeave[i % notOnLeave.length];
+          unassigned[i].cleaner = cleaner._id;
+
+          // Persist on subscription so admin panel reflects assignment instantly
+          // and future cron runs don't need to auto-assign again
+          await Subscription.findByIdAndUpdate(unassigned[i].subscription, {
+            assignedCleaner: cleaner._id,
+          });
+        }
+      }
+
+      const autoAssigned = unassignedDocs.filter(d => d.cleaner).length;
+      if (autoAssigned > 0) {
+        console.log(`[CRON] Auto-assigned cleaners to ${autoAssigned} subscription(s)`);
+      }
+    }
+    // ── End auto-assign ──────────────────────────────────────────────────────
 
     if (newDocs.length > 0) {
       try {
