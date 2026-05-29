@@ -1327,6 +1327,43 @@ export const cleanupDuplicateTasks = asyncHandler(async (req, res) => {
   });
 });
 
+// ─── CRON TRIGGER (manual / testing) ─────────────────────────────────────────
+const VALID_JOBS = ['expireReferralDiscounts', 'expireSubscriptions', 'createDailyTasks', 'sendReminders'];
+
+export const triggerCronJob = asyncHandler(async (req, res) => {
+  const { job = 'all' } = req.body;
+
+  const jobsToRun = job === 'all' ? VALID_JOBS : [job];
+
+  for (const j of jobsToRun) {
+    if (!VALID_JOBS.includes(j)) {
+      throw new ApiError(400, `Unknown job "${j}". Valid: all, ${VALID_JOBS.join(', ')}`);
+    }
+  }
+
+  const cronModule = await import('../cron/referralCron.js');
+  const results = [];
+
+  for (const j of jobsToRun) {
+    const start = Date.now();
+    try {
+      await cronModule[j]();
+      results.push({ job: j, status: 'ok', ms: Date.now() - start });
+    } catch (err) {
+      results.push({ job: j, status: 'error', error: err.message, ms: Date.now() - start });
+    }
+  }
+
+  await logActivity({
+    type: 'system',
+    message: `Admin manually triggered cron job(s): ${jobsToRun.join(', ')}`,
+    performer: req.user._id,
+    metadata: { results },
+  });
+
+  res.json({ success: true, results });
+});
+
 // ─── TESTIMONIALS ─────────────────────────────────
 export const getTestimonials = asyncHandler(async (req, res) => {
   const testimonials = await Testimonial.find().sort('sortOrder -createdAt');

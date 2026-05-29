@@ -105,6 +105,7 @@ router.delete('/vehicle-categories/:id', ctrl.deleteVehicleCategory);
 
 // Maintenance
 router.post('/maintenance/cleanup-duplicate-tasks', ctrl.cleanupDuplicateTasks);
+router.post('/maintenance/trigger-cron', ctrl.triggerCronJob);
 
 // Testimonials
 router.get('/testimonials', ctrl.getTestimonials);

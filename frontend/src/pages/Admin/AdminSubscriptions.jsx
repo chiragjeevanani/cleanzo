@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { UserPlus, CheckCircle, Clock, ShieldCheck, User, Download } from 'lucide-react'
+import { UserPlus, CheckCircle, Clock, ShieldCheck, User, Download, RefreshCw, AlertTriangle, X } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 import { exportToExcel } from '../../utils/excelExporter'
@@ -26,6 +26,12 @@ export default function AdminSubscriptions() {
   const [cleaners, setCleaners] = useState([])
   const { showToast } = useToast()
   const [exporting, setExporting] = useState(false)
+
+  // Cron trigger state
+  const [showCronConfirm, setShowCronConfirm] = useState(false)
+  const [cronRunning, setCronRunning]         = useState(false)
+  const [cronResults, setCronResults]         = useState(null)  // array of { job, status, ms }
+  const [cronRunAt, setCronRunAt]             = useState('')
 
   const handleExport = async () => {
     setExporting(true)
@@ -94,6 +100,28 @@ export default function AdminSubscriptions() {
     }
   }
 
+  const handleRunCronJobs = async () => {
+    setCronRunning(true)
+    setShowCronConfirm(false)
+    setCronResults(null)
+    try {
+      const res = await apiClient.post('/admin/maintenance/trigger-cron', { job: 'all' })
+      setCronResults(res.results || [])
+      setCronRunAt(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+      const failed = (res.results || []).filter(r => r.status !== 'ok')
+      if (failed.length === 0) {
+        showToast('All cron jobs ran successfully. Tasks created & cleaners assigned.')
+      } else {
+        showToast(`${failed.length} job(s) failed — check results below.`, 'error')
+      }
+      fetchData() // refresh subscription list after tasks are created
+    } catch (err) {
+      showToast(err.message || 'Failed to run cron jobs', 'error')
+    } finally {
+      setCronRunning(false)
+    }
+  }
+
   const getDisplayStatus = (s) => {
     const remaining = s.remainingDays ?? (s.totalDays - s.completedDays)
     let displayStatus = s.status || 'Active'
@@ -123,17 +151,152 @@ export default function AdminSubscriptions() {
 
   return (
     <div>
+      {/* ── Header ── */}
       <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Subscriptions</h1>
-        <button 
-          disabled={exporting}
-          className="btn btn-glass btn-sm text-success" 
-          onClick={handleExport}
-          style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
-        >
-          <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
-        </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {/* Run Cron Jobs button */}
+          <button
+            disabled={cronRunning}
+            className="btn btn-glass btn-sm"
+            onClick={() => { setCronResults(null); setShowCronConfirm(true) }}
+            style={{ borderColor: 'rgba(100,180,255,0.35)', color: 'var(--primary-blue)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <RefreshCw size={15} className={cronRunning ? 'animate-spin' : ''} />
+            {cronRunning ? 'Running Jobs…' : 'Run Cron Jobs'}
+          </button>
+
+          <button
+            disabled={exporting}
+            className="btn btn-glass btn-sm text-success"
+            onClick={handleExport}
+            style={{ borderColor: 'rgba(50,215,75,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
+          </button>
+        </div>
       </div>
+
+      {/* ── Cron Confirm Modal ── */}
+      {showCronConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div className="glass" style={{
+            borderRadius: 20, padding: 32, maxWidth: 440, width: '90%',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                background: 'rgba(255,159,10,0.12)', border: '1px solid rgba(255,159,10,0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <AlertTriangle size={20} style={{ color: '#FF9F0A' }} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Run All Cron Jobs?</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  This will run all 4 scheduled jobs immediately.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCronConfirm(false)}
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{
+              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 12, padding: '14px 16px', marginBottom: 24, fontSize: 13,
+              color: 'var(--text-secondary)', lineHeight: 1.6,
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { icon: '🕛', label: '1. Expire referral discounts' },
+                  { icon: '🔴', label: '2. Expire overdue subscriptions & free up slots' },
+                  { icon: '📋', label: '3. Create today\'s tasks for all active subscriptions' },
+                  { icon: '🔔', label: '4. Send expiry & referral reminders' },
+                ].map(({ icon, label }) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 15 }}>{icon}</span>
+                    <span>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                className="btn btn-glass btn-sm"
+                onClick={() => setShowCronConfirm(false)}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-sm"
+                onClick={handleRunCronJobs}
+                style={{
+                  flex: 1, background: 'var(--primary-blue)', color: '#fff',
+                  border: 'none', borderRadius: 10, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                <RefreshCw size={14} /> Run Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cron Results Banner ── */}
+      {cronResults && (
+        <div style={{
+          padding: '14px 18px', borderRadius: 14, marginBottom: 18,
+          background: cronResults.every(r => r.status === 'ok')
+            ? 'rgba(50,215,75,0.05)' : 'rgba(255,159,10,0.05)',
+          border: `1px solid ${cronResults.every(r => r.status === 'ok')
+            ? 'rgba(50,215,75,0.2)' : 'rgba(255,159,10,0.2)'}`,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span style={{ fontWeight: 700, fontSize: 13 }}>
+              {cronResults.every(r => r.status === 'ok') ? '✅' : '⚠️'} Cron jobs ran at {cronRunAt}
+            </span>
+            <button
+              onClick={() => setCronResults(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 2 }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {cronResults.map(r => {
+              const label = r.job
+                .replace('expireReferralDiscounts', 'Expire Referrals')
+                .replace('expireSubscriptions',     'Expire Subs')
+                .replace('createDailyTasks',        'Create Tasks')
+                .replace('sendReminders',           'Send Reminders')
+              return (
+                <span key={r.job} style={{
+                  padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                  background: r.status === 'ok' ? 'rgba(50,215,75,0.1)' : 'rgba(255,50,50,0.1)',
+                  color:      r.status === 'ok' ? '#32d74b'              : '#ff5555',
+                  border:     `1px solid ${r.status === 'ok' ? 'rgba(50,215,75,0.25)' : 'rgba(255,50,50,0.25)'}`,
+                }}>
+                  {r.status === 'ok' ? '✓' : '✗'} {label}
+                  <span style={{ opacity: 0.6, marginLeft: 4 }}>{r.ms}ms</span>
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 16, fontSize: 14 }}>

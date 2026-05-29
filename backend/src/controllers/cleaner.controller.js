@@ -128,7 +128,9 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
     const sub = await Subscription.findById(task.subscription);
     if (sub) {
       sub.completedDays += 1;
-      sub.remainingDays = Math.max(0, sub.totalDays - sub.completedDays - sub.skippedDays);
+      // Skipped days are a customer-facing pause feature — they extend endDate and
+      // must NOT reduce remaining washes. Only completed washes count against totalDays.
+      sub.remainingDays = Math.max(0, sub.totalDays - sub.completedDays);
 
       // If no usage left (or trial limits reached), mark as Expired
       if (sub.remainingDays <= 0 || (sub.isTrial && sub.completedDays >= 1)) {
