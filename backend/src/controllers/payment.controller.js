@@ -4,6 +4,9 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import Payment from '../models/Payment.js';
 import Customer from '../models/Customer.js';
+import Subscription from '../models/Subscription.js';
+import { clearCache } from '../middleware/cache.js';
+import { logActivity } from './admin.controller.js';
 import { createSubscription } from './customer.controller.js';
 
 let razorpay = null;
@@ -26,7 +29,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   const { 
     amount, currency = 'INR', packageId, vehicleId,
     societyId, slotId, specialInstructions, isTrial, startDate,
-    isPremiumOverride, overrideReason
+    isPremiumOverride, overrideReason, type, subscriptionId
   } = req.body;
   if (!amount) throw new ApiError(400, 'Amount is required');
   if (amount < 1 || amount > 100000) throw new ApiError(400, 'Amount must be between ₹1 and ₹1,00,000');
@@ -46,6 +49,8 @@ export const createOrder = asyncHandler(async (req, res) => {
       startDate: startDate || '',
       isPremiumOverride: isPremiumOverride ? 'true' : 'false',
       overrideReason: overrideReason || '',
+      type: type || 'purchase',
+      subscriptionId: subscriptionId || '',
     },
   };
 
@@ -177,8 +182,57 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
     const order = await razorpay.orders.fetch(razorpay_order_id);
     const { 
       customerId, packageId, vehicleId, societyId, slotId, 
-      specialInstructions, isTrial, startDate, isPremiumOverride, overrideReason 
+      specialInstructions, isTrial, startDate, isPremiumOverride, overrideReason,
+      type, subscriptionId 
     } = order.notes || {};
+
+    if (type === 'extension') {
+      const sub = await Subscription.findOne({ _id: subscriptionId, customer: customerId, status: 'Active' });
+      if (!sub) {
+        return res.redirect(`${frontendOrigin}/customer/packages?status=failed&error=Active%20subscription%20not%20found`);
+      }
+
+      // Mark payment as verified inside DB
+      const existing = await Payment.findOne({ paymentId: razorpay_payment_id });
+      if (!existing) {
+        await Payment.create({
+          customer: customerId,
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          signature: razorpay_signature,
+          amount: order.amount,
+          status: 'verified',
+          subscription: sub._id,
+          package: sub.package,
+          vehicle: sub.vehicle,
+          type: 'extension'
+        });
+      } else if (!existing.subscription) {
+        existing.subscription = sub._id;
+        existing.package = sub.package;
+        existing.vehicle = sub.vehicle;
+        existing.type = 'extension';
+        await existing.save();
+      }
+
+      // Perform extension logic: add 30 days
+      sub.totalDays += 30;
+      sub.remainingDays = (sub.remainingDays || 0) + 30;
+      sub.endDate = new Date(sub.endDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+      sub.maxSkips = (sub.maxSkips || 1) + 1;
+
+      await sub.save({ validateModifiedOnly: true });
+
+      await logActivity({
+        type: 'subscription_extended',
+        message: `Subscription extended for customer ${customerId}`,
+        metadata: { subscriptionId: sub._id, customerId, paymentId: razorpay_payment_id }
+      });
+
+      await clearCache(`cache:${customerId}:*`);
+
+      return res.redirect(`${frontendOrigin}/customer/packages?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}&extended=true`);
+    }
 
     if (!customerId || !vehicleId || !societyId || !slotId) {
       return res.redirect(`${frontendOrigin}/customer/booking?status=failed&error=Invalid%20order%20metadata`);
@@ -194,6 +248,9 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
         signature: razorpay_signature,
         amount: order.amount,
         status: 'verified',
+        package: packageId || null,
+        vehicle: vehicleId || null,
+        type: 'purchase'
       });
     }
 

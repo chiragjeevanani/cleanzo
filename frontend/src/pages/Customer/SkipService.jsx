@@ -30,8 +30,10 @@ export default function SkipService() {
         if (active) {
           setSubscription(active)
           setSubscriptionId(active._id)
-          if (active.skippedDays > 0) {
-            setError('You have already skipped service this month. Skips are limited to once per subscription period.')
+          const maxSkips = active.maxSkips || 1
+          const skipsUsed = active.skipsUsed || 0
+          if (skipsUsed >= maxSkips) {
+            setError(`You have reached the maximum allowed skips (${maxSkips}) for this subscription period.`)
           }
         } else {
           setError('No active subscription found.')
@@ -46,8 +48,10 @@ export default function SkipService() {
   }, [])
 
   const toggleDate = (day) => {
-    if (subscription && subscription.skippedDays > 0) {
-      showToast('You can only skip service once per subscription period.', 'error')
+    const maxSkips = subscription?.maxSkips || 1
+    const skipsUsed = subscription?.skipsUsed || 0
+    if (subscription && skipsUsed >= maxSkips) {
+      showToast(`You have reached the maximum allowed skips (${maxSkips}) for this subscription period.`, 'error')
       return
     }
 
@@ -155,8 +159,10 @@ export default function SkipService() {
               {[...Array(daysInMonth)].map((_, i) => {
                 const day = i + 1
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                const maxSkips = subscription?.maxSkips || 1
+                const skipsUsed = subscription?.skipsUsed || 0
                 const isPast = day <= today.getDate()
-                const isDisabled = isPast || (subscription?.skippedDays > 0)
+                const isDisabled = isPast || (skipsUsed >= maxSkips)
                 const isSelected = selectedDates.includes(dateStr)
                 return (
                   <button key={day} onClick={() => toggleDate(day)} disabled={isDisabled}

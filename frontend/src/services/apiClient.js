@@ -26,7 +26,7 @@ async function request(url, options = {}) {
   const isGet = !options.method || options.method === 'GET';
   const cacheKey = `${isGet ? 'GET' : options.method}:${url}`;
   
-  if (isGet && inflightRequests.has(cacheKey)) {
+  if (isGet && !options._retry && inflightRequests.has(cacheKey)) {
     return inflightRequests.get(cacheKey);
   }
 
@@ -70,19 +70,21 @@ async function request(url, options = {}) {
         url.includes('token') || 
         url.includes('password') || 
         url.includes('logout');
-      if (response.status === 401 && !options._retry && !isAuthRoute) {
-        try {
-          const refreshRes = await fetch(`${BASE_URL}/auth/refresh-token`, {
-            method: 'POST',
-            credentials: 'include'
-          });
-          const refreshData = await refreshRes.json();
-          if (refreshData.success) {
-            if (refreshData.token) localStorage.setItem('token', refreshData.token);
-            if (refreshData.refreshToken) localStorage.setItem('refreshToken', refreshData.refreshToken);
-            return request(url, { ...options, _retry: true });
-          }
-        } catch { }
+      if (response.status === 401 && !isAuthRoute) {
+        if (!options._retry) {
+          try {
+            const refreshRes = await fetch(`${BASE_URL}/auth/refresh-token`, {
+              method: 'POST',
+              credentials: 'include'
+            });
+            const refreshData = await refreshRes.json();
+            if (refreshData.success) {
+              if (refreshData.token) localStorage.setItem('token', refreshData.token);
+              if (refreshData.refreshToken) localStorage.setItem('refreshToken', refreshData.refreshToken);
+              return request(url, { ...options, _retry: true });
+            }
+          } catch { }
+        }
         
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
@@ -103,6 +105,7 @@ async function request(url, options = {}) {
         }
         const sessionErr = new Error('Session expired');
         sessionErr.status = 401;
+        sessionErr.sessionExpired = true;
         throw sessionErr;
       }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { UserPlus, CheckCircle, Clock, ShieldCheck, User, Download, RefreshCw, AlertTriangle, X } from 'lucide-react'
+import { UserPlus, CheckCircle, Clock, ShieldCheck, User, Download, RefreshCw, AlertTriangle, X, Users } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 import { exportToExcel } from '../../utils/excelExporter'
@@ -32,6 +32,11 @@ export default function AdminSubscriptions() {
   const [cronRunning, setCronRunning]         = useState(false)
   const [cronResults, setCronResults]         = useState(null)  // array of { job, status, ms }
   const [cronRunAt, setCronRunAt]             = useState('')
+
+  // Assign All Cleaners state
+  const [showAssignConfirm, setShowAssignConfirm] = useState(false)
+  const [assignRunning, setAssignRunning]         = useState(false)
+  const [assignResults, setAssignResults]         = useState(null)
 
   const handleExport = async () => {
     setExporting(true)
@@ -122,6 +127,28 @@ export default function AdminSubscriptions() {
     }
   }
 
+  const handleAssignAllCleaners = async () => {
+    setAssignRunning(true)
+    setShowAssignConfirm(false)
+    setAssignResults(null)
+    try {
+      const res = await apiClient.post('/admin/maintenance/assign-all-cleaners')
+      setAssignResults(res)
+      if (res.assigned > 0) {
+        showToast(`✅ Assigned cleaners to ${res.assigned} subscription(s).`)
+      } else if (res.alreadyAssigned > 0 && res.assigned === 0) {
+        showToast('All active subscriptions already have cleaners assigned.', 'info')
+      } else {
+        showToast(res.message || 'No subscriptions to assign.', 'info')
+      }
+      fetchData()
+    } catch (err) {
+      showToast(err.message || 'Failed to assign cleaners', 'error')
+    } finally {
+      setAssignRunning(false)
+    }
+  }
+
   const getDisplayStatus = (s) => {
     const remaining = s.remainingDays ?? (s.totalDays - s.completedDays)
     let displayStatus = s.status || 'Active'
@@ -155,6 +182,24 @@ export default function AdminSubscriptions() {
       <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>Subscriptions</h1>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {/* Assign All Cleaners button */}
+          <button
+            disabled={assignRunning}
+            className="btn btn-sm"
+            onClick={() => { setAssignResults(null); setShowAssignConfirm(true) }}
+            style={{
+              background: 'linear-gradient(135deg, #32d74b, #28a745)',
+              color: '#fff', border: 'none', borderRadius: 10,
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontWeight: 700, fontSize: 13,
+              opacity: assignRunning ? 0.7 : 1,
+              boxShadow: '0 2px 12px rgba(50,215,75,0.3)',
+            }}
+          >
+            <Users size={15} className={assignRunning ? 'animate-spin' : ''} />
+            {assignRunning ? 'Assigning…' : 'Assign All Cleaners'}
+          </button>
+
           {/* Run Cron Jobs button */}
           <button
             disabled={cronRunning}
@@ -251,6 +296,124 @@ export default function AdminSubscriptions() {
                 <RefreshCw size={14} /> Run Now
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Assign All Cleaners Confirm Modal ── */}
+      {showAssignConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div className="glass" style={{
+            borderRadius: 20, padding: 32, maxWidth: 440, width: '90%',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                background: 'rgba(50,215,75,0.12)', border: '1px solid rgba(50,215,75,0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Users size={20} style={{ color: '#32d74b' }} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Assign All Cleaners?</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  This will assign cleaners to all active subscriptions.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAssignConfirm(false)}
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{
+              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 12, padding: '14px 16px', marginBottom: 24, fontSize: 13,
+              color: 'var(--text-secondary)', lineHeight: 1.6,
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { icon: '🔍', label: 'Find all active subscriptions without an eligible cleaner' },
+                  { icon: '⚖️', label: 'Load-balance across available cleaners per society' },
+                  { icon: '📋', label: 'Create today\'s task if missing' },
+                  { icon: '✅', label: 'Assign cleaners immediately' },
+                ].map(({ icon, label }) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 15 }}>{icon}</span>
+                    <span>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                className="btn btn-glass btn-sm"
+                onClick={() => setShowAssignConfirm(false)}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-sm"
+                onClick={handleAssignAllCleaners}
+                style={{
+                  flex: 1, background: 'linear-gradient(135deg, #32d74b, #28a745)', color: '#fff',
+                  border: 'none', borderRadius: 10, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                <Users size={14} /> Assign Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Assign All Results Banner ── */}
+      {assignResults && (
+        <div style={{
+          padding: '14px 18px', borderRadius: 14, marginBottom: 18,
+          background: assignResults.failed === 0
+            ? 'rgba(50,215,75,0.05)' : 'rgba(255,159,10,0.05)',
+          border: `1px solid ${assignResults.failed === 0
+            ? 'rgba(50,215,75,0.2)' : 'rgba(255,159,10,0.2)'}`,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span style={{ fontWeight: 700, fontSize: 13 }}>
+              {assignResults.failed === 0 ? '✅' : '⚠️'} {assignResults.message}
+            </span>
+            <button
+              onClick={() => setAssignResults(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 2 }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {[
+              { label: 'Assigned', value: assignResults.assigned, color: '#32d74b' },
+              { label: 'Already OK', value: assignResults.alreadyAssigned, color: '#64d2ff' },
+              { label: 'Failed', value: assignResults.failed, color: '#ff5555' },
+              { label: 'Unassigned', value: assignResults.unassigned, color: '#FF9F0A' },
+              { label: 'Total Active', value: assignResults.total, color: 'var(--text-secondary)' },
+            ].map(({ label, value, color }) => (
+              <span key={label} style={{
+                padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                background: `${color}15`, color,
+                border: `1px solid ${color}40`,
+              }}>
+                {label}: {value}
+              </span>
+            ))}
           </div>
         </div>
       )}

@@ -22,6 +22,7 @@ const HelpSupport        = lazy(() => import('./Profile/HelpSupport'))
 const GrievanceForm      = lazy(() => import('./Profile/GrievanceForm'))
 const PlanDetail         = lazy(() => import('./PlanDetail'))
 const Marketplace        = lazy(() => import('./Marketplace'))
+const Receipt            = lazy(() => import('./Receipt'))
 
 const tabs = [
   { path: '/customer', icon: Home, label: 'Home', end: true },
@@ -42,7 +43,7 @@ export default function CustomerApp() {
 
   // Hide nav on specific sub-pages/detail pages
   const hideNavPaths = ['/customer/vehicles', '/customer/booking', '/customer/skip', '/customer/notifications', '/customer/grievance']
-  const shouldHideNav = hideNavPaths.includes(location.pathname) || location.pathname.startsWith('/customer/plan/')
+  const shouldHideNav = hideNavPaths.includes(location.pathname) || location.pathname.startsWith('/customer/plan/') || location.pathname.startsWith('/customer/receipt/')
 
   return (
     <CustomerDataProvider>
@@ -67,6 +68,7 @@ export default function CustomerApp() {
           <Route path="privacy" element={<PrivacyPolicy />} />
           <Route path="help" element={<HelpSupport />} />
           <Route path="grievance" element={<GrievanceForm />} />
+          <Route path="receipt/:paymentId" element={<Receipt />} />
           <Route path="auth" element={<CustomerAuth />} />
           <Route path="*" element={<Navigate to="/customer" replace />} />
         </Routes>

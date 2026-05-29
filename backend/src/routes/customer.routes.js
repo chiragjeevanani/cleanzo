@@ -21,6 +21,10 @@ router.get('/subscriptions', cacheMiddleware(300, true), ctrl.getSubscriptions);
 router.get('/subscriptions/:id', cacheMiddleware(300, true), ctrl.getSubscriptionById);
 router.post('/subscriptions', ctrl.createSubscription);
 router.post('/subscriptions/:id/skip', ctrl.skipService);
+router.post('/subscriptions/:id/extend', ctrl.extendSubscription);
+
+router.get('/payment-history', ctrl.getPaymentHistory);
+router.get('/payment-history/:paymentId', ctrl.getPaymentDetails);
 
 router.get('/history', cacheMiddleware(300, true), ctrl.getHistory);
 router.post('/tasks/:id/rate', ctrl.rateTask);

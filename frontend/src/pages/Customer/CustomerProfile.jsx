@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import { ChevronRight, Car, Sun, Moon, LogOut, HelpCircle, Shield, Bell, MapPin, FileText, Loader2, Pencil, X, Check } from 'lucide-react'
+import { ChevronRight, Car, Sun, Moon, LogOut, HelpCircle, Shield, Bell, MapPin, FileText, Loader2, Pencil, X, Check, CreditCard, ArrowLeft, Download } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { validateName, validateEmail, formatCityState } from '../../utils/helpers'
 
@@ -19,6 +19,39 @@ export default function CustomerProfile() {
     email: user?.email || '',
     city: user?.city || '',
   })
+
+  const [view, setView] = useState('profile')
+  const [payments, setPayments] = useState([])
+  const [loadingPayments, setLoadingPayments] = useState(false)
+  const [selectedPaymentId, setSelectedPaymentId] = useState(null)
+  const [paymentDetail, setPaymentDetail] = useState(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
+
+  const fetchPayments = async () => {
+    setLoadingPayments(true)
+    try {
+      const res = await apiClient.get('/customer/payment-history')
+      setPayments(res.payments || [])
+    } catch (err) {
+      console.error('Failed to fetch payments:', err)
+    } finally {
+      setLoadingPayments(false)
+    }
+  }
+
+  const openPaymentDetail = async (paymentId) => {
+    setSelectedPaymentId(paymentId)
+    setLoadingDetail(true)
+    setPaymentDetail(null)
+    try {
+      const res = await apiClient.get(`/customer/payment-history/${paymentId}`)
+      setPaymentDetail(res.payment)
+    } catch (err) {
+      console.error('Failed to fetch payment details:', err)
+    } finally {
+      setLoadingDetail(false)
+    }
+  }
 
   const handleLogout = () => {
     setIsLoggingOut(true)
@@ -63,6 +96,157 @@ export default function CustomerProfile() {
     { icon: Shield, label: 'Privacy Policy', to: '/customer/privacy' },
     { icon: HelpCircle, label: 'Help and Support', to: '/customer/help' },
   ]
+
+  if (view === 'billing') {
+    return (
+      <div className="animate-fade-in" style={{ padding: '0 20px', paddingBottom: 100 }}>
+        <div className="app-header" style={{ padding: '16px 0', background: 'transparent' }}>
+          <button onClick={() => setView('profile')} className="flex items-center gap-8 bg-transparent border-none text-[color:var(--text-primary)] cursor-pointer p-0">
+            <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Profile Settings</span>
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-16" style={{ marginTop: 12 }}>
+          <div>
+            <h3 className="text-headline-sm" style={{ marginBottom: 4 }}>Billing & Payments</h3>
+            <p className="text-secondary text-body-sm">View your plan subscription purchase logs.</p>
+          </div>
+
+          {loadingPayments ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+              <Loader2 size={32} className="animate-spin text-lime" />
+            </div>
+          ) : payments.length === 0 ? (
+            <div className="glass" style={{ padding: '40px 20px', textAlign: 'center', borderRadius: 24 }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <CreditCard size={24} className="text-secondary" />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>No Payments Found</div>
+              <p className="text-body-sm text-secondary">You haven't made any plan purchases yet.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-12">
+              {payments.map(p => (
+                <button 
+                  key={p._id}
+                  onClick={() => openPaymentDetail(p.paymentId)}
+                  className="glass"
+                  style={{ 
+                    padding: '16px 20px', 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    textAlign: 'left',
+                    borderRadius: 20,
+                    width: '100%',
+                    cursor: 'pointer',
+                    color: 'inherit'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{p.package?.name || 'Plan Purchase'}</div>
+                    <div className="text-body-sm text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                      {p.vehicle?.brand} {p.vehicle?.model} • {new Date(p.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontWeight: 800, fontSize: 16 }}>₹{(p.amount / 100).toFixed(0)}</span>
+                    <span className="chip chip-success" style={{ fontSize: 8 }}>Success</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Payment Detail Modal */}
+        {selectedPaymentId && (
+          <div className="modal-overlay" onClick={() => setSelectedPaymentId(null)}>
+            <div className="modal-content" style={{ padding: 24, borderRadius: 24, maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center" style={{ marginBottom: 20 }}>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800 }}>Payment Details</h3>
+                <button onClick={() => setSelectedPaymentId(null)} className="btn-icon glass" style={{ width: 32, height: 32, borderRadius: 10 }}>
+                  <X size={16} />
+                </button>
+              </div>
+
+              {loadingDetail ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+                  <Loader2 size={24} className="animate-spin text-lime" />
+                </div>
+              ) : paymentDetail ? (
+                <div className="flex flex-col gap-16">
+                  <div className="glass" style={{ padding: 16, borderRadius: 16, background: 'rgba(255,255,255,0.01)', textAlign: 'center' }}>
+                    <div className="text-label" style={{ color: 'var(--text-tertiary)', fontSize: 9 }}>AMOUNT PAID</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 900, color: 'var(--text-accent)', marginTop: 4 }}>
+                      ₹{(paymentDetail.amount / 100).toFixed(0)}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-10 text-body-sm">
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Plan Name</span>
+                      <span style={{ fontWeight: 600 }}>{paymentDetail.package?.name || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Vehicle</span>
+                      <span style={{ fontWeight: 600 }}>{paymentDetail.vehicle?.brand} {paymentDetail.vehicle?.model}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Transaction Date</span>
+                      <span style={{ fontWeight: 600 }}>
+                        {new Date(paymentDetail.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Transaction Time</span>
+                      <span style={{ fontWeight: 600 }}>
+                        {new Date(paymentDetail.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Payment Method</span>
+                      <span style={{ fontWeight: 600 }}>{paymentDetail.method || 'Online'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Pay Via</span>
+                      <span style={{ fontWeight: 600 }}>{paymentDetail.payVia || 'Razorpay'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-secondary">Transaction Type</span>
+                      <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{paymentDetail.type || 'Purchase'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-secondary">Status</span>
+                      <span className="chip chip-success" style={{ fontSize: 8 }}>Verified</span>
+                    </div>
+                    <div className="flex flex-col gap-4 mt-6" style={{ wordBreak: 'break-all' }}>
+                      <span className="text-label" style={{ color: 'var(--text-tertiary)', fontSize: 8 }}>PAYMENT ID</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-secondary)' }}>{paymentDetail.paymentId}</span>
+                    </div>
+                  </div>
+
+                  <div className="divider" style={{ opacity: 0.3, margin: '8px 0' }} />
+
+                  <button 
+                    onClick={() => window.open(`/customer/receipt/${paymentDetail.paymentId}`, '_blank')}
+                    className="btn btn-primary w-full"
+                    style={{ padding: 14, borderRadius: 12, fontWeight: 700, gap: 8 }}
+                  >
+                    <Download size={16} /> Download Receipt
+                  </button>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--error)' }}>
+                  Failed to load transaction details.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={{ padding: '0 20px' }}>
@@ -121,6 +305,18 @@ export default function CustomerProfile() {
       </div>
 
       <div className="flex flex-col gap-4" style={{ marginBottom: 24 }}>
+        <button 
+          onClick={() => { setView('billing'); fetchPayments(); }}
+          className="glass" 
+          style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer', textAlign: 'left', color: 'inherit' }}
+        >
+          <div className="flex items-center gap-12">
+            <CreditCard size={20} style={{ color: 'var(--text-secondary)' }} />
+            <span style={{ fontWeight: 500 }}>Billing & Payments</span>
+          </div>
+          <ChevronRight size={18} style={{ color: 'var(--text-tertiary)' }} />
+        </button>
+
         {menuItems.map((m, i) => (
           <Link key={i} to={m.to} className="glass" style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="flex items-center gap-12">

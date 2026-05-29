@@ -9,6 +9,10 @@ const paymentSchema = new Schema({
   amount:     { type: Number },                                  // in paise from Razorpay order
   currency:   { type: String, default: 'INR' },
   status:     { type: String, enum: ['pending', 'verified', 'failed'], default: 'pending' },
+  subscription: { type: Schema.Types.ObjectId, ref: 'Subscription' },
+  package:      { type: Schema.Types.ObjectId, ref: 'Package' },
+  vehicle:      { type: Schema.Types.ObjectId, ref: 'Vehicle' },
+  type:         { type: String, enum: ['purchase', 'extension'], default: 'purchase' },
 }, { timestamps: true });
 
 export default mongoose.model('Payment', paymentSchema);

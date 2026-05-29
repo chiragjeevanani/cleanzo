@@ -41,7 +41,7 @@ const navItems = [
   { path: '/admin/societies', icon: MapPin, label: 'Societies' },
   { path: '/admin/leads', icon: Users, label: 'Leads' },
   { path: '/admin/grievances', icon: LifeBuoy, label: 'Grievances' },
-  { path: '/admin/vehicle-categories', icon: MapPin, label: 'Vehicle Types' },
+  { path: '/admin/vehicle-categories', icon: MapPin, label: 'Vehicle Types (Inactive)', inactive: true },
   { path: '/admin/brands', icon: Car, label: 'Brands & Models' },
   { path: '/admin/packages', icon: Package, label: 'Packages' },
   { path: '/admin/marketplace', icon: ShoppingCart, label: 'Marketplace', end: true },
@@ -136,7 +136,8 @@ export default function AdminPanel() {
         <div className="sidebar-nav">
           {navItems.map(item => (
             <NavLink key={item.path} to={item.path} end={item.end}
-              className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}>
+              className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
+              style={item.inactive ? { opacity: 0.5, fontStyle: 'italic' } : undefined}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
                 <item.icon size={20} />
                 <span>{item.label}</span>

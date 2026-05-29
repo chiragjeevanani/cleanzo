@@ -1364,6 +1364,263 @@ export const triggerCronJob = asyncHandler(async (req, res) => {
   res.json({ success: true, results });
 });
 
+// ─── ASSIGN ALL CLEANERS (dedicated button) ──────────────────────────────────
+/**
+ * POST /api/admin/maintenance/assign-all-cleaners
+ *
+ * Finds every Active subscription that either:
+ *   a) has no assignedCleaner, OR
+ *   b) whose assigned cleaner is inactive / unavailable / on leave today
+ *
+ * Then auto-assigns an eligible cleaner using load-balanced round-robin,
+ * creates today's task if missing, and returns a detailed report.
+ *
+ * This is separate from triggerCronJob — it does NOT run expiry or reminders.
+ */
+export const assignAllCleaners = asyncHandler(async (req, res) => {
+  const today = getISTMidnight();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // 1. Get all active subscriptions
+  const activeSubs = await Subscription.find({ status: 'Active' })
+    .populate('package', 'name')
+    .populate('assignedCleaner', '_id isActive isAvailable name')
+    .populate('society', 'slots cleaners');
+
+  if (activeSubs.length === 0) {
+    return res.json({
+      success: true,
+      message: 'No active subscriptions found.',
+      assigned: 0, alreadyAssigned: 0, failed: 0, unassigned: 0, total: 0,
+      details: [],
+    });
+  }
+
+  // 2. Fetch approved leaves for today
+  const approvedLeaves = await LeaveRequest.find({
+    date: today,
+    status: 'approved',
+  }).select('cleaner');
+  const cleanersOnLeaveToday = new Set(
+    approvedLeaves.map(l => l.cleaner.toString())
+  );
+
+  // 3. Identify subscriptions that need a cleaner
+  const needsCleaner = [];
+  let alreadyAssigned = 0;
+
+  for (const sub of activeSubs) {
+    // Skip subs that haven't started yet
+    if (sub.startDate && today < getISTMidnight(sub.startDate)) continue;
+
+    const cleaner = sub.assignedCleaner;
+    const isOk = cleaner &&
+                 cleaner.isActive !== false &&
+                 cleaner.isAvailable !== false &&
+                 !cleanersOnLeaveToday.has(cleaner._id.toString());
+
+    if (isOk) {
+      alreadyAssigned++;
+      continue;
+    }
+
+    needsCleaner.push(sub);
+  }
+
+  console.log(`[ASSIGN-ALL] ${activeSubs.length} active subs — ${alreadyAssigned} already assigned, ${needsCleaner.length} need a cleaner`);
+
+  if (needsCleaner.length === 0) {
+    return res.json({
+      success: true,
+      message: 'All active subscriptions already have eligible cleaners assigned.',
+      assigned: 0, alreadyAssigned, failed: 0, unassigned: 0, total: activeSubs.length,
+      details: [],
+    });
+  }
+
+  // 4. Pre-fetch global fallback pool (all active/available cleaners not on leave)
+  const allCleaners = await Cleaner.find({
+    isActive: true,
+    isAvailable: true,
+  }).select('_id name').lean();
+  const globalPool = allCleaners.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
+
+  console.log(`[ASSIGN-ALL] Global pool: ${allCleaners.length} active/available, ${globalPool.length} not on leave`);
+
+  if (globalPool.length === 0) {
+    return res.json({
+      success: true,
+      message: 'No active and available cleaners found in the system. Cannot assign.',
+      assigned: 0, alreadyAssigned, failed: 0, unassigned: needsCleaner.length, total: activeSubs.length,
+      details: needsCleaner.map(s => ({
+        subscriptionId: s._id,
+        reason: 'No cleaners available in system',
+      })),
+    });
+  }
+
+  // 5. Group by society for load-balanced assignment
+  const NO_SOCIETY = '__no_society__';
+  const bySociety = new Map();
+  for (const sub of needsCleaner) {
+    const sid = sub.society?._id?.toString() || NO_SOCIETY;
+    if (!bySociety.has(sid)) {
+      bySociety.set(sid, { societyObjId: sub.society?._id || null, subs: [] });
+    }
+    bySociety.get(sid).subs.push(sub);
+  }
+
+  // 6. Load-balance: get current task counts for today per cleaner (across all)
+  const taskCounts = await Task.aggregate([
+    {
+      $match: {
+        cleaner: { $in: globalPool.map(c => c._id) },
+        date: { $gte: today, $lt: tomorrow },
+      },
+    },
+    { $group: { _id: '$cleaner', count: { $sum: 1 } } },
+  ]);
+  const runningCount = new Map(taskCounts.map(t => [t._id.toString(), t.count]));
+
+  let assignedCount = 0;
+  let failedCount = 0;
+  const details = [];
+
+  for (const [sid, { societyObjId, subs }] of bySociety) {
+    const label = sid === NO_SOCIETY ? 'NO_SOCIETY' : sid;
+
+    // Try society-specific cleaners first, then global fallback
+    let pool;
+    if (sid !== NO_SOCIETY) {
+      const fromSubs = await Subscription.distinct('assignedCleaner', {
+        society: societyObjId,
+        status: 'Active',
+        assignedCleaner: { $exists: true, $ne: null },
+      });
+      const societyDoc = await Society.findById(societyObjId).select('cleaners').lean();
+      const fromSocietyList = (societyDoc?.cleaners || []).map(c => c.toString());
+      const candidateIds = [...new Set([
+        ...fromSubs.map(id => id.toString()),
+        ...fromSocietyList,
+      ])];
+
+      if (candidateIds.length > 0) {
+        const eligible = await Cleaner.find({
+          _id: { $in: candidateIds },
+          isActive: true,
+          isAvailable: true,
+        }).select('_id name').lean();
+        pool = eligible.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
+      }
+
+      if (!pool || pool.length === 0) {
+        console.log(`[ASSIGN-ALL] Society ${label}: no society-specific cleaners — using global pool`);
+        pool = [...globalPool];
+      }
+    } else {
+      pool = [...globalPool];
+    }
+
+    if (pool.length === 0) {
+      for (const sub of subs) {
+        details.push({ subscriptionId: sub._id, reason: 'No cleaners available' });
+        failedCount++;
+      }
+      continue;
+    }
+
+    for (const sub of subs) {
+      try {
+        // Pick least-loaded cleaner
+        pool.sort(
+          (a, b) => (runningCount.get(a._id.toString()) || 0) - (runningCount.get(b._id.toString()) || 0)
+        );
+        const cleaner = pool[0];
+
+        // Update subscription's assigned cleaner
+        await Subscription.findByIdAndUpdate(sub._id, { assignedCleaner: cleaner._id });
+
+        // Create or update today's task
+        const existingTask = await Task.findOne({
+          subscription: sub._id,
+          date: { $gte: today, $lt: tomorrow },
+        });
+
+        if (existingTask) {
+          existingTask.cleaner = cleaner._id;
+          await existingTask.save();
+        } else {
+          let scheduledTime = '07:00 AM';
+          if (sub.society && sub.slot) {
+            const slot = sub.society.slots?.find(s => s.slotId === sub.slot);
+            if (slot?.timeWindow) scheduledTime = slot.timeWindow.split(' - ')[0];
+          }
+
+          try {
+            await Task.create({
+              subscription: sub._id,
+              customer: sub.customer,
+              cleaner: cleaner._id,
+              vehicle: sub.vehicle,
+              date: today,
+              scheduledTime,
+              status: 'pending',
+              packageName: sub.package?.name || (sub.isTrial ? 'Trial' : 'Standard'),
+            });
+          } catch (createErr) {
+            if (createErr.code === 11000) {
+              // Duplicate — just update cleaner on the existing one
+              await Task.findOneAndUpdate(
+                { subscription: sub._id, date: { $gte: today, $lt: tomorrow } },
+                { cleaner: cleaner._id }
+              );
+            } else {
+              throw createErr;
+            }
+          }
+        }
+
+        runningCount.set(cleaner._id.toString(), (runningCount.get(cleaner._id.toString()) || 0) + 1);
+        assignedCount++;
+        details.push({
+          subscriptionId: sub._id,
+          cleanerName: cleaner.name,
+          cleanerId: cleaner._id,
+          bucket: label,
+        });
+        console.log(`[ASSIGN-ALL] Assigned "${cleaner.name}" → subscription ${sub._id} [bucket=${label}]`);
+      } catch (err) {
+        console.error(`[ASSIGN-ALL] Failed for subscription ${sub._id}:`, err.message);
+        details.push({ subscriptionId: sub._id, reason: err.message });
+        failedCount++;
+      }
+    }
+  }
+
+  const unassigned = needsCleaner.length - assignedCount - failedCount;
+
+  await logActivity({
+    type: 'system',
+    message: `Admin triggered Assign All Cleaners: ${assignedCount} assigned, ${failedCount} failed, ${unassigned} unassigned`,
+    performer: req.user._id,
+    metadata: { assignedCount, failedCount, unassigned, alreadyAssigned, total: activeSubs.length },
+  });
+
+  console.log(`[ASSIGN-ALL] Done — assigned=${assignedCount}, failed=${failedCount}, unassigned=${unassigned}`);
+
+  res.json({
+    success: true,
+    message: `Assigned cleaners to ${assignedCount} subscription(s).${failedCount > 0 ? ` ${failedCount} failed.` : ''}${unassigned > 0 ? ` ${unassigned} still unassigned.` : ''}`,
+    assigned: assignedCount,
+    alreadyAssigned,
+    failed: failedCount,
+    unassigned,
+    total: activeSubs.length,
+    details,
+  });
+});
+
 // ─── TESTIMONIALS ─────────────────────────────────
 export const getTestimonials = asyncHandler(async (req, res) => {
   const testimonials = await Testimonial.find().sort('sortOrder -createdAt');

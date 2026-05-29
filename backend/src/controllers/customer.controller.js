@@ -3,6 +3,19 @@ import Grievance from '../models/Grievance.js';
 import Vehicle, { VEHICLE_PRICING } from '../models/Vehicle.js';
 import Subscription from '../models/Subscription.js';
 import Payment from '../models/Payment.js';
+import Razorpay from 'razorpay';
+
+let razorpay = null;
+try {
+  if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+    razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+} catch (error) {
+  console.warn('Failed to initialize Razorpay in customer controller:', error.message);
+}
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
 import Society from '../models/Society.js';
@@ -207,7 +220,7 @@ const calculateDynamicNextWash = async (subId) => {
 
 export const getSubscriptions = asyncHandler(async (req, res) => {
   const subscriptions = await Subscription.find({ customer: req.user._id })
-    .populate('vehicle', 'model number parking color')
+    .populate('vehicle', 'brand model number parking color')
     .populate('package', 'name tier price features')
     .populate('assignedCleaner', 'name phone rating')
     .sort('-createdAt')
@@ -249,7 +262,7 @@ export const getSubscriptions = asyncHandler(async (req, res) => {
 
 export const getSubscriptionById = asyncHandler(async (req, res) => {
   const sub = await Subscription.findOne({ _id: req.params.id, customer: req.user._id })
-    .populate('vehicle', 'model number parking color')
+    .populate('vehicle', 'brand model number parking color')
     .populate('package', 'name tier price features perDay')
     .populate('assignedCleaner', 'name phone rating')
     .lean();
@@ -494,6 +507,18 @@ export const createSubscription = asyncHandler(async (req, res) => {
     paymentId,
   });
 
+  if (paymentId) {
+    await Payment.findOneAndUpdate(
+      { paymentId },
+      {
+        subscription: sub._id,
+        package: resolvedPackageId,
+        vehicle: vehicleId,
+        type: 'purchase',
+      }
+    ).catch(err => console.error('Failed to link payment to subscription:', err));
+  }
+
   // Referral Reward (Give referrer a discount) — atomic, no race condition
   if (referrer) {
     await Customer.findByIdAndUpdate(referrer._id, {
@@ -594,9 +619,16 @@ export const skipService = asyncHandler(async (req, res) => {
   if (sub.status !== 'Active') throw new ApiError(400, 'Only active subscriptions can be skipped');
   if (sub.isTrial) throw new ApiError(400, 'Trial subscriptions cannot be skipped');
 
-  // Check if they have already skipped this subscription (one time in one month)
-  if (sub.skippedDays > 0) {
-    throw new ApiError(400, 'You can only skip service once per subscription period');
+  // Check if they have already skipped this subscription (using dynamic maxSkips limit)
+  const maxSkips = sub.maxSkips || 1;
+  const skipsUsed = sub.skipsUsed || 0;
+  const effectiveSkipsUsed = (skipsUsed === 0 && sub.skippedDays > 0) ? 1 : skipsUsed;
+  if (effectiveSkipsUsed >= maxSkips) {
+    if (maxSkips === 1) {
+      throw new ApiError(400, 'You can only skip service once per subscription period');
+    } else {
+      throw new ApiError(400, `You have reached the maximum allowed skips (${maxSkips}) for this subscription period`);
+    }
   }
 
   const tomorrow = getISTMidnight();
@@ -666,6 +698,7 @@ export const skipService = asyncHandler(async (req, res) => {
 
   // Extend subscription
   sub.skippedDays += parsedDates.length;
+  sub.skipsUsed = (sub.skipsUsed || 0) + 1;
   sub.endDate = new Date(sub.endDate.getTime() + parsedDates.length * 24 * 60 * 60 * 1000);
   
   // Calculate next wash
@@ -965,4 +998,146 @@ export const cancelMarketplaceOrder = asyncHandler(async (req, res) => {
 
   await clearCache(`cache:${req.user._id}:*`);
   res.json({ success: true, message: 'Order cancelled successfully' });
+});
+
+export const extendSubscription = asyncHandler(async (req, res) => {
+  const { paymentId } = req.body;
+  if (!paymentId) throw new ApiError(400, 'Payment ID is required');
+
+  const sub = await Subscription.findOne({ _id: req.params.id, customer: req.user._id, status: 'Active' })
+    .populate('package')
+    .populate('vehicle');
+  if (!sub) throw new ApiError(404, 'Active subscription not found');
+
+  const verifiedPayment = await Payment.findOne({ paymentId, customer: req.user._id });
+  if (!verifiedPayment) {
+    throw new ApiError(400, 'Payment not verified. Please complete payment before extending.');
+  }
+
+  if (verifiedPayment.subscription) {
+    throw new ApiError(400, 'This payment has already been used.');
+  }
+
+  // Extend subscription: add 30 days
+  sub.totalDays += 30;
+  sub.remainingDays = (sub.remainingDays || 0) + 30;
+  sub.endDate = new Date(sub.endDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+  sub.maxSkips = (sub.maxSkips || 1) + 1;
+
+  await sub.save({ validateModifiedOnly: true });
+
+  verifiedPayment.subscription = sub._id;
+  verifiedPayment.package = sub.package?._id;
+  verifiedPayment.vehicle = sub.vehicle?._id;
+  verifiedPayment.type = 'extension';
+  await verifiedPayment.save();
+
+  await logActivity({
+    type: 'subscription_extended',
+    message: `${req.user.firstName} ${req.user.lastName} extended subscription for vehicle ${sub.vehicle?.model}`,
+    metadata: { subscriptionId: sub._id, customerId: req.user._id, paymentId }
+  });
+
+  try {
+    const customer = await Customer.findById(req.user._id).select('fcmTokens');
+    if (customer?.fcmTokens?.length) {
+      const newEndDateStr = sub.endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+      sendPushNotification(customer.fcmTokens, {
+        title: '🔄 Subscription Extended!',
+        body: `Your plan has been extended by 30 days. New end date is ${newEndDateStr}.`,
+        data: { type: 'subscription_extended', link: NOTIFICATION_LINKS.subscription_created },
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('Failed to send push notification:', err.message);
+  }
+
+  await clearCache(`cache:${req.user._id}:*`);
+  res.json({ success: true, subscription: sub });
+});
+
+export const getPaymentHistory = asyncHandler(async (req, res) => {
+  const payments = await Payment.find({ customer: req.user._id, status: 'verified' })
+    .populate('package', 'name price tier')
+    .populate('vehicle', 'brand model number')
+    .sort('-createdAt')
+    .lean();
+
+  // For backward compatibility, backfill package/vehicle if missing by searching Subscription
+  for (const payment of payments) {
+    if (!payment.package || !payment.vehicle) {
+      const sub = await Subscription.findOne({ paymentId: payment.paymentId })
+        .populate('package', 'name price tier')
+        .populate('vehicle', 'brand model number')
+        .lean();
+      if (sub) {
+        if (!payment.package) payment.package = sub.package;
+        if (!payment.vehicle) payment.vehicle = sub.vehicle;
+      }
+    }
+  }
+
+  res.json({ success: true, payments });
+});
+
+export const getPaymentDetails = asyncHandler(async (req, res) => {
+  const payment = await Payment.findOne({ paymentId: req.params.paymentId, customer: req.user._id })
+    .populate('package')
+    .populate('vehicle')
+    .lean();
+
+  if (!payment) throw new ApiError(404, 'Payment record not found');
+
+  if (!payment.package || !payment.vehicle) {
+    const sub = await Subscription.findOne({ paymentId: payment.paymentId })
+      .populate('package')
+      .populate('vehicle')
+      .lean();
+    if (sub) {
+      if (!payment.package) payment.package = sub.package;
+      if (!payment.vehicle) payment.vehicle = sub.vehicle;
+    }
+  }
+
+  let method = 'Online';
+  let payVia = 'Razorpay';
+  let cardDetails = null;
+  let upiDetails = null;
+
+  if (razorpay) {
+    try {
+      const rzpPayment = await razorpay.payments.fetch(payment.paymentId);
+      method = rzpPayment.method || 'Online';
+      if (method === 'card' && rzpPayment.card) {
+        cardDetails = {
+          network: rzpPayment.card.network,
+          last4: rzpPayment.card.last4,
+          type: rzpPayment.card.type
+        };
+        payVia = rzpPayment.card.network || 'Card';
+      } else if (method === 'upi') {
+        upiDetails = {
+          vpa: rzpPayment.vpa
+        };
+        payVia = rzpPayment.vpa ? rzpPayment.vpa.split('@')[1]?.toUpperCase() || 'UPI' : 'UPI';
+      } else if (method === 'netbanking') {
+        payVia = rzpPayment.bank || 'Netbanking';
+      } else if (method === 'wallet') {
+        payVia = rzpPayment.wallet || 'Wallet';
+      }
+    } catch (err) {
+      console.warn('Failed to fetch payment details from Razorpay:', err.message);
+    }
+  }
+
+  res.json({
+    success: true,
+    payment: {
+      ...payment,
+      method: method.charAt(0).toUpperCase() + method.slice(1),
+      payVia,
+      cardDetails,
+      upiDetails
+    }
+  });
 });

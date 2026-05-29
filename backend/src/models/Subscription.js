@@ -24,6 +24,8 @@ const subscriptionSchema = new Schema({
   isPremiumOverride: { type: Boolean, default: false },
   overrideReason:    { type: String },
   specialInstructions: { type: String, maxlength: 200 },
+  maxSkips:        { type: Number, default: 1 },
+  skipsUsed:       { type: Number, default: 0 },
 }, { timestamps: true });
 
 export default mongoose.model('Subscription', subscriptionSchema);

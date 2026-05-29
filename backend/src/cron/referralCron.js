@@ -159,6 +159,10 @@ export const createDailyTasks = async () => {
     //     Pre-existing tasks with cleaner: null (from earlier runs) were silently
     //     skipped by the alreadyCreated check and never reconsidered. Now we
     //     query MongoDB for ALL unassigned pending tasks today.
+    //   • Bug fix C — subscriptions without a society were silently skipped.
+    //     Now they fall into a '__no_society__' bucket and use a global pool.
+    //   • Bug fix D — societies with no candidate cleaners were skipped entirely.
+    //     Now they fall back to the global pool of all active/available cleaners.
     //
     const allUnassignedTasks = await Task.find({
       subscription: { $in: subIds },
@@ -174,13 +178,18 @@ export const createDailyTasks = async () => {
       const subMap = new Map(activeSubs.map(s => [s._id.toString(), s]));
 
       // Group unassigned tasks by society, storing the society ObjectId directly
-      // to avoid string-to-ObjectId casting issues in Mongoose 8.x queries
+      // to avoid string-to-ObjectId casting issues in Mongoose 8.x queries.
+      // Subscriptions without a society go into the '__no_society__' bucket.
+      const NO_SOCIETY_KEY = '__no_society__';
       const bySociety = new Map(); // societyId string → { societyObjId, tasks[] }
       for (const task of allUnassignedTasks) {
         const sub = subMap.get(task.subscription.toString());
         const society = sub?.society;
         if (!society?._id) {
-          console.log(`[CRON][AUTO-ASSIGN] Skipping task ${task._id} — subscription has no society`);
+          if (!bySociety.has(NO_SOCIETY_KEY)) {
+            bySociety.set(NO_SOCIETY_KEY, { societyObjId: null, tasks: [] });
+          }
+          bySociety.get(NO_SOCIETY_KEY).tasks.push(task);
           continue;
         }
         const societyId = society._id.toString();
@@ -190,53 +199,73 @@ export const createDailyTasks = async () => {
         bySociety.get(societyId).tasks.push(task);
       }
 
-      console.log(`[CRON][AUTO-ASSIGN] Grouped into ${bySociety.size} society bucket(s)`);
+      console.log(`[CRON][AUTO-ASSIGN] Grouped into ${bySociety.size} bucket(s)${bySociety.has(NO_SOCIETY_KEY) ? ` (incl. ${bySociety.get(NO_SOCIETY_KEY).tasks.length} task(s) with no society)` : ''}`);
+
+      // Pre-fetch global fallback pool once (used for no-society + empty-candidate societies)
+      const globalEligible = await Cleaner.find({
+        isActive: true,
+        isAvailable: true,
+      }).select('_id name').lean();
+      const globalNotOnLeave = globalEligible.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
+      console.log(`[CRON][AUTO-ASSIGN] Global fallback pool: ${globalEligible.length} eligible, ${globalNotOnLeave.length} not on leave`);
+
       let autoAssignedCount = 0;
 
       for (const [societyId, { societyObjId, tasks }] of bySociety) {
-        console.log(`[CRON][AUTO-ASSIGN] Society ${societyId}: ${tasks.length} task(s) need a cleaner`);
+        const isNoSociety = societyId === NO_SOCIETY_KEY;
+        const label = isNoSociety ? 'NO_SOCIETY' : societyId;
+        console.log(`[CRON][AUTO-ASSIGN] Bucket ${label}: ${tasks.length} task(s) need a cleaner`);
 
-        // ── Source 1: cleaners from active subscriptions in this society ─────
-        // This works even when society.cleaners[] is empty, which is the common
-        // case since admins assign cleaners per-subscription, not per-society.
-        const fromSubs = await Subscription.distinct('assignedCleaner', {
-          society: societyObjId,            // ObjectId — avoids Mongoose casting
-          status: 'Active',
-          assignedCleaner: { $exists: true, $ne: null },
-        });
+        let notOnLeave;
 
-        // ── Source 2: society.cleaners[] admin-managed list ──────────────────
-        const societyDoc = await Society.findById(societyObjId).select('cleaners').lean();
-        const fromSocietyList = (societyDoc?.cleaners || []).map(c => c.toString());
+        if (isNoSociety) {
+          // No society → use global fallback pool directly
+          console.log(`[CRON][AUTO-ASSIGN] Bucket ${label}: using global fallback pool`);
+          notOnLeave = [...globalNotOnLeave]; // clone so sort doesn't affect other buckets
+        } else {
+          // ── Source 1: cleaners from active subscriptions in this society ─────
+          const fromSubs = await Subscription.distinct('assignedCleaner', {
+            society: societyObjId,
+            status: 'Active',
+            assignedCleaner: { $exists: true, $ne: null },
+          });
 
-        const candidateIds = [...new Set([
-          ...fromSubs.map(id => id.toString()),
-          ...fromSocietyList,
-        ])];
+          // ── Source 2: society.cleaners[] admin-managed list ──────────────────
+          const societyDoc = await Society.findById(societyObjId).select('cleaners').lean();
+          const fromSocietyList = (societyDoc?.cleaners || []).map(c => c.toString());
 
-        console.log(`[CRON][AUTO-ASSIGN] Society ${societyId}: ${candidateIds.length} candidate(s) — fromSubs=${fromSubs.length}, fromSocietyList=${fromSocietyList.length}`);
+          const candidateIds = [...new Set([
+            ...fromSubs.map(id => id.toString()),
+            ...fromSocietyList,
+          ])];
 
-        if (candidateIds.length === 0) {
-          console.warn(`[CRON][AUTO-ASSIGN] Society ${societyId}: no cleaners found — assign at least one cleaner to a subscription in this society`);
-          continue;
+          console.log(`[CRON][AUTO-ASSIGN] Society ${label}: ${candidateIds.length} candidate(s) — fromSubs=${fromSubs.length}, fromSocietyList=${fromSocietyList.length}`);
+
+          if (candidateIds.length === 0) {
+            // Fall back to global pool instead of skipping
+            console.warn(`[CRON][AUTO-ASSIGN] Society ${label}: no society-specific cleaners found — falling back to global pool`);
+            notOnLeave = [...globalNotOnLeave];
+          } else {
+            // Filter: active, available, not on approved leave today
+            const eligible = await Cleaner.find({
+              _id: { $in: candidateIds },
+              isActive: true,
+              isAvailable: true,
+            }).select('_id name').lean();
+
+            notOnLeave = eligible.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
+            console.log(`[CRON][AUTO-ASSIGN] Society ${label}: eligible=${eligible.length}, notOnLeave=${notOnLeave.length}`);
+
+            if (notOnLeave.length === 0) {
+              // Society-specific cleaners all unavailable → fall back to global pool
+              console.warn(`[CRON][AUTO-ASSIGN] Society ${label}: no available society cleaners — falling back to global pool`);
+              notOnLeave = [...globalNotOnLeave];
+            }
+          }
         }
 
-        // Filter: active, available, not on approved leave today
-        const eligible = await Cleaner.find({
-          _id: { $in: candidateIds },
-          isActive: true,
-          isAvailable: true,
-        }).select('_id name').lean();
-
-        const notOnLeave = eligible.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
-        console.log(`[CRON][AUTO-ASSIGN] Society ${societyId}: eligible=${eligible.length}, notOnLeave=${notOnLeave.length}`);
-
-        if (eligible.length === 0) {
-          console.warn(`[CRON][AUTO-ASSIGN] Society ${societyId}: no active+available cleaners among candidates`);
-          continue;
-        }
         if (notOnLeave.length === 0) {
-          console.warn(`[CRON][AUTO-ASSIGN] Society ${societyId}: all eligible cleaners are on leave today`);
+          console.warn(`[CRON][AUTO-ASSIGN] Bucket ${label}: NO cleaners available at all (even global pool empty) — skipping`);
           continue;
         }
 
@@ -261,7 +290,7 @@ export const createDailyTasks = async () => {
           await Task.findByIdAndUpdate(task._id, { cleaner: cleaner._id });
           await Subscription.findByIdAndUpdate(task.subscription, { assignedCleaner: cleaner._id });
 
-          console.log(`[CRON][AUTO-ASSIGN] Assigned "${cleaner.name}" (${cleaner._id}) to task ${task._id}`);
+          console.log(`[CRON][AUTO-ASSIGN] Assigned "${cleaner.name}" (${cleaner._id}) to task ${task._id} [bucket=${label}]`);
           runningCount.set(cleaner._id.toString(), (runningCount.get(cleaner._id.toString()) || 0) + 1);
           autoAssignedCount++;
         }
