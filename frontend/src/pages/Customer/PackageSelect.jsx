@@ -8,10 +8,10 @@ import { useCustomerData } from '../../context/CustomerDataContext'
 export default function PackageSelect() {
   const { packages, subscriptions, vehicles, loading: dataLoading } = useCustomerData()
   const navigate = useNavigate()
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null)
+
   const activeSub = (subscriptions || []).find(s => s.status === 'Active') || null
   const activeSubForVehicle = (subscriptions || []).find(s => s.status === 'Active' && s.vehicle?._id === selectedVehicleId) || null
-
-  const [selectedVehicleId, setSelectedVehicleId] = useState(null)
 
   const loading = dataLoading.packages || dataLoading.subscriptions
   const error = '' // Handled by global context if needed

@@ -172,7 +172,7 @@ export default function CustomerHome() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <div className="quick-actions-grid">
             {[
               { icon: Calendar, label: 'New Booking', to: '/customer/booking', color: 'var(--text-accent)', bg: 'rgba(var(--bg-accent-rgb), 0.1)', disabled: false },
               { icon: SkipForward, label: 'Skip Today', to: '/customer/skip', color: 'var(--primary-blue)', bg: 'rgba(0,122,255,0.1)', disabled: !hasRemainingDays },
@@ -180,21 +180,21 @@ export default function CustomerHome() {
             ].map((a, i) => {
               const content = (
                 <>
-                  <div style={{ width: 44, height: 44, borderRadius: 14, background: a.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                  <div className="quick-action-icon-wrapper" style={{ background: a.bg }}>
                     <a.icon size={22} style={{ color: a.color, opacity: a.disabled ? 0.35 : 1 }} />
                   </div>
-                  <span className="text-[12px]" style={{ fontWeight: 700, color: a.disabled ? 'var(--text-tertiary)' : 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%' }}>
+                  <span className="quick-action-label" style={{ color: a.disabled ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
                     {a.label}
                   </span>
                 </>
               );
 
               return a.disabled ? (
-                <div key={i} className="glass" style={{ padding: '16px 8px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, borderRadius: 20, opacity: 0.5, cursor: 'not-allowed' }}>
+                <div key={i} className="glass quick-action-btn" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                   {content}
                 </div>
               ) : (
-                <Link key={i} to={a.to} className="glass" style={{ padding: '16px 8px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, borderRadius: 20 }}>
+                <Link key={i} to={a.to} className="glass quick-action-btn">
                   {content}
                 </Link>
               );
