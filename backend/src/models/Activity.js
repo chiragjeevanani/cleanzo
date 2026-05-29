@@ -9,7 +9,10 @@ const activitySchema = new mongoose.Schema({
       'application_submitted', 'kyc_approved', 'kyc_rejected', 
       'subscription_created', 'task_completed', 'system',
       'product_created', 'product_updated', 'product_deleted',
-      'order_placed', 'order_updated'
+      'order_placed', 'order_updated', 'order_cancelled', 'order_status_updated',
+      'cleaner_assigned', 'vehicle_category_create', 'vehicle_category_update',
+      'vehicle_category_delete', 'maintenance', 'leave_approved', 'leave_rejected',
+      'attendance_override'
     ]
   },
   message: {

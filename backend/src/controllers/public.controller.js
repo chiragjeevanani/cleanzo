@@ -61,7 +61,7 @@ export const captureLead = asyncHandler(async (req, res) => {
       pincode,
       status: 'pending'
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 
   res.status(201).json({ 

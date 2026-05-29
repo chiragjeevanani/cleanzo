@@ -39,7 +39,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
     Object.entries({ firstName, lastName, email, city }).filter(([, v]) => v !== undefined && v !== '')
   );
   if (Object.keys(update).length === 0) throw new ApiError(400, 'No valid fields provided');
-  const customer = await Customer.findByIdAndUpdate(req.user._id, update, { new: true, runValidators: true });
+  const customer = await Customer.findByIdAndUpdate(req.user._id, update, { returnDocument: 'after', runValidators: true });
   await clearCache(`cache:${req.user._id}:*`);
   res.json({ success: true, user: customer });
 });
@@ -143,7 +143,7 @@ export const updateVehicle = asyncHandler(async (req, res) => {
   const vehicle = await Vehicle.findOneAndUpdate(
     { _id: req.params.id, customer: req.user._id },
     updateFields,
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   if (!vehicle) throw new ApiError(404, 'Vehicle not found');
   await clearCache(`cache:${req.user._id}:*`);
@@ -154,7 +154,7 @@ export const deleteVehicle = asyncHandler(async (req, res) => {
   const vehicle = await Vehicle.findOneAndUpdate(
     { _id: req.params.id, customer: req.user._id },
     { isActive: false },
-    { new: true }
+    { returnDocument: 'after' }
   );
   if (!vehicle) throw new ApiError(404, 'Vehicle not found');
   await clearCache(`cache:${req.user._id}:*`);
@@ -430,7 +430,7 @@ export const createSubscription = asyncHandler(async (req, res) => {
           } 
         },
         { $inc: { 'slots.$.currentCount': 1 } },
-        { new: true }
+        { returnDocument: 'after' }
       );
 
       if (!updatedSociety) {
@@ -448,7 +448,7 @@ export const createSubscription = asyncHandler(async (req, res) => {
     const claimed = await Customer.findOneAndUpdate(
       { _id: req.user._id, 'referralDiscount.isActive': true },
       { $set: { 'referralDiscount.isActive': false } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (claimed) {
       const discount = finalAmount * (req.user.referralDiscount.percentage / 100);
@@ -660,7 +660,7 @@ export const skipService = asyncHandler(async (req, res) => {
           vehicle: sub.vehicle,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   }
 

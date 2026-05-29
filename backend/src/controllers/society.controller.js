@@ -158,7 +158,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   const updated = await PartnerSociety.findByIdAndUpdate(
     req.user._id,
     { contactName, phone, ...(bankDetails && { bankDetails }) },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   ).populate('society', 'name city area').select('-password');
   res.json({ success: true, profile: updated });
 });

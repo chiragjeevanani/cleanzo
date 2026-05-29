@@ -325,15 +325,15 @@ export const updateMe = asyncHandler(async (req, res) => {
 
   let user;
   if (role === 'admin' || role === 'superadmin') {
-    user = await Admin.findByIdAndUpdate(userId, { name, email, phone }, { new: true, runValidators: true });
+    user = await Admin.findByIdAndUpdate(userId, { name, email, phone }, { returnDocument: 'after', runValidators: true });
   } else if (role === 'customer') {
     const update = { firstName, lastName, email, city };
     if (phone) update.phone = normalizePhone(phone);
-    user = await Customer.findByIdAndUpdate(userId, update, { new: true, runValidators: true });
+    user = await Customer.findByIdAndUpdate(userId, update, { returnDocument: 'after', runValidators: true });
   } else if (role === 'cleaner') {
     const update = { name, email, city };
     if (phone) update.phone = normalizePhone(phone);
-    user = await Cleaner.findByIdAndUpdate(userId, update, { new: true, runValidators: true });
+    user = await Cleaner.findByIdAndUpdate(userId, update, { returnDocument: 'after', runValidators: true });
   }
 
   if (!user) throw new ApiError(404, 'User not found');
@@ -432,7 +432,7 @@ export const handleVerifyOtpSignup = asyncHandler(async (req, res) => {
       status: 'pending',
       notes: 'OTP verified, pending Step 5 details'
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 
   res.json({

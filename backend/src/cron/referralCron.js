@@ -77,7 +77,7 @@ export const createDailyTasks = async () => {
 
     const activeSubs = await Subscription.find({ status: 'Active' })
       .populate('package', 'name')
-      .populate('assignedCleaner', '_id')
+      .populate('assignedCleaner', '_id isActive isAvailable')
       .populate('society', 'slots cleaners'); // cleaners needed for auto-assignment
 
     if (activeSubs.length === 0) {
@@ -116,14 +116,17 @@ export const createDailyTasks = async () => {
         if (slot?.timeWindow) scheduledTime = slot.timeWindow.split(' - ')[0];
       }
 
-      // Check if the assigned cleaner is on approved leave today
-      const assignedCleanerId = sub.assignedCleaner?._id?.toString();
-      const isCleanerOnLeave = assignedCleanerId && cleanersOnLeaveToday.has(assignedCleanerId);
+      // Check if the assigned cleaner is active, available, and not on approved leave today
+      const assignedCleaner = sub.assignedCleaner;
+      const isCleanerEligible = assignedCleaner && 
+                                assignedCleaner.isActive !== false && 
+                                assignedCleaner.isAvailable !== false && 
+                                !cleanersOnLeaveToday.has(assignedCleaner._id.toString());
 
       newDocs.push({
         subscription: sub._id,
         customer: sub.customer,
-        cleaner: isCleanerOnLeave ? null : (sub.assignedCleaner?._id || null),
+        cleaner: isCleanerEligible ? assignedCleaner._id : null,
         vehicle: sub.vehicle,
         date: today,
         scheduledTime,

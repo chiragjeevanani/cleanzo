@@ -23,7 +23,7 @@ export const getProfile = asyncHandler(async (req, res) => {
 
 export const updateProfile = asyncHandler(async (req, res) => {
   const { name, email, assignedArea } = req.body;
-  const cleaner = await Cleaner.findByIdAndUpdate(req.user._id, { name, email, assignedArea }, { new: true, runValidators: true });
+  const cleaner = await Cleaner.findByIdAndUpdate(req.user._id, { name, email, assignedArea }, { returnDocument: 'after', runValidators: true });
   res.json({ success: true, user: cleaner });
 });
 
@@ -117,7 +117,7 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
   const updatedTask = await Task.findOneAndUpdate(
     { _id: req.params.id, cleaner: req.user._id },
     update,
-    { new: true }
+    { returnDocument: 'after' }
   );
 
   if (status === 'completed' && updatedTask) {
@@ -234,7 +234,7 @@ export const uploadTaskPhotos = asyncHandler(async (req, res) => {
   const task = await Task.findOneAndUpdate(
     { _id: req.params.id, cleaner: req.user._id },
     updateObj,
-    { new: true }
+    { returnDocument: 'after' }
   );
   if (!task) throw new ApiError(404, 'Task not found');
   res.json({ success: true, photos: task.photos, notes: task.notes });
@@ -298,7 +298,7 @@ export const submitKyc = asyncHandler(async (req, res) => {
       'kyc.panPhoto':     panUrl,
       'kyc.submittedAt':  new Date(),
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).select('kycStatus kyc avatar name');
 
   // ── Push Notification to Admin: KYC submitted ──

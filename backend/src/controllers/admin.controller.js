@@ -401,13 +401,13 @@ export const createUser = asyncHandler(async (req, res) => {
 
 export const updateUser = asyncHandler(async (req, res) => {
   const { firstName, lastName, email, city, isActive } = req.body;
-  const user = await Customer.findByIdAndUpdate(req.params.id, { firstName, lastName, email, city, isActive }, { new: true, runValidators: true });
+  const user = await Customer.findByIdAndUpdate(req.params.id, { firstName, lastName, email, city, isActive }, { returnDocument: 'after', runValidators: true });
   if (!user) throw new ApiError(404, 'User not found');
   res.json({ success: true, user });
 });
 
 export const deleteUser = asyncHandler(async (req, res) => {
-  const user = await Customer.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+  const user = await Customer.findByIdAndUpdate(req.params.id, { isActive: false }, { returnDocument: 'after' });
   if (!user) throw new ApiError(404, 'User not found');
 
   await logActivity({
@@ -505,14 +505,14 @@ export const updateCleaner = asyncHandler(async (req, res) => {
   const cleaner = await Cleaner.findByIdAndUpdate(
     req.params.id, 
     updateData, 
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
   res.json({ success: true, cleaner });
 });
 
 export const deleteCleaner = asyncHandler(async (req, res) => {
-  const cleaner = await Cleaner.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+  const cleaner = await Cleaner.findByIdAndUpdate(req.params.id, { isActive: false }, { returnDocument: 'after' });
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
 
   await logActivity({
@@ -545,7 +545,7 @@ export const updatePackage = asyncHandler(async (req, res) => {
   const pkg = await Package.findByIdAndUpdate(
     req.params.id,
     { name, tier, price, trialPrice, category, features, popular, sortOrder, isActive, applicableModels, showOnLanding },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   if (!pkg) throw new ApiError(404, 'Package not found');
   await clearCache('cache:global:*');
@@ -776,7 +776,7 @@ export const updateSociety = asyncHandler(async (req, res) => {
     }
   }
 
-  const society = await Society.findByIdAndUpdate(req.params.id, { name, state, city, area, pincode, address, slots, cleaners, isActive }, { new: true });
+  const society = await Society.findByIdAndUpdate(req.params.id, { name, state, city, area, pincode, address, slots, cleaners, isActive }, { returnDocument: 'after' });
 
   await logActivity({
     type: 'system',
@@ -791,7 +791,7 @@ export const updateSociety = asyncHandler(async (req, res) => {
 
 export const deleteSociety = asyncHandler(async (req, res) => {
   const { default: Society } = await import('../models/Society.js');
-  const society = await Society.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+  const society = await Society.findByIdAndUpdate(req.params.id, { isActive: false }, { returnDocument: 'after' });
   if (!society) throw new ApiError(404, 'Society not found');
 
   await logActivity({
@@ -814,7 +814,7 @@ export const getLeads = asyncHandler(async (req, res) => {
 export const updateLeadStatus = asyncHandler(async (req, res) => {
   const { status, notes } = req.body;
   const { default: Lead } = await import('../models/Lead.js');
-  const lead = await Lead.findByIdAndUpdate(req.params.id, { status, notes }, { new: true });
+  const lead = await Lead.findByIdAndUpdate(req.params.id, { status, notes }, { returnDocument: 'after' });
   if (!lead) throw new ApiError(404, 'Lead not found');
   res.json({ success: true, lead });
 });
@@ -964,7 +964,7 @@ export const reviewCleanerKyc = asyncHandler(async (req, res) => {
   if (status === 'rejected') update.kycRejectionNote = rejectionNote;
   if (status === 'approved') update.kycRejectionNote = null;
 
-  const cleaner = await Cleaner.findByIdAndUpdate(req.params.id, update, { new: true })
+  const cleaner = await Cleaner.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after' })
     .select('name phone kycStatus kycRejectionNote');
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
 
@@ -1015,7 +1015,7 @@ export const updateSetting = asyncHandler(async (req, res) => {
   const setting = await Settings.findOneAndUpdate(
     { key: req.params.key },
     { value },
-    { new: true, upsert: false }
+    { returnDocument: 'after', upsert: false }
   );
   if (!setting) throw new ApiError(404, `Setting '${req.params.key}' not found`);
   res.json({ success: true, setting });
@@ -1070,7 +1070,7 @@ export const createProduct = asyncHandler(async (req, res) => {
 });
 
 export const updateProduct = asyncHandler(async (req, res) => {
-  const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  const product = await Product.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true });
   if (!product) throw new ApiError(404, 'Product not found');
 
   await logActivity({
@@ -1258,7 +1258,7 @@ export const addVehicleCategory = asyncHandler(async (req, res) => {
 });
 
 export const updateVehicleCategory = asyncHandler(async (req, res) => {
-  const category = await VehicleCategory.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  const category = await VehicleCategory.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true });
   if (!category) throw new ApiError(404, 'Category not found');
   await logActivity({ type: 'vehicle_category_update', message: `Updated vehicle category: ${category.name}`, performer: req.user._id });
   res.json({ success: true, category });
@@ -1389,7 +1389,7 @@ export const updateTestimonial = asyncHandler(async (req, res) => {
   const testimonial = await Testimonial.findByIdAndUpdate(
     req.params.id,
     { name, role, text, rating, isActive, sortOrder },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   if (!testimonial) throw new ApiError(404, 'Testimonial not found');
   await clearCache('cache:global:*');
@@ -1428,7 +1428,7 @@ export const updateFaq = asyncHandler(async (req, res) => {
   const faq = await FAQ.findByIdAndUpdate(
     req.params.id,
     { question, answer, isActive, sortOrder },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   if (!faq) throw new ApiError(404, 'FAQ not found');
   await clearCache('cache:global:*');
@@ -1467,7 +1467,7 @@ export const updateBrand = asyncHandler(async (req, res) => {
   const brand = await Brand.findByIdAndUpdate(
     req.params.id,
     { name, models: models || [], isActive },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   if (!brand) throw new ApiError(404, 'Brand not found');
   await clearCache('cache:global:*');
@@ -1700,7 +1700,7 @@ export const reviewLeaveRequest = asyncHandler(async (req, res) => {
     await Attendance.findOneAndUpdate(
       { cleaner: leaveReq.cleaner, date: leaveReq.date },
       { status: 'leave' },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     // 2. Unassign tasks assigned to this cleaner on this date.
@@ -1774,7 +1774,7 @@ export const updateCleanerAttendance = asyncHandler(async (req, res) => {
       checkOut: checkOut ? new Date(checkOut) : undefined,
       note: note || ''
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 
   // If manual status is set to leave, unassign pending and in-progress tasks
@@ -1812,7 +1812,7 @@ export const updateTrustedSocieties = asyncHandler(async (req, res) => {
   await Settings.findOneAndUpdate(
     { key: 'trustedSocieties' },
     { key: 'trustedSocieties', value: data, description: 'Trusted societies shown on landing page hero' },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
   await clearCache('cache:global:*');
   res.json({ success: true, data });
