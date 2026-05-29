@@ -162,6 +162,49 @@ export const deleteVehicle = asyncHandler(async (req, res) => {
 });
 
 // ─── SUBSCRIPTIONS ───────────────────────────────
+
+// Compute next wash date given already-loaded task data (no DB calls)
+const computeNextWash = (sub, todaysTask, skippedTasks) => {
+  const today = getISTMidnight();
+  let startCheck = getISTMidnight(sub.startDate);
+  if (startCheck < today) startCheck = today;
+
+  let startDate = new Date(startCheck);
+  if (todaysTask && (todaysTask.status === 'completed' || todaysTask.status === 'missed')) {
+    startDate.setDate(startDate.getDate() + 1);
+  }
+
+  const skippedDates = new Set(
+    (skippedTasks || [])
+      .filter(t => new Date(t.date) >= startDate)
+      .map(t => new Date(t.date).toDateString())
+  );
+
+  let checkDate = new Date(startDate);
+  for (let i = 0; i < 30; i++) {
+    if (!skippedDates.has(checkDate.toDateString())) return checkDate;
+    checkDate.setDate(checkDate.getDate() + 1);
+  }
+  return checkDate;
+};
+
+// Single-subscription helper (used by getSubscriptionById)
+const calculateDynamicNextWash = async (subId) => {
+  const sub = await Subscription.findById(subId).lean();
+  if (!sub) return null;
+
+  const today = getISTMidnight();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [todaysTask, skippedTasks] = await Promise.all([
+    Task.findOne({ subscription: subId, date: { $gte: today, $lt: tomorrow } }).lean(),
+    Task.find({ subscription: subId, status: 'skipped', date: { $gte: today } }).lean(),
+  ]);
+
+  return computeNextWash(sub, todaysTask, skippedTasks);
+};
+
 export const getSubscriptions = asyncHandler(async (req, res) => {
   const subscriptions = await Subscription.find({ customer: req.user._id })
     .populate('vehicle', 'model number parking color')
@@ -169,57 +212,40 @@ export const getSubscriptions = asyncHandler(async (req, res) => {
     .populate('assignedCleaner', 'name phone rating')
     .sort('-createdAt')
     .lean();
-    
-  for (const sub of subscriptions) {
-    if (sub.status === 'Active') {
-      sub.nextWash = await calculateDynamicNextWash(sub._id);
+
+  const activeSubs = subscriptions.filter(s => s.status === 'Active');
+  if (activeSubs.length > 0) {
+    const activeIds = activeSubs.map(s => s._id);
+    const today = getISTMidnight();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Batch both task queries across all active subscriptions at once
+    const [todayTasks, skippedTasks] = await Promise.all([
+      Task.find({ subscription: { $in: activeIds }, date: { $gte: today, $lt: tomorrow } }).lean(),
+      Task.find({ subscription: { $in: activeIds }, status: 'skipped', date: { $gte: today } }).lean(),
+    ]);
+
+    const todayTaskMap = new Map(todayTasks.map(t => [t.subscription.toString(), t]));
+    const skippedBySubId = skippedTasks.reduce((acc, t) => {
+      const key = t.subscription.toString();
+      (acc[key] = acc[key] || []).push(t);
+      return acc;
+    }, {});
+
+    for (const sub of subscriptions) {
+      if (sub.status === 'Active') {
+        sub.nextWash = computeNextWash(
+          sub,
+          todayTaskMap.get(sub._id.toString()),
+          skippedBySubId[sub._id.toString()]
+        );
+      }
     }
   }
-  
+
   res.json({ success: true, subscriptions });
 });
-
-// Helper to calculate dynamic next wash
-const calculateDynamicNextWash = async (subId) => {
-  const sub = await Subscription.findById(subId).lean();
-  if (!sub) return null;
-
-  const today = getISTMidnight();
-  let startCheck = getISTMidnight(sub.startDate);
-  if (startCheck < today) {
-    startCheck = today;
-  }
-
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  
-  const todaysTask = await Task.findOne({
-    subscription: subId,
-    date: { $gte: today, $lt: tomorrow },
-  }).lean();
-
-  let startDate = new Date(startCheck);
-  if (todaysTask && (todaysTask.status === 'completed' || todaysTask.status === 'missed')) {
-    startDate.setDate(startDate.getDate() + 1);
-  }
-
-  const skippedTasks = await Task.find({
-    subscription: subId,
-    status: 'skipped',
-    date: { $gte: startDate }
-  }).lean();
-  
-  const skippedDates = new Set(skippedTasks.map(t => new Date(t.date).toDateString()));
-  
-  let checkDate = new Date(startDate);
-  for (let i = 0; i < 30; i++) {
-    if (!skippedDates.has(checkDate.toDateString())) {
-      return checkDate;
-    }
-    checkDate.setDate(checkDate.getDate() + 1);
-  }
-  return checkDate;
-};
 
 export const getSubscriptionById = asyncHandler(async (req, res) => {
   const sub = await Subscription.findOne({ _id: req.params.id, customer: req.user._id })
@@ -359,6 +385,14 @@ export const createSubscription = asyncHandler(async (req, res) => {
   if (isPremiumOverride) {
     if (!overrideReason || !overrideReason.trim()) {
       throw new ApiError(400, 'Override reason is required for premium override bookings');
+    }
+    // Prevent charging the priority fee when the slot has open standard capacity.
+    // A buggy or tampered client must not be able to trigger premium pricing
+    // when no override is actually needed.
+    const slotStatus = slot.status || 'Open';
+    const slotIsFull = slotStatus !== 'Open' || slot.currentCount >= slot.maxVehicles;
+    if (!slotIsFull) {
+      throw new ApiError(400, 'This slot has available capacity. Please use standard booking instead of priority override.');
     }
     priorityFee = prioritySlotFee;
     await Society.updateOne(
@@ -608,17 +642,26 @@ export const skipService = asyncHandler(async (req, res) => {
 
   // Perform updates
   for (const skipDate of parsedDates) {
-    // Create the skipped task
-    await Task.create({
-      subscription: sub._id,
-      customer: req.user._id,
-      vehicle: sub.vehicle,
-      date: skipDate,
-      status: 'skipped',
-      skipReason: 'Customer skip',
-      creditBack: false,
-      packageName: 'N/A',
-    });
+    // Use findOneAndUpdate with upsert so that if the cron already created a task
+    // for this date (e.g. after a manual backfill), we update it rather than
+    // hitting the unique (subscription, date) index with a duplicate create.
+    await Task.findOneAndUpdate(
+      { subscription: sub._id, date: skipDate },
+      {
+        $set: {
+          status: 'skipped',
+          skipReason: 'Customer skip',
+          creditBack: false,
+          packageName: 'N/A',
+          cleaner: null,
+        },
+        $setOnInsert: {
+          customer: req.user._id,
+          vehicle: sub.vehicle,
+        },
+      },
+      { upsert: true, new: true }
+    );
   }
 
   // Extend subscription

@@ -2,6 +2,7 @@ import Cleaner from '../models/Cleaner.js';
 import Task from '../models/Task.js';
 import Subscription from '../models/Subscription.js';
 import Notification from '../models/Notification.js';
+import Society from '../models/Society.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
@@ -133,6 +134,19 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
       if (sub.remainingDays <= 0 || (sub.isTrial && sub.completedDays >= 1)) {
         sub.status = 'Expired';
         sub.remainingDays = 0;
+
+        // Decrement slot count now — the midnight cron only decrements Active subs,
+        // so early-expired subscriptions would never be picked up otherwise.
+        if (sub.society && sub.slot) {
+          try {
+            await Society.updateOne(
+              { _id: sub.society, slots: { $elemMatch: { slotId: sub.slot, currentCount: { $gt: 0 } } } },
+              { $inc: { 'slots.$.currentCount': -1 } }
+            );
+          } catch (slotErr) {
+            console.error('[updateTaskStatus] Failed to decrement slot count:', slotErr.message);
+          }
+        }
       }
 
       const today = getISTMidnight();

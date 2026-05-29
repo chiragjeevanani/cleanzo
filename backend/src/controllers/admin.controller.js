@@ -1653,10 +1653,11 @@ export const reviewLeaveRequest = asyncHandler(async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // 2. Unassign tasks assigned to this cleaner on this date
-    // Set tasks that are 'pending' to unassigned (cleaner: null)
+    // 2. Unassign tasks assigned to this cleaner on this date.
+    // Include 'in-progress' too — cleaner may have just started and then
+    // gone on leave; the task still needs reassignment.
     const result = await Task.updateMany(
-      { cleaner: leaveReq.cleaner, date: leaveReq.date, status: 'pending' },
+      { cleaner: leaveReq.cleaner, date: leaveReq.date, status: { $in: ['pending', 'in-progress'] } },
       { $unset: { cleaner: "" } }
     );
     
@@ -1726,10 +1727,10 @@ export const updateCleanerAttendance = asyncHandler(async (req, res) => {
     { upsert: true, new: true }
   );
 
-  // If manual status is set to leave, we should also unassign pending tasks
+  // If manual status is set to leave, unassign pending and in-progress tasks
   if (status === 'leave') {
     await Task.updateMany(
-      { cleaner: cleanerId, date: targetDate, status: 'pending' },
+      { cleaner: cleanerId, date: targetDate, status: { $in: ['pending', 'in-progress'] } },
       { $unset: { cleaner: "" } }
     );
   }

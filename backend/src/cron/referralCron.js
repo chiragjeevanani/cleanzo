@@ -5,7 +5,9 @@ import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
 import Society from '../models/Society.js';
 import LeaveRequest from '../models/LeaveRequest.js';
+import Admin from '../models/Admin.js';
 import { getISTMidnight } from '../utils/dateHelper.js';
+import { sendPushNotification } from '../services/fcm.service.js';
 
 // ─── Job 1: Expire referral discounts (midnight) ──────────────────────────────
 export const expireReferralDiscounts = async () => {
@@ -31,30 +33,35 @@ export const expireSubscriptions = async () => {
       return;
     }
 
-    const ids = expired.map(s => s._id);
-    await Subscription.updateMany({ _id: { $in: ids } }, { status: 'Expired' });
-
-    // Decrement slot counts for each expired subscription
+    let successCount = 0;
     for (const sub of expired) {
-      if (sub.society && sub.slot) {
-        await Society.updateOne(
-          { _id: sub.society, slots: { $elemMatch: { slotId: sub.slot, currentCount: { $gt: 0 } } } },
-          { $inc: { 'slots.$.currentCount': -1 } }
-        );
-      }
+      try {
+        // Mark this subscription expired atomically before touching slot/notifications
+        await Subscription.findByIdAndUpdate(sub._id, { status: 'Expired' });
 
-      // Notify customer
-      await Notification.create({
-        recipient: sub.customer,
-        recipientModel: 'Customer',
-        type: 'subscription',
-        title: 'Subscription Expired',
-        message: 'Your Cleanzo subscription has expired. Renew now to continue daily car washing!',
-        data: { subscriptionId: sub._id },
-      });
+        if (sub.society && sub.slot) {
+          await Society.updateOne(
+            { _id: sub.society, slots: { $elemMatch: { slotId: sub.slot, currentCount: { $gt: 0 } } } },
+            { $inc: { 'slots.$.currentCount': -1 } }
+          );
+        }
+
+        await Notification.create({
+          recipient: sub.customer,
+          recipientModel: 'Customer',
+          type: 'subscription',
+          title: 'Subscription Expired',
+          message: 'Your Cleanzo subscription has expired. Renew now to continue daily car washing!',
+          data: { subscriptionId: sub._id },
+        });
+
+        successCount++;
+      } catch (subErr) {
+        console.error(`[CRON] Failed to expire subscription ${sub._id}:`, subErr.message);
+      }
     }
 
-    console.log(`[CRON] Expired ${expired.length} subscriptions`);
+    console.log(`[CRON] Expired ${successCount}/${expired.length} subscriptions`);
   } catch (err) {
     console.error('[CRON] Subscription expiry error:', err.message);
   }
@@ -138,6 +145,25 @@ export const createDailyTasks = async () => {
     }
 
     console.log(`[CRON] Created ${newDocs.length} tasks for ${today.toDateString()}`);
+
+    // Alert admins if any tasks have no assigned cleaner
+    const unassignedCount = newDocs.filter(d => !d.cleaner).length;
+    if (unassignedCount > 0) {
+      try {
+        const admins = await Admin.find({ fcmTokens: { $exists: true, $ne: [] } }).select('fcmTokens');
+        const adminTokens = admins.flatMap(a => a.fcmTokens || []);
+        if (adminTokens.length) {
+          await sendPushNotification(adminTokens, {
+            title: '⚠️ Unassigned Tasks Today',
+            body: `${unassignedCount} subscription${unassignedCount > 1 ? 's have' : ' has'} no cleaner assigned for today. Please assign cleaners.`,
+            data: { type: 'unassigned_tasks', link: '/admin/subscriptions' },
+          });
+        }
+      } catch (alertErr) {
+        console.error('[CRON] Failed to send unassigned tasks alert:', alertErr.message);
+      }
+      console.warn(`[CRON] ⚠️  ${unassignedCount} task(s) created without a cleaner`);
+    }
   } catch (err) {
     console.error('[CRON] Task creation error:', err.message);
   }
@@ -149,12 +175,10 @@ export const sendReminders = async () => {
   try {
     const now = new Date();
 
-    // Referral discount expiring in ~2 days
-    const in2Days = new Date(now);
-    in2Days.setDate(in2Days.getDate() + 2);
-    in2Days.setHours(0, 0, 0, 0);
-    const in2DaysEnd = new Date(in2Days);
-    in2DaysEnd.setHours(23, 59, 59, 999);
+    // Referral discount expiring in ~2 IST calendar days
+    // Use getISTMidnight so the window is aligned to IST days, not UTC days
+    const in2Days = getISTMidnight(new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000));
+    const in2DaysEnd = new Date(in2Days.getTime() + 24 * 60 * 60 * 1000 - 1);
 
     const expiringReferrals = await Customer.find({
       'referralDiscount.isActive': true,
@@ -174,22 +198,29 @@ export const sendReminders = async () => {
       console.log(`[CRON] Sent ${expiringReferrals.length} referral reminder(s)`);
     }
 
-    // Subscriptions expiring in ≤3 remaining days
+    // Subscriptions expiring within the next 3 days — query by endDate so the
+    // reminder fires correctly regardless of whether all tasks were marked completed.
+    // remainingDays stored in DB can be stale if tasks were missed/rain/curfew.
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
     const expiringSubs = await Subscription.find({
       status: 'Active',
-      remainingDays: { $gt: 0, $lte: 3 },
-    }).select('customer remainingDays');
+      endDate: { $gt: now, $lte: threeDaysFromNow },
+    }).select('customer endDate');
 
     if (expiringSubs.length > 0) {
       await Notification.insertMany(
-        expiringSubs.map(s => ({
-          recipient: s.customer,
-          recipientModel: 'Customer',
-          type: 'subscription',
-          title: 'Subscription Ending Soon',
-          message: `Your Cleanzo subscription has only ${s.remainingDays} day${s.remainingDays === 1 ? '' : 's'} left. Renew now to avoid a gap in service!`,
-          data: { remainingDays: s.remainingDays },
-        }))
+        expiringSubs.map(s => {
+          const msLeft = s.endDate.getTime() - now.getTime();
+          const daysLeft = Math.max(1, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
+          return {
+            recipient: s.customer,
+            recipientModel: 'Customer',
+            type: 'subscription',
+            title: 'Subscription Ending Soon',
+            message: `Your Cleanzo subscription has only ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. Renew now to avoid a gap in service!`,
+            data: { remainingDays: daysLeft },
+          };
+        })
       );
       console.log(`[CRON] Sent ${expiringSubs.length} subscription expiry reminder(s)`);
     }
@@ -200,9 +231,10 @@ export const sendReminders = async () => {
 
 // ─── Start all cron jobs ──────────────────────────────────────────────────────
 export const startCronJobs = () => {
-  cron.schedule('0 0 * * *', expireReferralDiscounts);  // midnight
-  cron.schedule('5 0 * * *', expireSubscriptions);       // 12:05 AM (after referral job)
-  cron.schedule('0 4 * * *', createDailyTasks);          // 4:00 AM
-  cron.schedule('0 9 * * *', sendReminders);             // 9:00 AM
-  console.log('✅ Cron jobs scheduled');
+  const IST = { timezone: 'Asia/Kolkata' };
+  cron.schedule('0 0 * * *', expireReferralDiscounts, IST);  // midnight IST
+  cron.schedule('5 0 * * *', expireSubscriptions, IST);       // 12:05 AM IST (after referral job)
+  cron.schedule('0 4 * * *', createDailyTasks, IST);          // 4:00 AM IST
+  cron.schedule('0 9 * * *', sendReminders, IST);             // 9:00 AM IST
+  console.log('✅ Cron jobs scheduled (timezone: Asia/Kolkata)');
 };
