@@ -161,16 +161,23 @@ export default function BookingFlow() {
     useEffect(() => {
       if (window.Razorpay) {
         setRazorpayReady(true)
-      } else {
-        const script = document.createElement('script')
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-        script.async = true
-        script.onload = () => setRazorpayReady(true)
-        script.onerror = () => setPaymentError('Failed to load payment gateway. Please refresh.')
-        document.body.appendChild(script)
-        return () => { document.body.removeChild(script) }
+        return
       }
-    }, [refreshAll])
+
+      // Check if script is already appended to body to prevent duplicates
+      const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
+      if (existingScript) {
+        setRazorpayReady(true)
+        return
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.async = true
+      script.onload = () => setRazorpayReady(true)
+      script.onerror = () => setPaymentError('Failed to load payment gateway. Please refresh.')
+      document.body.appendChild(script)
+    }, [])
 
   // Calculate pricing
   const basePrice = selectedPkg ? (selectedPkg.isTrial ? trialPrice : selectedPkg.price) : 0
@@ -252,7 +259,7 @@ export default function BookingFlow() {
         },
         prefill: {
           name: user?.name || '',
-          contact: user?.phone || '',
+          contact: user?.phone ? (user.phone.startsWith('+') ? user.phone : `+91${user.phone}`) : '',
           email: user?.email || ''
         },
         theme: {
