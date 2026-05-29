@@ -160,59 +160,84 @@ export const createDailyTasks = async () => {
     const allUnassignedTasks = await Task.find({
       subscription: { $in: subIds },
       date: { $gte: today, $lt: tomorrow },
-      cleaner: null,
+      cleaner: { $in: [null, undefined] },
       status: 'pending',
     }).select('_id subscription').lean();
 
-    if (allUnassignedTasks.length > 0) {
-      // Map subscriptionId → society for O(1) lookup
-      const subToSociety = new Map(activeSubs.map(s => [s._id.toString(), s.society]));
+    console.log(`[CRON][AUTO-ASSIGN] Unassigned pending tasks today: ${allUnassignedTasks.length}`);
 
-      // Group unassigned tasks by society
-      const bySociety = new Map(); // societyId → Task[]
+    if (allUnassignedTasks.length > 0) {
+      // Map subscriptionId → full subscription object for society lookup
+      const subMap = new Map(activeSubs.map(s => [s._id.toString(), s]));
+
+      // Group unassigned tasks by society, storing the society ObjectId directly
+      // to avoid string-to-ObjectId casting issues in Mongoose 8.x queries
+      const bySociety = new Map(); // societyId string → { societyObjId, tasks[] }
       for (const task of allUnassignedTasks) {
-        const society = subToSociety.get(task.subscription.toString());
-        const societyId = society?._id?.toString();
-        if (!societyId) continue;
-        if (!bySociety.has(societyId)) bySociety.set(societyId, []);
-        bySociety.get(societyId).push(task);
+        const sub = subMap.get(task.subscription.toString());
+        const society = sub?.society;
+        if (!society?._id) {
+          console.log(`[CRON][AUTO-ASSIGN] Skipping task ${task._id} — subscription has no society`);
+          continue;
+        }
+        const societyId = society._id.toString();
+        if (!bySociety.has(societyId)) {
+          bySociety.set(societyId, { societyObjId: society._id, tasks: [] });
+        }
+        bySociety.get(societyId).tasks.push(task);
       }
 
+      console.log(`[CRON][AUTO-ASSIGN] Grouped into ${bySociety.size} society bucket(s)`);
       let autoAssignedCount = 0;
 
-      for (const [societyId, tasks] of bySociety) {
-        // ── Discover candidate cleaners ─────────────────────────────────────
-        // Source 1: cleaners already working in this society (from subscriptions)
-        // Source 2: society.cleaners[] (admin-added list)
-        // Both sources are merged so neither alone is a single point of failure.
-        const [fromSubs, societyDoc] = await Promise.all([
-          Subscription.distinct('assignedCleaner', {
-            society: societyId,
-            status: 'Active',
-            assignedCleaner: { $exists: true, $ne: null },
-          }),
-          Society.findById(societyId).select('cleaners').lean(),
-        ]);
+      for (const [societyId, { societyObjId, tasks }] of bySociety) {
+        console.log(`[CRON][AUTO-ASSIGN] Society ${societyId}: ${tasks.length} task(s) need a cleaner`);
 
+        // ── Source 1: cleaners from active subscriptions in this society ─────
+        // This works even when society.cleaners[] is empty, which is the common
+        // case since admins assign cleaners per-subscription, not per-society.
+        const fromSubs = await Subscription.distinct('assignedCleaner', {
+          society: societyObjId,            // ObjectId — avoids Mongoose casting
+          status: 'Active',
+          assignedCleaner: { $exists: true, $ne: null },
+        });
+
+        // ── Source 2: society.cleaners[] admin-managed list ──────────────────
+        const societyDoc = await Society.findById(societyObjId).select('cleaners').lean();
         const fromSocietyList = (societyDoc?.cleaners || []).map(c => c.toString());
+
         const candidateIds = [...new Set([
           ...fromSubs.map(id => id.toString()),
           ...fromSocietyList,
         ])];
 
-        if (candidateIds.length === 0) continue;
+        console.log(`[CRON][AUTO-ASSIGN] Society ${societyId}: ${candidateIds.length} candidate(s) — fromSubs=${fromSubs.length}, fromSocietyList=${fromSocietyList.length}`);
+
+        if (candidateIds.length === 0) {
+          console.warn(`[CRON][AUTO-ASSIGN] Society ${societyId}: no cleaners found — assign at least one cleaner to a subscription in this society`);
+          continue;
+        }
 
         // Filter: active, available, not on approved leave today
         const eligible = await Cleaner.find({
           _id: { $in: candidateIds },
           isActive: true,
           isAvailable: true,
-        }).select('_id').lean();
+        }).select('_id name').lean();
 
         const notOnLeave = eligible.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
-        if (notOnLeave.length === 0) continue;
+        console.log(`[CRON][AUTO-ASSIGN] Society ${societyId}: eligible=${eligible.length}, notOnLeave=${notOnLeave.length}`);
 
-        // Load-balance: count existing assigned tasks today per cleaner
+        if (eligible.length === 0) {
+          console.warn(`[CRON][AUTO-ASSIGN] Society ${societyId}: no active+available cleaners among candidates`);
+          continue;
+        }
+        if (notOnLeave.length === 0) {
+          console.warn(`[CRON][AUTO-ASSIGN] Society ${societyId}: all eligible cleaners are on leave today`);
+          continue;
+        }
+
+        // Load-balance: count existing assigned tasks per cleaner today
         const taskCounts = await Task.aggregate([
           {
             $match: {
@@ -222,13 +247,9 @@ export const createDailyTasks = async () => {
           },
           { $group: { _id: '$cleaner', count: { $sum: 1 } } },
         ]);
-
-        // Track in-memory running totals so assignments within this batch are
-        // also distributed evenly (not just across pre-existing tasks)
         const runningCount = new Map(taskCounts.map(t => [t._id.toString(), t.count]));
 
         for (const task of tasks) {
-          // Always assign to the currently least-loaded eligible cleaner
           notOnLeave.sort(
             (a, b) => (runningCount.get(a._id.toString()) || 0) - (runningCount.get(b._id.toString()) || 0)
           );
@@ -237,14 +258,13 @@ export const createDailyTasks = async () => {
           await Task.findByIdAndUpdate(task._id, { cleaner: cleaner._id });
           await Subscription.findByIdAndUpdate(task.subscription, { assignedCleaner: cleaner._id });
 
+          console.log(`[CRON][AUTO-ASSIGN] Assigned "${cleaner.name}" (${cleaner._id}) to task ${task._id}`);
           runningCount.set(cleaner._id.toString(), (runningCount.get(cleaner._id.toString()) || 0) + 1);
           autoAssignedCount++;
         }
       }
 
-      if (autoAssignedCount > 0) {
-        console.log(`[CRON] Auto-assigned cleaners to ${autoAssignedCount} task(s)`);
-      }
+      console.log(`[CRON][AUTO-ASSIGN] Done — auto-assigned ${autoAssignedCount}/${allUnassignedTasks.length} task(s)`);
     }
     // ── End auto-assign ──────────────────────────────────────────────────────
 
