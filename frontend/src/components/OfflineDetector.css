@@ -1,0 +1,172 @@
+/* ==========================================================================
+   Cleanzo — Offline UI Stylesheet
+   ========================================================================== */
+
+/* Fullscreen offline overlay */
+.offline-screen {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary, #0A0A0A);
+  color: var(--text-primary, #FFFFFF);
+  padding: 24px;
+  text-align: center;
+  animation: offlineFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.offline-card {
+  max-width: 400px;
+  width: 100%;
+  background: var(--bg-surface, #161616);
+  border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.08));
+  border-radius: 28px;
+  padding: 48px 32px;
+  box-shadow: var(--shadow-lg, 0 24px 64px rgba(0,0,0,0.9));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: offlineSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Glowing Wifi Icon */
+.offline-icon-container {
+  position: relative;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.offline-icon-glow {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  background: var(--error, #FF453A);
+  border-radius: 50%;
+  filter: blur(24px);
+  opacity: 0.25;
+  animation: offlinePulseGlow 2.5s infinite ease-in-out;
+}
+
+.offline-icon-wrapper {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  background: rgba(255, 69, 58, 0.08);
+  border: 1px solid rgba(255, 69, 58, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--error, #FF453A);
+  transition: transform 0.3s ease;
+}
+
+.offline-icon-wrapper:hover {
+  transform: scale(1.05);
+}
+
+.offline-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  color: var(--text-primary, #FFFFFF);
+}
+
+.offline-desc {
+  font-size: 14px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.65));
+  line-height: 1.6;
+  margin-bottom: 36px;
+  max-width: 320px;
+}
+
+/* Retry Button styling matching Cleanzo premium buttons */
+.offline-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 24px;
+  background: var(--accent-lime, #DFFF00);
+  color: var(--text-on-lime, #000000);
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(223, 255, 0, 0.15);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: none;
+  cursor: pointer;
+}
+
+.offline-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(223, 255, 0, 0.3);
+  opacity: 0.95;
+}
+
+.offline-btn:active {
+  transform: translateY(0);
+}
+
+.offline-btn svg {
+  transition: transform 0.5s ease;
+}
+
+.offline-btn:hover svg {
+  transform: rotate(180deg);
+}
+
+/* Sliding Floating Banner for active session network loss */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  background: var(--error, #FF453A);
+  color: var(--text-primary, #FFFFFF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  animation: offlineSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.offline-banner-icon {
+  animation: offlineBlink 1.5s infinite step-end;
+}
+
+/* Animations */
+@keyframes offlineFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes offlineSlideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes offlineSlideDown {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes offlinePulseGlow {
+  0%, 100% { opacity: 0.2; transform: scale(0.95); }
+  50% { opacity: 0.35; transform: scale(1.1); }
+}
+
+@keyframes offlineBlink {
+  50% { opacity: 0.5; }
+}

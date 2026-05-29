@@ -27,7 +27,7 @@ export async function registerFcmServiceWorker() {
     const swUrl = `/firebase-messaging-sw.js?apiKey=${encodeURIComponent(apiKey)}&messagingSenderId=${encodeURIComponent(messagingSenderId)}&appId=${encodeURIComponent(appId)}`;
 
     swRegistration = await navigator.serviceWorker.register(swUrl, {
-      scope: '/',
+      scope: '/fcm-scope/',
     });
     await navigator.serviceWorker.ready;
     return swRegistration;

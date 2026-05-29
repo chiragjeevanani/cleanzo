@@ -7,12 +7,17 @@ import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
 
-// Unregister stale PWA service workers — but KEEP the Firebase messaging SW
+// Unregister stale PWA service workers — but KEEP the Firebase messaging SW and our PWA SW
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     for (const registration of registrations) {
       const scriptURL = registration.active?.scriptURL || '';
-      if (!scriptURL.includes('firebase-messaging-sw')) {
+      const shouldKeep = 
+        scriptURL.includes('firebase-messaging-sw') || 
+        scriptURL.includes('sw.js') || 
+        scriptURL.includes('registerSW.js');
+
+      if (!shouldKeep) {
         registration.unregister();
       }
     }
