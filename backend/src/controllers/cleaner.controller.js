@@ -374,9 +374,12 @@ export const requestLeave = asyncHandler(async (req, res) => {
 
   const leaveDate = getISTMidnight(date);
   const today = getISTMidnight();
-
-  if (leaveDate < today) {
-    throw new ApiError(400, 'Cannot apply for leaves on past dates');
+  // Require at least 1 day advance notice — same-day leave is rejected because the
+  // 4 AM cron has already created and assigned tasks for today.
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (leaveDate < tomorrow) {
+    throw new ApiError(400, 'Leave must be requested at least 1 day in advance');
   }
 
   // Check if there is already a pending or approved request for this date
@@ -402,12 +405,15 @@ export const requestLeave = asyncHandler(async (req, res) => {
     }
   }
 
-  // Check if already 2 leaves (pending or approved) this month
-  const start = new Date(leaveDate.getFullYear(), leaveDate.getMonth(), 1);
-  const end = new Date(leaveDate.getFullYear(), leaveDate.getMonth() + 1, 0, 23, 59, 59, 999);
+  // Use UTC methods because leaveDate is stored as UTC midnight (IST day boundary).
+  // Using local getMonth/getFullYear would give wrong month on servers not in IST.
+  const year = leaveDate.getUTCFullYear();
+  const month = leaveDate.getUTCMonth();
+  const start = new Date(Date.UTC(year, month, 1));
+  const end = new Date(Date.UTC(year, month + 1, 1));
   const activeLeaveRequestsCount = await LeaveRequest.countDocuments({
     cleaner: req.user._id,
-    date: { $gte: start, $lte: end },
+    date: { $gte: start, $lt: end },
     status: { $in: ['pending', 'approved'] }
   });
 

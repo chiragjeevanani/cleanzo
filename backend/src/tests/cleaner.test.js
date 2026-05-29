@@ -222,7 +222,7 @@ describe('CLEAN-8..10 | Attendance and earnings', () => {
 
     const res = await api.post('/api/cleaner/leave').set(authHeader(token)).send({ date: dateStr, reason: 'Doc appointment' });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/past dates/i);
+    expect(res.body.message).toMatch(/advance/i);
   });
 
   it('allows applying for leave on future dates and saves as pending', async () => {

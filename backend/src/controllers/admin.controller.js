@@ -1139,6 +1139,19 @@ export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
 
   const cleaner = await Cleaner.findById(cleanerId);
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
+  if (!cleaner.isActive) throw new ApiError(400, 'Cannot assign a deactivated cleaner');
+  if (!cleaner.isAvailable) throw new ApiError(400, 'This cleaner is currently marked as unavailable');
+
+  // Block assignment if the cleaner has an approved leave for today
+  const todayForLeave = getISTMidnight();
+  const leaveToday = await LeaveRequest.findOne({
+    cleaner: cleanerId,
+    date: todayForLeave,
+    status: 'approved',
+  });
+  if (leaveToday) {
+    throw new ApiError(400, 'This cleaner has an approved leave for today and cannot be assigned');
+  }
 
   if (subscription.status === 'Expired' || subscription.status === 'Cancelled') {
     throw new ApiError(400, 'Cannot assign cleaner to an expired or cancelled subscription');

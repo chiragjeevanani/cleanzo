@@ -146,8 +146,14 @@ export const createDailyTasks = async () => {
 
     console.log(`[CRON] Created ${newDocs.length} tasks for ${today.toDateString()}`);
 
-    // Alert admins if any tasks have no assigned cleaner
-    const unassignedCount = newDocs.filter(d => !d.cleaner).length;
+    // Query the DB for actual unassigned pending tasks today — more accurate than
+    // counting newDocs which may include duplicates that were skipped by insertMany.
+    const unassignedCount = await Task.countDocuments({
+      subscription: { $in: subIds },
+      date: { $gte: today, $lt: tomorrow },
+      cleaner: null,
+      status: 'pending',
+    });
     if (unassignedCount > 0) {
       try {
         const admins = await Admin.find({ fcmTokens: { $exists: true, $ne: [] } }).select('fcmTokens');
@@ -208,21 +214,39 @@ export const sendReminders = async () => {
     }).select('customer endDate');
 
     if (expiringSubs.length > 0) {
-      await Notification.insertMany(
-        expiringSubs.map(s => {
-          const msLeft = s.endDate.getTime() - now.getTime();
-          const daysLeft = Math.max(1, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
-          return {
-            recipient: s.customer,
-            recipientModel: 'Customer',
-            type: 'subscription',
-            title: 'Subscription Ending Soon',
-            message: `Your Cleanzo subscription has only ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. Renew now to avoid a gap in service!`,
-            data: { remainingDays: daysLeft },
-          };
-        })
+      // Dedup: skip customers who already received this reminder today so that a
+      // server restart or manual re-run does not flood them with duplicates.
+      const todayStart = getISTMidnight();
+      const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+      const alreadyRemindedIds = await Notification.distinct('recipient', {
+        type: 'subscription',
+        title: 'Subscription Ending Soon',
+        recipientModel: 'Customer',
+        createdAt: { $gte: todayStart, $lt: todayEnd },
+      });
+      const alreadyRemindedSet = new Set(alreadyRemindedIds.map(id => id.toString()));
+
+      const subsToNotify = expiringSubs.filter(
+        s => !alreadyRemindedSet.has(s.customer.toString())
       );
-      console.log(`[CRON] Sent ${expiringSubs.length} subscription expiry reminder(s)`);
+
+      if (subsToNotify.length > 0) {
+        await Notification.insertMany(
+          subsToNotify.map(s => {
+            const msLeft = s.endDate.getTime() - now.getTime();
+            const daysLeft = Math.max(1, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
+            return {
+              recipient: s.customer,
+              recipientModel: 'Customer',
+              type: 'subscription',
+              title: 'Subscription Ending Soon',
+              message: `Your Cleanzo subscription has only ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. Renew now to avoid a gap in service!`,
+              data: { remainingDays: daysLeft },
+            };
+          })
+        );
+        console.log(`[CRON] Sent ${subsToNotify.length} subscription expiry reminder(s)`);
+      }
     }
   } catch (err) {
     console.error('[CRON] Reminders error:', err.message);
