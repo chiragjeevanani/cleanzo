@@ -248,6 +248,7 @@ export default function BookingFlow() {
               overrideReason: activeOverride ? overrideReason : undefined
             })
 
+            setProcessing(false)
             refreshAll() // Refresh global data to reflect new subscription
             setStep(4)
           } catch (verifyErr) {
@@ -334,6 +335,43 @@ export default function BookingFlow() {
 
   return (
     <div className="app-shell animate-fade-in" style={{ paddingBottom: 120 }}>
+      {processing && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(10, 10, 10, 0.85)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 24,
+          padding: 24,
+          textAlign: 'center'
+        }} className="animate-fade-in">
+          {/* Animated Spinner */}
+          <div style={{
+            width: 64,
+            height: 64,
+            borderRadius: '50%',
+            border: '4px solid rgba(223, 255, 0, 0.1)',
+            borderTop: '4px solid var(--accent-lime, #DFFF00)',
+            animation: 'spin 1s linear infinite'
+          }} />
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
+              Securing Connection...
+            </h3>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', maxWidth: 280, margin: '0 auto', lineHeight: 1.5 }}>
+              Connecting to the secure payment gateway. Please do not close or refresh this page.
+            </p>
+          </div>
+        </div>
+      )}
+
       {step < 4 && (
         <div className="app-header" style={{ background: 'transparent', border: 'none', position: 'relative' }}>
           <button onClick={() => step > 0 ? setStep(step - 1) : navigate(-1)} className="btn-icon glass" style={{ borderRadius: 14 }}>

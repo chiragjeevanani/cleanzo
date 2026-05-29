@@ -456,11 +456,11 @@ export default function AdminPackages() {
               <div className="flex flex-col gap-8">
                 <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>PLAN CATEGORY</label>
                 <select className="input-field" 
-                  style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
+                  style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
                   value={formData.tier} onChange={e => setFormData({...formData, tier: e.target.value})}>
-                  <option value="BASIC">BASIC</option>
-                  <option value="STANDARD">STANDARD</option>
-                  <option value="PREMIUM">PREMIUM</option>
+                  <option value="BASIC" style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)' }}>BASIC</option>
+                  <option value="STANDARD" style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)' }}>STANDARD</option>
+                  <option value="PREMIUM" style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)' }}>PREMIUM</option>
                 </select>
               </div>
 
