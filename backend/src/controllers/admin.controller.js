@@ -1471,18 +1471,9 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
     bySociety.get(sid).subs.push(sub);
   }
 
-  // 6. Load-balance: get current task counts for today per cleaner (across all)
-  const taskCounts = await Task.aggregate([
-    {
-      $match: {
-        cleaner: { $in: globalPool.map(c => c._id) },
-        date: { $gte: today, $lt: tomorrow },
-      },
-    },
-    { $group: { _id: '$cleaner', count: { $sum: 1 } } },
-  ]);
-  const runningCount = new Map(taskCounts.map(t => [t._id.toString(), t.count]));
-
+  // 6. Assign cleaners using slot-aware round-robin
+  //    For each society bucket, group subs by their slot, then for each slot
+  //    count per-cleaner tasks in THAT slot today, and pick the least-loaded.
   let assignedCount = 0;
   let failedCount = 0;
   const details = [];
@@ -1530,70 +1521,91 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
       continue;
     }
 
+    // Group subs by their slot for slot-aware round-robin
+    const subsBySlot = new Map(); // slot string → subs[]
     for (const sub of subs) {
-      try {
-        // Pick least-loaded cleaner
-        pool.sort(
-          (a, b) => (runningCount.get(a._id.toString()) || 0) - (runningCount.get(b._id.toString()) || 0)
-        );
-        const cleaner = pool[0];
+      let slot = '07:00 AM'; // default
+      if (sub.society && sub.slot) {
+        const slotObj = sub.society.slots?.find(s => s.slotId === sub.slot);
+        if (slotObj?.timeWindow) slot = slotObj.timeWindow.split(' - ')[0];
+      }
+      if (!subsBySlot.has(slot)) subsBySlot.set(slot, []);
+      subsBySlot.get(slot).push(sub);
+    }
 
-        // Update subscription's assigned cleaner
-        await Subscription.findByIdAndUpdate(sub._id, { assignedCleaner: cleaner._id });
+    for (const [slot, slotSubs] of subsBySlot) {
+      // Count existing assigned tasks per cleaner for THIS specific slot today
+      const slotTaskCounts = await Task.aggregate([
+        {
+          $match: {
+            cleaner: { $in: pool.map(c => c._id) },
+            date: { $gte: today, $lt: tomorrow },
+            scheduledTime: slot,
+          },
+        },
+        { $group: { _id: '$cleaner', count: { $sum: 1 } } },
+      ]);
+      const slotCount = new Map(slotTaskCounts.map(t => [t._id.toString(), t.count]));
 
-        // Create or update today's task
-        const existingTask = await Task.findOne({
-          subscription: sub._id,
-          date: { $gte: today, $lt: tomorrow },
-        });
+      for (const sub of slotSubs) {
+        try {
+          // Round-robin: pick the cleaner with fewest tasks in THIS slot
+          pool.sort(
+            (a, b) => (slotCount.get(a._id.toString()) || 0) - (slotCount.get(b._id.toString()) || 0)
+          );
+          const cleaner = pool[0];
 
-        if (existingTask) {
-          existingTask.cleaner = cleaner._id;
-          await existingTask.save();
-        } else {
-          let scheduledTime = '07:00 AM';
-          if (sub.society && sub.slot) {
-            const slot = sub.society.slots?.find(s => s.slotId === sub.slot);
-            if (slot?.timeWindow) scheduledTime = slot.timeWindow.split(' - ')[0];
-          }
+          // Update subscription's assigned cleaner
+          await Subscription.findByIdAndUpdate(sub._id, { assignedCleaner: cleaner._id });
 
-          try {
-            await Task.create({
-              subscription: sub._id,
-              customer: sub.customer,
-              cleaner: cleaner._id,
-              vehicle: sub.vehicle,
-              date: today,
-              scheduledTime,
-              status: 'pending',
-              packageName: sub.package?.name || (sub.isTrial ? 'Trial' : 'Standard'),
-            });
-          } catch (createErr) {
-            if (createErr.code === 11000) {
-              // Duplicate — just update cleaner on the existing one
-              await Task.findOneAndUpdate(
-                { subscription: sub._id, date: { $gte: today, $lt: tomorrow } },
-                { cleaner: cleaner._id }
-              );
-            } else {
-              throw createErr;
+          // Create or update today's task
+          const existingTask = await Task.findOne({
+            subscription: sub._id,
+            date: { $gte: today, $lt: tomorrow },
+          });
+
+          if (existingTask) {
+            existingTask.cleaner = cleaner._id;
+            await existingTask.save();
+          } else {
+            try {
+              await Task.create({
+                subscription: sub._id,
+                customer: sub.customer,
+                cleaner: cleaner._id,
+                vehicle: sub.vehicle,
+                date: today,
+                scheduledTime: slot,
+                status: 'pending',
+                packageName: sub.package?.name || (sub.isTrial ? 'Trial' : 'Standard'),
+              });
+            } catch (createErr) {
+              if (createErr.code === 11000) {
+                await Task.findOneAndUpdate(
+                  { subscription: sub._id, date: { $gte: today, $lt: tomorrow } },
+                  { cleaner: cleaner._id }
+                );
+              } else {
+                throw createErr;
+              }
             }
           }
-        }
 
-        runningCount.set(cleaner._id.toString(), (runningCount.get(cleaner._id.toString()) || 0) + 1);
-        assignedCount++;
-        details.push({
-          subscriptionId: sub._id,
-          cleanerName: cleaner.name,
-          cleanerId: cleaner._id,
-          bucket: label,
-        });
-        console.log(`[ASSIGN-ALL] Assigned "${cleaner.name}" → subscription ${sub._id} [bucket=${label}]`);
-      } catch (err) {
-        console.error(`[ASSIGN-ALL] Failed for subscription ${sub._id}:`, err.message);
-        details.push({ subscriptionId: sub._id, reason: err.message });
-        failedCount++;
+          slotCount.set(cleaner._id.toString(), (slotCount.get(cleaner._id.toString()) || 0) + 1);
+          assignedCount++;
+          details.push({
+            subscriptionId: sub._id,
+            cleanerName: cleaner.name,
+            cleanerId: cleaner._id,
+            slot,
+            bucket: label,
+          });
+          console.log(`[ASSIGN-ALL] Assigned "${cleaner.name}" → subscription ${sub._id} [bucket=${label}, slot=${slot}]`);
+        } catch (err) {
+          console.error(`[ASSIGN-ALL] Failed for subscription ${sub._id}:`, err.message);
+          details.push({ subscriptionId: sub._id, reason: err.message });
+          failedCount++;
+        }
       }
     }
   }

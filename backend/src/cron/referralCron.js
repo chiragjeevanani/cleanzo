@@ -169,7 +169,7 @@ export const createDailyTasks = async () => {
       date: { $gte: today, $lt: tomorrow },
       cleaner: { $in: [null, undefined] },
       status: 'pending',
-    }).select('_id subscription').lean();
+    }).select('_id subscription scheduledTime').lean();
 
     console.log(`[CRON][AUTO-ASSIGN] Unassigned pending tasks today: ${allUnassignedTasks.length}`);
 
@@ -269,30 +269,45 @@ export const createDailyTasks = async () => {
           continue;
         }
 
-        // Load-balance: count existing assigned tasks per cleaner today
-        const taskCounts = await Task.aggregate([
-          {
-            $match: {
-              cleaner: { $in: notOnLeave.map(c => c._id) },
-              date: { $gte: today, $lt: tomorrow },
-            },
-          },
-          { $group: { _id: '$cleaner', count: { $sum: 1 } } },
-        ]);
-        const runningCount = new Map(taskCounts.map(t => [t._id.toString(), t.count]));
-
+        // ── Slot-aware round-robin assignment ──────────────────────────────
+        // Group tasks by their scheduledTime (slot) so we load-balance
+        // PER SLOT — a cleaner busy in "07:00 AM" slot shouldn't block
+        // another cleaner who is free in that slot.
+        const tasksBySlot = new Map(); // scheduledTime → tasks[]
         for (const task of tasks) {
-          notOnLeave.sort(
-            (a, b) => (runningCount.get(a._id.toString()) || 0) - (runningCount.get(b._id.toString()) || 0)
-          );
-          const cleaner = notOnLeave[0];
+          const slot = task.scheduledTime || '07:00 AM';
+          if (!tasksBySlot.has(slot)) tasksBySlot.set(slot, []);
+          tasksBySlot.get(slot).push(task);
+        }
 
-          await Task.findByIdAndUpdate(task._id, { cleaner: cleaner._id });
-          await Subscription.findByIdAndUpdate(task.subscription, { assignedCleaner: cleaner._id });
+        for (const [slot, slotTasks] of tasksBySlot) {
+          // Count existing assigned tasks per cleaner for THIS specific slot today
+          const slotTaskCounts = await Task.aggregate([
+            {
+              $match: {
+                cleaner: { $in: notOnLeave.map(c => c._id) },
+                date: { $gte: today, $lt: tomorrow },
+                scheduledTime: slot,
+              },
+            },
+            { $group: { _id: '$cleaner', count: { $sum: 1 } } },
+          ]);
+          const slotCount = new Map(slotTaskCounts.map(t => [t._id.toString(), t.count]));
 
-          console.log(`[CRON][AUTO-ASSIGN] Assigned "${cleaner.name}" (${cleaner._id}) to task ${task._id} [bucket=${label}]`);
-          runningCount.set(cleaner._id.toString(), (runningCount.get(cleaner._id.toString()) || 0) + 1);
-          autoAssignedCount++;
+          for (const task of slotTasks) {
+            // Round-robin: pick the cleaner with fewest tasks in THIS slot
+            notOnLeave.sort(
+              (a, b) => (slotCount.get(a._id.toString()) || 0) - (slotCount.get(b._id.toString()) || 0)
+            );
+            const cleaner = notOnLeave[0];
+
+            await Task.findByIdAndUpdate(task._id, { cleaner: cleaner._id });
+            await Subscription.findByIdAndUpdate(task.subscription, { assignedCleaner: cleaner._id });
+
+            console.log(`[CRON][AUTO-ASSIGN] Assigned "${cleaner.name}" (${cleaner._id}) to task ${task._id} [bucket=${label}, slot=${slot}]`);
+            slotCount.set(cleaner._id.toString(), (slotCount.get(cleaner._id.toString()) || 0) + 1);
+            autoAssignedCount++;
+          }
         }
       }
 
