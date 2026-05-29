@@ -132,38 +132,79 @@ export const createDailyTasks = async () => {
       });
     }
 
-    // ── Auto-assign cleaners to tasks that still have cleaner: null ────────────
-    // Group unassigned docs by society, then pick the least-loaded eligible
-    // cleaner (active, available, not on leave) and assign round-robin.
-    // The subscription's assignedCleaner is also persisted so the admin panel
-    // and future cron runs show the correct assignment immediately.
-    const unassignedDocs = newDocs.filter(d => !d.cleaner);
-    if (unassignedDocs.length > 0) {
-      // Build subId → sub lookup for society/cleaner access
-      const subMap = new Map(activeSubs.map(s => [s._id.toString(), s]));
-
-      // Group unassigned docs by society ID
-      const bySociety = new Map(); // societyId → { cleanerIds[], docs[] }
-      for (const doc of unassignedDocs) {
-        const sub = subMap.get(doc.subscription.toString());
-        const societyId = sub?.society?._id?.toString();
-        if (!societyId) continue;
-
-        if (!bySociety.has(societyId)) {
-          const cleanerIds = (sub.society.cleaners || []).map(c =>
-            typeof c === 'object' ? c.toString() : c.toString()
-          );
-          bySociety.set(societyId, { cleanerIds, docs: [] });
+    // ── Step 1: Insert new tasks ─────────────────────────────────────────────
+    if (newDocs.length > 0) {
+      try {
+        await Task.insertMany(newDocs, { ordered: false });
+      } catch (insertErr) {
+        if (insertErr.code !== 11000 && !insertErr.writeErrors?.every(we => we.code === 11000)) {
+          throw insertErr;
         }
-        bySociety.get(societyId).docs.push(doc);
+        console.log('[CRON] Some tasks were already created (duplicate key ignored)');
+      }
+    }
+    console.log(`[CRON] Created ${newDocs.length} new task(s) for ${today.toDateString()}`);
+
+    // ── Step 2: Auto-assign cleaners to ALL unassigned pending tasks today ────
+    //
+    // WHY this runs after insertMany and queries MongoDB directly:
+    //   • Bug fix A — previously queried society.cleaners[] which admins rarely
+    //     populate. Cleaners are added to subscriptions directly, so we instead
+    //     discover eligible cleaners from *existing subscription assignments* in
+    //     the same society (+ society.cleaners as a secondary source).
+    //   • Bug fix B — previously only ran on newDocs (tasks created THIS run).
+    //     Pre-existing tasks with cleaner: null (from earlier runs) were silently
+    //     skipped by the alreadyCreated check and never reconsidered. Now we
+    //     query MongoDB for ALL unassigned pending tasks today.
+    //
+    const allUnassignedTasks = await Task.find({
+      subscription: { $in: subIds },
+      date: { $gte: today, $lt: tomorrow },
+      cleaner: null,
+      status: 'pending',
+    }).select('_id subscription').lean();
+
+    if (allUnassignedTasks.length > 0) {
+      // Map subscriptionId → society for O(1) lookup
+      const subToSociety = new Map(activeSubs.map(s => [s._id.toString(), s.society]));
+
+      // Group unassigned tasks by society
+      const bySociety = new Map(); // societyId → Task[]
+      for (const task of allUnassignedTasks) {
+        const society = subToSociety.get(task.subscription.toString());
+        const societyId = society?._id?.toString();
+        if (!societyId) continue;
+        if (!bySociety.has(societyId)) bySociety.set(societyId, []);
+        bySociety.get(societyId).push(task);
       }
 
-      for (const [, { cleanerIds, docs: unassigned }] of bySociety) {
-        if (cleanerIds.length === 0) continue;
+      let autoAssignedCount = 0;
 
-        // Load only active + available cleaners from this society who aren't on leave
+      for (const [societyId, tasks] of bySociety) {
+        // ── Discover candidate cleaners ─────────────────────────────────────
+        // Source 1: cleaners already working in this society (from subscriptions)
+        // Source 2: society.cleaners[] (admin-added list)
+        // Both sources are merged so neither alone is a single point of failure.
+        const [fromSubs, societyDoc] = await Promise.all([
+          Subscription.distinct('assignedCleaner', {
+            society: societyId,
+            status: 'Active',
+            assignedCleaner: { $exists: true, $ne: null },
+          }),
+          Society.findById(societyId).select('cleaners').lean(),
+        ]);
+
+        const fromSocietyList = (societyDoc?.cleaners || []).map(c => c.toString());
+        const candidateIds = [...new Set([
+          ...fromSubs.map(id => id.toString()),
+          ...fromSocietyList,
+        ])];
+
+        if (candidateIds.length === 0) continue;
+
+        // Filter: active, available, not on approved leave today
         const eligible = await Cleaner.find({
-          _id: { $in: cleanerIds },
+          _id: { $in: candidateIds },
           isActive: true,
           isAvailable: true,
         }).select('_id').lean();
@@ -171,7 +212,7 @@ export const createDailyTasks = async () => {
         const notOnLeave = eligible.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
         if (notOnLeave.length === 0) continue;
 
-        // Count existing tasks today per cleaner for load-balancing
+        // Load-balance: count existing assigned tasks today per cleaner
         const taskCounts = await Task.aggregate([
           {
             $match: {
@@ -181,50 +222,33 @@ export const createDailyTasks = async () => {
           },
           { $group: { _id: '$cleaner', count: { $sum: 1 } } },
         ]);
-        const countMap = new Map(taskCounts.map(t => [t._id.toString(), t.count]));
 
-        // Sort ascending by current workload so least-busy cleaner gets assigned first
-        notOnLeave.sort(
-          (a, b) => (countMap.get(a._id.toString()) || 0) - (countMap.get(b._id.toString()) || 0)
-        );
+        // Track in-memory running totals so assignments within this batch are
+        // also distributed evenly (not just across pre-existing tasks)
+        const runningCount = new Map(taskCounts.map(t => [t._id.toString(), t.count]));
 
-        // Round-robin assign across eligible cleaners
-        for (let i = 0; i < unassigned.length; i++) {
-          const cleaner = notOnLeave[i % notOnLeave.length];
-          unassigned[i].cleaner = cleaner._id;
+        for (const task of tasks) {
+          // Always assign to the currently least-loaded eligible cleaner
+          notOnLeave.sort(
+            (a, b) => (runningCount.get(a._id.toString()) || 0) - (runningCount.get(b._id.toString()) || 0)
+          );
+          const cleaner = notOnLeave[0];
 
-          // Persist on subscription so admin panel reflects assignment instantly
-          // and future cron runs don't need to auto-assign again
-          await Subscription.findByIdAndUpdate(unassigned[i].subscription, {
-            assignedCleaner: cleaner._id,
-          });
+          await Task.findByIdAndUpdate(task._id, { cleaner: cleaner._id });
+          await Subscription.findByIdAndUpdate(task.subscription, { assignedCleaner: cleaner._id });
+
+          runningCount.set(cleaner._id.toString(), (runningCount.get(cleaner._id.toString()) || 0) + 1);
+          autoAssignedCount++;
         }
       }
 
-      const autoAssigned = unassignedDocs.filter(d => d.cleaner).length;
-      if (autoAssigned > 0) {
-        console.log(`[CRON] Auto-assigned cleaners to ${autoAssigned} subscription(s)`);
+      if (autoAssignedCount > 0) {
+        console.log(`[CRON] Auto-assigned cleaners to ${autoAssignedCount} task(s)`);
       }
     }
     // ── End auto-assign ──────────────────────────────────────────────────────
 
-    if (newDocs.length > 0) {
-      try {
-        // ordered: false — a single duplicate key won't abort the whole batch
-        await Task.insertMany(newDocs, { ordered: false });
-      } catch (insertErr) {
-        // Handle duplicate key errors (Mongoose BulkWriteError / MongoServerError)
-        if (insertErr.code !== 11000 && !insertErr.writeErrors?.every(we => we.code === 11000)) {
-          throw insertErr;
-        }
-        console.log('[CRON] Some tasks were already created (duplicate key ignored)');
-      }
-    }
-
-    console.log(`[CRON] Created ${newDocs.length} tasks for ${today.toDateString()}`);
-
-    // Query the DB for actual unassigned pending tasks today — more accurate than
-    // counting newDocs which may include duplicates that were skipped by insertMany.
+    // Count tasks still unassigned after auto-assign attempt (needs human action)
     const unassignedCount = await Task.countDocuments({
       subscription: { $in: subIds },
       date: { $gte: today, $lt: tomorrow },
