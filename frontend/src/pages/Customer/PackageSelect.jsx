@@ -9,6 +9,7 @@ export default function PackageSelect() {
   const { packages, subscriptions, vehicles, loading: dataLoading } = useCustomerData()
   const navigate = useNavigate()
   const activeSub = (subscriptions || []).find(s => s.status === 'Active') || null
+  const activeSubForVehicle = (subscriptions || []).find(s => s.status === 'Active' && s.vehicle?._id === selectedVehicleId) || null
 
   const [selectedVehicleId, setSelectedVehicleId] = useState(null)
 
@@ -174,6 +175,20 @@ export default function PackageSelect() {
             }
           </h3>
         </div>
+
+        {activeSubForVehicle && (
+          <div className="glass" style={{ 
+            padding: '16px 20px', 
+            borderRadius: 20, 
+            border: '1.5px solid var(--bg-accent)', 
+            background: 'rgba(var(--bg-accent-rgb), 0.05)', 
+            marginBottom: 16
+          }}>
+            <p className="text-body-sm text-secondary" style={{ margin: 0, fontSize: 13, lineHeight: 1.4 }}>
+              You already have an active plan for that vehicle. You cannot select another plan until the current plan expires.
+            </p>
+          </div>
+        )}
         
         {(!vehicles || vehicles.length === 0) && (
           <div className="glass flex flex-col items-center justify-center gap-12" style={{ padding: '40px 20px', textAlign: 'center' }}>
@@ -202,20 +217,10 @@ export default function PackageSelect() {
 
         {displayPackages.map(pkg => {
           const isElite = pkg.name.toLowerCase() === 'elite';
+          const isLinkDisabled = !!activeSubForVehicle;
           
-          return (
-            <Link 
-              key={pkg._id} 
-              to={`/customer/plan/${pkg._id}?vehicleId=${selectedVehicleId}`} 
-              className="glass animate-fade-in"
-              style={{ 
-                padding: 24, 
-                display: 'block', 
-                marginBottom: 16,
-                border: isElite ? '1px solid var(--bg-accent)' : '1px solid var(--border-glass)',
-                boxShadow: isElite ? '0 0 40px rgba(var(--bg-accent-rgb), 0.2)' : 'var(--shadow-sm)'
-              }}
-            >
+          const cardContent = (
+            <>
               <div className="flex justify-between items-start" style={{ marginBottom: 20 }}>
                 <div>
                   <div className="flex items-center gap-8 mb-4">
@@ -240,9 +245,46 @@ export default function PackageSelect() {
                 ))}
               </div>
 
-              <div className="btn btn-primary w-full py-16 rounded-2xl shadow-lg shadow-primary/10">
+              <button 
+                disabled={isLinkDisabled}
+                className="btn btn-primary w-full py-16 rounded-2xl shadow-lg shadow-primary/10"
+                style={{ 
+                  opacity: isLinkDisabled ? 0.6 : 1, 
+                  cursor: isLinkDisabled ? 'not-allowed' : 'pointer' 
+                }}
+              >
                 Get Started with {pkg.name}
-              </div>
+              </button>
+            </>
+          );
+
+          return isLinkDisabled ? (
+            <div 
+              key={pkg._id} 
+              className="glass animate-fade-in"
+              style={{ 
+                padding: 24, 
+                marginBottom: 16,
+                border: '1px solid var(--border-glass)',
+                opacity: 0.8
+              }}
+            >
+              {cardContent}
+            </div>
+          ) : (
+            <Link 
+              key={pkg._id} 
+              to={`/customer/plan/${pkg._id}?vehicleId=${selectedVehicleId}`} 
+              className="glass animate-fade-in"
+              style={{ 
+                padding: 24, 
+                display: 'block', 
+                marginBottom: 16,
+                border: isElite ? '1px solid var(--bg-accent)' : '1px solid var(--border-glass)',
+                boxShadow: isElite ? '0 0 40px rgba(var(--bg-accent-rgb), 0.2)' : 'var(--shadow-sm)'
+              }}
+            >
+              {cardContent}
             </Link>
           );
         })}

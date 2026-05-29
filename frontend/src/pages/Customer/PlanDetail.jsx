@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Share2, CheckCircle2, XCircle, ChevronRight, HelpCircle, Star, Plus, Minus } from 'lucide-react'
 import apiClient from '../../services/apiClient'
+import { useCustomerData } from '../../context/CustomerDataContext'
 
 export default function PlanDetail() {
   const { id } = useParams()
@@ -12,6 +13,11 @@ export default function PlanDetail() {
   const [pkg, setPkg] = useState(null)
   const [loading, setLoading] = useState(true)
   const [openFaq, setOpenFaq] = useState(null)
+  const { subscriptions } = useCustomerData()
+  
+  const activeSubForVehicle = (subscriptions || []).find(
+    s => s.status === 'Active' && s.vehicle?._id === vehicleId
+  );
 
   useEffect(() => {
     const fetchPkg = async () => {
@@ -171,9 +177,20 @@ export default function PlanDetail() {
 
       {/* Floating Bottom Button */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '16px 20px', background: 'var(--bg-primary)', borderTop: '1px solid var(--border-glass)', zIndex: 100, maxWidth: 480, margin: '0 auto' }}>
-        <Link to={`/customer/booking?packageId=${pkg._id}${vehicleId ? `&vehicleId=${vehicleId}` : ''}`} className="btn btn-primary w-full btn-lg">
-          Subscribe to {pkg.name}
-        </Link>
+        {activeSubForVehicle ? (
+          <div className="flex flex-col gap-8 w-full">
+            <div style={{ fontSize: 12, color: 'var(--text-accent)', textAlign: 'center', fontWeight: 600 }}>
+              You already have an active plan for this vehicle.
+            </div>
+            <button disabled className="btn btn-primary w-full btn-lg" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              Already Subscribed
+            </button>
+          </div>
+        ) : (
+          <Link to={`/customer/booking?packageId=${pkg._id}${vehicleId ? `&vehicleId=${vehicleId}` : ''}`} className="btn btn-primary w-full btn-lg">
+            Subscribe to {pkg.name}
+          </Link>
+        )}
       </div>
     </div>
   )

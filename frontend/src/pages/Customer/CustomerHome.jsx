@@ -22,7 +22,7 @@ export default function CustomerHome() {
     return today.getTime() <= endDate.getTime();
   }) || null;
 
-  const expiredTrial = (subscriptions || []).find(s => s.status === 'Expired' && s.isTrial)
+  const expiredTrial = !activeSub && (subscriptions || []).find(s => s.status === 'Expired' && s.isTrial)
   const hasRemainingDays = activeSub && (activeSub.totalDays - (activeSub.completedDays || 0) - (activeSub.skippedDays || 0)) > 0
   const unreadCount = (notifications || []).filter(n => !n.read).length
   const recentHistory = (history || []).slice(0, 3)
@@ -172,19 +172,33 @@ export default function CustomerHome() {
             </div>
           )}
 
-          <div className="grid-3" style={{ gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
             {[
-              { icon: Calendar, label: 'New Booking', to: '/customer/booking', color: 'var(--text-accent)', bg: 'rgba(var(--bg-accent-rgb), 0.1)' },
-              hasRemainingDays && { icon: SkipForward, label: 'Skip Today', to: '/customer/skip', color: 'var(--primary-blue)', bg: 'rgba(0,122,255,0.1)' },
-              { icon: Car, label: 'My Garage', to: '/customer/vehicles', color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.05)' },
-            ].filter(Boolean).map((a, i) => (
-              <Link key={i} to={a.to} className="glass" style={{ padding: '24px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, borderRadius: 24 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 16, background: a.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <a.icon size={24} style={{ color: a.color }} />
+              { icon: Calendar, label: 'New Booking', to: '/customer/booking', color: 'var(--text-accent)', bg: 'rgba(var(--bg-accent-rgb), 0.1)', disabled: false },
+              { icon: SkipForward, label: 'Skip Today', to: '/customer/skip', color: 'var(--primary-blue)', bg: 'rgba(0,122,255,0.1)', disabled: !hasRemainingDays },
+              { icon: Car, label: 'My Garage', to: '/customer/vehicles', color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.05)', disabled: false },
+            ].map((a, i) => {
+              const content = (
+                <>
+                  <div style={{ width: 44, height: 44, borderRadius: 14, background: a.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                    <a.icon size={22} style={{ color: a.color, opacity: a.disabled ? 0.35 : 1 }} />
+                  </div>
+                  <span className="text-[12px]" style={{ fontWeight: 700, color: a.disabled ? 'var(--text-tertiary)' : 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%' }}>
+                    {a.label}
+                  </span>
+                </>
+              );
+
+              return a.disabled ? (
+                <div key={i} className="glass" style={{ padding: '16px 8px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, borderRadius: 20, opacity: 0.5, cursor: 'not-allowed' }}>
+                  {content}
                 </div>
-                <span className="text-body-sm" style={{ fontWeight: 700 }}>{a.label}</span>
-              </Link>
-            ))}
+              ) : (
+                <Link key={i} to={a.to} className="glass" style={{ padding: '16px 8px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, borderRadius: 20 }}>
+                  {content}
+                </Link>
+              );
+            })}
           </div>
         </div>
 
