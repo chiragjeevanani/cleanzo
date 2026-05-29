@@ -23,18 +23,19 @@ export default class ErrorBoundary extends Component {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--bg-primary, #0A0A0A)',
+        background: 'var(--bg-primary)',
         padding: 24,
         fontFamily: 'system-ui, sans-serif',
       }}>
         <div style={{
           maxWidth: 440,
           width: '100%',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'var(--bg-glass)',
+          border: '1px solid var(--border-glass)',
           borderRadius: 28,
           padding: '48px 40px',
           textAlign: 'center',
+          boxShadow: 'var(--shadow-lg)',
         }}>
           <div style={{
             width: 72, height: 72, borderRadius: '50%',
@@ -46,16 +47,16 @@ export default class ErrorBoundary extends Component {
             ⚠️
           </div>
 
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 10, letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: '-0.02em' }}>
             Something went wrong
           </h2>
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 32 }}>
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 32 }}>
             The page ran into an unexpected error. This has been logged. Please try refreshing — your data is safe.
           </p>
 
           {import.meta.env.DEV && this.state.error && (
             <pre style={{
-              textAlign: 'left', fontSize: 11, color: '#ff5555',
+              textAlign: 'left', fontSize: 11, color: 'var(--error)',
               background: 'rgba(255,50,50,0.06)',
               border: '1px solid rgba(255,50,50,0.2)',
               borderRadius: 12, padding: 16, marginBottom: 28,
@@ -70,17 +71,28 @@ export default class ErrorBoundary extends Component {
               onClick={() => this.setState({ hasError: false, error: null })}
               style={{
                 flex: 1, padding: '14px', borderRadius: 14, fontSize: 14, fontWeight: 700,
-                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                color: '#fff', cursor: 'pointer',
+                background: 'var(--bg-glass)', border: '1px solid var(--border-glass)',
+                color: 'var(--text-primary)', cursor: 'pointer',
               }}
             >
               Try Again
             </button>
             <button
-              onClick={() => { window.location.href = '/' }}
+              onClick={() => {
+                const path = window.location.pathname;
+                if (path.startsWith('/admin')) {
+                  window.location.href = '/admin';
+                } else if (path.startsWith('/cleaner')) {
+                  window.location.href = '/cleaner';
+                } else if (path.startsWith('/society')) {
+                  window.location.href = '/society';
+                } else {
+                  window.location.href = '/customer';
+                }
+              }}
               style={{
                 flex: 1, padding: '14px', borderRadius: 14, fontSize: 14, fontWeight: 700,
-                background: '#DFFF00', border: 'none', color: '#000', cursor: 'pointer',
+                background: 'var(--bg-accent)', border: 'none', color: 'var(--text-on-accent)', cursor: 'pointer',
               }}
             >
               Go Home

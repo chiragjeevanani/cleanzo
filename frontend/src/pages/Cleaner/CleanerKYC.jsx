@@ -166,8 +166,29 @@ function CameraCapture({ onCapture, onClose }) {
 }
 
 // ─── Document Upload Component ────────────────────
-function DocUpload({ step, preview, onFile, onCamera }) {
+function DocUpload({ step, preview, onFile }) {
   const fileRef = useRef(null)
+  const [dragActive, setDragActive] = useState(false)
+
+  const handleDrag = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      onFile(e.dataTransfer.files[0])
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {preview ? (
@@ -178,20 +199,38 @@ function DocUpload({ step, preview, onFile, onCamera }) {
           </div>
         </div>
       ) : (
-        <div style={{ height: 180, borderRadius: 20, border: '2px dashed var(--border-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'rgba(255,255,255,0.02)', color: 'var(--text-secondary)' }}>
+        <div 
+          onClick={() => fileRef.current?.click()}
+          onDragEnter={handleDrag}
+          onDragOver={handleDrag}
+          onDragLeave={handleDrag}
+          onDrop={handleDrop}
+          style={{ 
+            height: 180, 
+            borderRadius: 20, 
+            border: dragActive ? '2.5px solid var(--text-accent)' : '2px dashed var(--border-glass)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: 12, 
+            background: dragActive ? 'rgba(var(--bg-accent-rgb), 0.05)' : 'rgba(255,255,255,0.02)', 
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
           <step.icon size={40} strokeWidth={1.5} color={step.color} />
-          <p style={{ fontSize: 13, textAlign: 'center', maxWidth: '70%' }}>No document uploaded yet</p>
+          <p style={{ fontSize: 13, textAlign: 'center', maxWidth: '70%', fontWeight: 500 }}>
+            Drag & drop or click to upload file
+          </p>
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 12 }}>
-        <button onClick={onCamera} style={{ flex: 1, padding: '14px', borderRadius: 14, border: '1px solid var(--border-glass)', background: 'transparent', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>
-          <Camera size={18} />
-          Camera
-        </button>
         <button onClick={() => fileRef.current?.click()} style={{ flex: 1, padding: '14px', borderRadius: 14, border: '1px solid var(--border-glass)', background: 'transparent', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>
           <Upload size={18} />
-          Gallery
+          Choose File
         </button>
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onFile(e.target.files[0])} />
       </div>
@@ -390,7 +429,6 @@ export default function CleanerKYC() {
                 step={step}
                 preview={previews[step.id]}
                 onFile={handleFile}
-                onCamera={() => openCamera(step.id)}
               />
             )}
           </div>
