@@ -131,9 +131,9 @@ export default function PackageSelect() {
                       width: 150,
                       padding: '12px 14px',
                       borderRadius: 16,
-                      border: isSelected ? '1.5px solid var(--accent-lime)' : '1px solid var(--border-glass)',
+                      border: isSelected ? '1.5px solid var(--text-accent)' : '1px solid var(--border-glass)',
                       background: isSelected ? 'rgba(var(--bg-accent-rgb), 0.08)' : 'var(--bg-glass)',
-                      boxShadow: isSelected ? 'var(--shadow-glow-lime)' : 'var(--shadow-sm)',
+                      boxShadow: isSelected ? '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' : 'var(--shadow-sm)',
                       textAlign: 'left',
                       cursor: 'pointer',
                       color: 'var(--text-primary)',
@@ -146,8 +146,8 @@ export default function PackageSelect() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                       <Car size={16} className={isSelected ? 'text-lime' : 'text-secondary'} />
                       {isSelected && (
-                        <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--accent-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Check size={10} color="black" strokeWidth={4} />
+                        <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--bg-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Check size={10} color="var(--text-on-accent)" strokeWidth={4} />
                         </div>
                       )}
                     </div>
@@ -213,7 +213,7 @@ export default function PackageSelect() {
                 display: 'block', 
                 marginBottom: 16,
                 border: isElite ? '1px solid var(--bg-accent)' : '1px solid var(--border-glass)',
-                boxShadow: isElite ? 'var(--shadow-glow-lime)' : 'var(--shadow-sm)'
+                boxShadow: isElite ? '0 0 40px rgba(var(--bg-accent-rgb), 0.2)' : 'var(--shadow-sm)'
               }}
             >
               <div className="flex justify-between items-start" style={{ marginBottom: 20 }}>

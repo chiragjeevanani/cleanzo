@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { useLocation } from 'react-router-dom'
+import { useTheme } from '../../context/ThemeContext'
 
 const steps = ['Vehicle', 'Location', 'Plan', 'Confirm']
 
@@ -42,6 +43,7 @@ export default function BookingFlow() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
+  const { theme } = useTheme()
   
   const queryParams = new URLSearchParams(location.search)
   const initialPackageId = queryParams.get('packageId')
@@ -259,17 +261,30 @@ export default function BookingFlow() {
           }
         },
         prefill: {
-          name: user?.name || '',
-          contact: user?.phone ? (user.phone.startsWith('+') ? user.phone : `+91${user.phone}`) : '',
+          name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',
+          contact: (() => {
+            if (!user?.phone) return '';
+            const digits = user.phone.replace(/\D/g, '');
+            return digits.length === 10 ? `+91${digits}` : user.phone.startsWith('+') ? user.phone : `+91${user.phone}`;
+          })(),
           email: user?.email || ''
         },
         theme: {
-          color: '#DFFF00'
+          color: theme === 'light' ? '#0056B3' : '#DFFF00'
         },
         modal: {
           ondismiss: () => setProcessing(false)
         }
       }
+
+      console.log('Opening Razorpay Checkout with options:', {
+        key: options.key,
+        amount: options.amount,
+        currency: options.currency,
+        order_id: options.order_id,
+        prefill: options.prefill,
+        theme: options.theme
+      });
 
       // 4. Open Razorpay checkout — rzp.open() is non-blocking, do NOT put setProcessing(false)
       // in a finally block here; the modal handlers above manage it instead
@@ -356,8 +371,8 @@ export default function BookingFlow() {
             width: 64,
             height: 64,
             borderRadius: '50%',
-            border: '4px solid rgba(223, 255, 0, 0.1)',
-            borderTop: '4px solid var(--accent-lime, #DFFF00)',
+            border: '4px solid rgba(var(--bg-accent-rgb), 0.1)',
+            borderTop: '4px solid var(--bg-accent)',
             animation: 'spin 1s linear infinite'
           }} />
           
@@ -390,15 +405,15 @@ export default function BookingFlow() {
               <div key={i} className="flex items-center gap-12" style={{ flex: i < steps.length - 1 ? 1 : 'none' }}>
                 <div style={{ 
                   width: 32, height: 32, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-display)',
-                  background: i <= step ? 'var(--accent-lime)' : 'var(--bg-glass)', 
-                  color: i <= step ? '#000' : 'var(--text-tertiary)', 
+                  background: i <= step ? 'var(--bg-accent)' : 'var(--bg-glass)', 
+                  color: i <= step ? 'var(--text-on-accent)' : 'var(--text-tertiary)', 
                   border: `1px solid ${i <= step ? 'transparent' : 'var(--border-glass)'}`,
-                  boxShadow: i === step ? 'var(--shadow-glow-lime)' : 'none',
+                  boxShadow: i === step ? '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' : 'none',
                   transition: 'all 0.4s var(--ease-out)'
                 }}>
                   {i < step ? <Check size={16} strokeWidth={3} /> : i + 1}
                 </div>
-                {i < steps.length - 1 && <div style={{ flex: 1, height: 3, background: i < step ? 'var(--accent-lime)' : 'var(--divider)', borderRadius: 4 }} />}
+                {i < steps.length - 1 && <div style={{ flex: 1, height: 3, background: i < step ? 'var(--bg-accent)' : 'var(--divider)', borderRadius: 4 }} />}
               </div>
             ))}
           </div>
@@ -442,14 +457,14 @@ export default function BookingFlow() {
                     <button key={v._id} disabled={hasSub} className="glass" onClick={() => setSelectedVehicle(v)}
                       style={{ 
                         padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', 
-                        borderColor: isSelected ? 'var(--accent-lime)' : 'var(--border-glass)', 
+                        borderColor: isSelected ? 'var(--text-accent)' : 'var(--border-glass)', 
                         opacity: hasSub ? 0.5 : 1,
-                        background: isSelected ? 'rgba(223, 255, 0, 0.05)' : 'var(--bg-glass)',
+                        background: isSelected ? 'rgba(var(--bg-accent-rgb), 0.05)' : 'var(--bg-glass)',
                         borderRadius: 24,
                         animationDelay: `${i * 100}ms`
                       }}>
-                      <div style={{ width: 48, height: 48, background: isSelected ? 'var(--accent-lime)' : 'rgba(255,255,255,0.05)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}>
-                        <Car size={24} color={isSelected ? '#000' : 'var(--text-secondary)'} />
+                      <div style={{ width: 48, height: 48, background: isSelected ? 'var(--bg-accent)' : 'rgba(255,255,255,0.05)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s' }}>
+                        <Car size={24} color={isSelected ? 'var(--text-on-accent)' : 'var(--text-secondary)'} />
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700, fontSize: 17 }}>{v.brand} {v.model}</div>
@@ -458,14 +473,14 @@ export default function BookingFlow() {
                       {hasSub ? (
                         <span className="chip chip-ghost" style={{ fontSize: 9 }}>Subscribed</span>
                       ) : isSelected && (
-                        <div style={{ width: 24, height: 24, background: 'var(--accent-lime)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Check size={14} color="#000" strokeWidth={3} />
+                        <div style={{ width: 24, height: 24, background: 'var(--bg-accent)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Check size={14} color="var(--text-on-accent)" strokeWidth={3} />
                         </div>
                       )}
                     </button>
                   )
                 })}
-                <button disabled={!selectedVehicle} className="btn btn-primary w-full" style={{ marginTop: 32, padding: 18, borderRadius: 18, fontWeight: 800, fontSize: 16, boxShadow: selectedVehicle ? 'var(--shadow-glow-lime)' : 'none' }} onClick={() => setStep(1)}>
+                <button disabled={!selectedVehicle} className="btn btn-primary w-full" style={{ marginTop: 32, padding: 18, borderRadius: 18, fontWeight: 800, fontSize: 16, boxShadow: selectedVehicle ? '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' : 'none' }} onClick={() => setStep(1)}>
                   Continue to Location
                 </button>
               </div>
@@ -484,13 +499,13 @@ export default function BookingFlow() {
             {/* Society — read-only, auto-selected at registration */}
             <div className="flex flex-col gap-12">
               <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)' }}>Your Society</label>
-              <div className="glass" style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 16, borderRadius: 20, border: '1px solid var(--accent-lime)', background: 'rgba(223,255,0,0.04)' }}>
-                <MapPin size={20} style={{ color: 'var(--accent-lime)' }} />
+              <div className="glass" style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 16, borderRadius: 20, border: '1px solid var(--text-accent)', background: 'rgba(var(--bg-accent-rgb), 0.04)' }}>
+                <MapPin size={20} style={{ color: 'var(--text-accent)' }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700 }}>{selectedSociety?.name}</div>
                   <div className="text-body-sm text-secondary">{selectedSociety?.city}</div>
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-lime)', background: 'rgba(223,255,0,0.1)', padding: '3px 10px', borderRadius: 8 }}>YOUR LOCATION</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-accent)', background: 'rgba(var(--bg-accent-rgb), 0.1)', padding: '3px 10px', borderRadius: 8 }}>YOUR LOCATION</span>
               </div>
             </div>
 
@@ -562,14 +577,14 @@ export default function BookingFlow() {
                         }}
                         style={{ 
                           padding: '20px 24px', display: 'flex', flexDirection: 'column', textAlign: 'left', 
-                          borderColor: isSelected ? (isUnavailable ? '#FF9500' : 'var(--accent-lime)') : 'var(--border-glass)',
+                          borderColor: isSelected ? (isUnavailable ? '#FF9500' : 'var(--text-accent)') : 'var(--border-glass)',
                           borderRadius: 20,
-                          background: isSelected ? (isUnavailable ? 'rgba(255, 149, 0, 0.04)' : 'rgba(223, 255, 0, 0.05)') : 'var(--bg-glass)',
+                          background: isSelected ? (isUnavailable ? 'rgba(255, 149, 0, 0.04)' : 'rgba(var(--bg-accent-rgb), 0.05)') : 'var(--bg-glass)',
                           transition: 'all 0.25s'
                         }}>
                         <div className="flex justify-between w-full items-center">
                           <div className="flex items-center gap-10">
-                            <Clock size={18} style={{ color: isSelected ? (isUnavailable ? '#FF9500' : 'var(--accent-lime)') : 'var(--text-tertiary)' }} />
+                            <Clock size={18} style={{ color: isSelected ? (isUnavailable ? '#FF9500' : 'var(--text-accent)') : 'var(--text-tertiary)' }} />
                             <span style={{ fontWeight: 700 }}>{s.timeWindow}</span>
                           </div>
                           <span style={{ fontSize: 9, fontWeight: 800, color: badgeColor, background: badgeBg, padding: '4px 10px', borderRadius: 8, letterSpacing: '0.05em' }}>
@@ -617,7 +632,7 @@ export default function BookingFlow() {
             <div className="flex justify-between items-end">
               <div>
                 <h3 className="text-headline-sm" style={{ marginBottom: 4 }}>Choose Plan</h3>
-                <p className="text-secondary text-body-sm">Best for your <span style={{ color: 'var(--accent-lime)', fontWeight: 700 }}>{selectedVehicle?.brand} {selectedVehicle?.model}</span></p>
+                <p className="text-secondary text-body-sm">Best for your <span style={{ color: 'var(--text-accent)', fontWeight: 700 }}>{selectedVehicle?.brand} {selectedVehicle?.model}</span></p>
               </div>
             </div>
             
@@ -634,10 +649,10 @@ export default function BookingFlow() {
                   <button key={p._id} className="glass" onClick={() => setSelectedPkg(p)}
                     style={{ 
                       padding: '24px', display: 'flex', flexDirection: 'column', textAlign: 'left', 
-                      borderColor: isSelected ? 'var(--accent-lime)' : 'var(--border-glass)',
+                      borderColor: isSelected ? 'var(--text-accent)' : 'var(--border-glass)',
                       borderRadius: 28,
-                      background: isSelected ? 'rgba(223, 255, 0, 0.05)' : 'var(--bg-glass)',
-                      boxShadow: isSelected ? 'var(--shadow-glow-lime)' : 'none',
+                      background: isSelected ? 'rgba(var(--bg-accent-rgb), 0.05)' : 'var(--bg-glass)',
+                      boxShadow: isSelected ? '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' : 'none',
                       animationDelay: `${i * 100}ms`
                     }}>
                     <div className="flex justify-between items-start mb-16">
@@ -658,9 +673,9 @@ export default function BookingFlow() {
                       </div>
                     </div>
                     {isSelected && (
-                      <div className="animate-slide-up" style={{ marginTop: 20, background: 'rgba(223,255,0,0.1)', padding: '12px 16px', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Check size={16} color="var(--accent-lime)" strokeWidth={3} />
-                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-lime)' }}>Great choice! This plan covers all essentials.</span>
+                      <div className="animate-slide-up" style={{ marginTop: 20, background: 'rgba(var(--bg-accent-rgb), 0.1)', padding: '12px 16px', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Check size={16} color="var(--text-accent)" strokeWidth={3} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-accent)' }}>Great choice! This plan covers all essentials.</span>
                       </div>
                     )}
                   </button>
@@ -679,12 +694,12 @@ export default function BookingFlow() {
               }}
                 style={{ 
                   padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                  borderRadius: 20, borderColor: selectedPkg?.isTrial ? 'var(--accent-lime)' : 'var(--border-glass)',
-                  background: selectedPkg?.isTrial ? 'rgba(223, 255, 0, 0.05)' : 'transparent'
+                  borderRadius: 20, borderColor: selectedPkg?.isTrial ? 'var(--text-accent)' : 'var(--border-glass)',
+                  background: selectedPkg?.isTrial ? 'rgba(var(--bg-accent-rgb), 0.05)' : 'transparent'
                 }}>
                 <div className="flex items-center gap-12">
-                   <div style={{ width: 40, height: 40, background: 'rgba(223,255,0,0.1)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Clock size={20} color="var(--accent-lime)" />
+                   <div style={{ width: 40, height: 40, background: 'rgba(var(--bg-accent-rgb), 0.1)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Clock size={20} color="var(--text-accent)" />
                    </div>
                    <div>
                     <div style={{ fontWeight: 800 }}>1-Day Trial Wash</div>
@@ -728,13 +743,13 @@ export default function BookingFlow() {
                                 padding: '16px',
                                 borderRadius: 16,
                                 textAlign: 'center',
-                                borderColor: isDateSelected ? 'var(--accent-lime)' : 'var(--border-glass)',
-                                background: isDateSelected ? 'rgba(223, 255, 0, 0.08)' : 'var(--bg-glass)',
-                                boxShadow: isDateSelected ? 'var(--shadow-glow-lime)' : 'none',
+                                borderColor: isDateSelected ? 'var(--text-accent)' : 'var(--border-glass)',
+                                background: isDateSelected ? 'rgba(var(--bg-accent-rgb), 0.08)' : 'var(--bg-glass)',
+                                boxShadow: isDateSelected ? '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' : 'none',
                                 transition: 'all 0.3s'
                               }}
                             >
-                              <div style={{ fontWeight: 800, fontSize: 14, color: isDateSelected ? 'var(--accent-lime)' : 'var(--text-primary)' }}>{opt.label}</div>
+                              <div style={{ fontWeight: 800, fontSize: 14, color: isDateSelected ? 'var(--text-accent)' : 'var(--text-primary)' }}>{opt.label}</div>
                               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{opt.dateStr}</div>
                             </button>
                           )
@@ -805,14 +820,14 @@ export default function BookingFlow() {
                               }}
                               style={{
                                 padding: '16px 20px', display: 'flex', flexDirection: 'column', textAlign: 'left',
-                                borderColor: isSelected ? (isUnavailable ? '#FF9500' : 'var(--accent-lime)') : 'var(--border-glass)',
+                                borderColor: isSelected ? (isUnavailable ? '#FF9500' : 'var(--bg-accent)') : 'var(--border-glass)',
                                 borderRadius: 16,
-                                background: isSelected ? (isUnavailable ? 'rgba(255, 149, 0, 0.04)' : 'rgba(223, 255, 0, 0.05)') : 'var(--bg-glass)',
+                                background: isSelected ? (isUnavailable ? 'rgba(255, 149, 0, 0.04)' : 'rgba(var(--bg-accent-rgb), 0.05)') : 'var(--bg-glass)',
                                 transition: 'all 0.25s'
                               }}>
                               <div className="flex justify-between w-full items-center">
                                 <div className="flex items-center gap-10">
-                                  <Clock size={16} style={{ color: isSelected ? (isUnavailable ? '#FF9500' : 'var(--accent-lime)') : 'var(--text-tertiary)' }} />
+                                  <Clock size={16} style={{ color: isSelected ? (isUnavailable ? '#FF9500' : 'var(--bg-accent)') : 'var(--text-tertiary)' }} />
                                   <span style={{ fontWeight: 700, fontSize: 14 }}>{s.timeWindow}</span>
                                 </div>
                                 <span style={{ fontSize: 9, fontWeight: 800, color: badgeColor, background: badgeBg, padding: '4px 10px', borderRadius: 8, letterSpacing: '0.05em' }}>
@@ -882,7 +897,7 @@ export default function BookingFlow() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 4, fontSize: 10 }}>PLAN</div>
-                    <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--accent-lime)' }}>{selectedPkg?.name}</div>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-accent)' }}>{selectedPkg?.name}</div>
                     <div className="text-body-sm text-secondary">{selectedPkg?.isTrial ? 'Trial Session' : 'Monthly'}</div>
                   </div>
                 </div>
@@ -900,7 +915,7 @@ export default function BookingFlow() {
                   {selectedPkg?.isTrial && selectedTrialDate && (
                     <div style={{ textAlign: 'right' }}>
                       <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 4, fontSize: 10 }}>TRIAL DATE</div>
-                      <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--accent-lime)' }}>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-accent)' }}>
                         {(() => {
                           const [year, month, day] = selectedTrialDate.split('-')
                           const d = new Date(year, month - 1, day)
@@ -943,7 +958,7 @@ export default function BookingFlow() {
                 
                 <div className="flex justify-between items-center">
                   <span style={{ fontWeight: 800, fontSize: 20 }}>Total Amount</span>
-                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 32, color: 'var(--accent-lime)' }}>₹{finalAmount}</span>
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 32, color: 'var(--text-accent)' }}>₹{finalAmount}</span>
                 </div>
               </div>
             </div>
@@ -973,7 +988,7 @@ export default function BookingFlow() {
             )}
             <div className="flex gap-16" style={{ marginTop: 8 }}>
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 20, padding: 20 }} onClick={() => setStep(2)}>Back</button>
-              <button disabled={processing || !razorpayReady} className="btn btn-primary" style={{ flex: 2, borderRadius: 24, fontWeight: 800, fontSize: 20, padding: 22, boxShadow: 'var(--shadow-glow-lime)' }} onClick={handlePayment}>
+              <button disabled={processing || !razorpayReady} className="btn btn-primary" style={{ flex: 2, borderRadius: 24, fontWeight: 800, fontSize: 20, padding: 22, boxShadow: '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' }} onClick={handlePayment}>
                 {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${finalAmount}`}
               </button>
             </div>
@@ -1003,7 +1018,7 @@ export default function BookingFlow() {
 
             <div className="glass" style={{ padding: '16px 24px', borderRadius: 16, border: '1px solid var(--border-glass)', width: '100%' }}>
               <p className="text-secondary text-body-sm">
-                Redirecting to dashboard in <span style={{ color: 'var(--accent-lime)', fontWeight: 800 }}>{countdown}s</span>...
+                Redirecting to dashboard in <span style={{ color: 'var(--text-accent)', fontWeight: 800 }}>{countdown}s</span>...
               </p>
             </div>
 
@@ -1040,7 +1055,7 @@ export default function BookingFlow() {
 
             <div className="glass" style={{ padding: '16px 24px', borderRadius: 16, border: '1px solid var(--border-glass)', width: '100%' }}>
               <p className="text-secondary text-body-sm">
-                Redirecting to dashboard in <span style={{ color: 'var(--accent-lime)', fontWeight: 800 }}>{countdown}s</span>...
+                Redirecting to dashboard in <span style={{ color: 'var(--text-accent)', fontWeight: 800 }}>{countdown}s</span>...
               </p>
             </div>
 

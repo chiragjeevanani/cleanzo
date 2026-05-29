@@ -77,7 +77,7 @@ export default function PlanDetail() {
         <div className="flex justify-between items-start" style={{ marginBottom: 8 }}>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700 }}>{pkg.name}</h1>
           <div className="flex flex-col items-end">
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--accent-lime)' }}>₹{pkg.price}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-accent)' }}>₹{pkg.price}</div>
             <div className="text-secondary text-body-sm" style={{ textDecoration: 'line-through' }}>₹{Math.round(pkg.price * 1.2)}</div>
           </div>
         </div>
