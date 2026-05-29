@@ -53,6 +53,8 @@ export default function BookingFlow() {
     vehicles, packages, societies, subscriptions: activeSubscriptions, settings,
     loading: dataLoading, refreshAll 
   } = useCustomerData()
+
+  const hasUsedTrial = activeSubscriptions?.some(sub => sub.isTrial);
   
   // Dynamic Trial Price lookup based on selectedVehicle
   const getDynamicTrialPrice = () => {
@@ -115,6 +117,19 @@ export default function BookingFlow() {
       return () => clearInterval(timer)
     }
   }, [step, navigate])
+
+  // Handle callback redirect parameters from Razorpay
+  useEffect(() => {
+    const status = queryParams.get('status')
+    const err = queryParams.get('error')
+    if (status === 'success') {
+      refreshAll()
+      setStep(4)
+    } else if (status === 'failed') {
+      setPaymentError(err || 'Payment failed')
+      setStep(5)
+    }
+  }, [location.search, refreshAll])
 
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -214,7 +229,14 @@ export default function BookingFlow() {
         amount: finalAmount,
         currency: 'INR',
         packageId: selectedPkg._id || 'trial',
-        vehicleId: selectedVehicle._id
+        vehicleId: selectedVehicle._id,
+        societyId: selectedSociety._id,
+        slotId: selectedSlot.slotId,
+        specialInstructions: specialInstructions || '',
+        isTrial: selectedPkg.isTrial || false,
+        startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
+        isPremiumOverride: activeOverride,
+        overrideReason: activeOverride ? overrideReason : undefined
       })
 
       const order = orderRes.order
@@ -227,6 +249,8 @@ export default function BookingFlow() {
         name: 'Cleanzo',
         description: `${selectedPkg.name} for ${selectedVehicle.model}`,
         order_id: order.id,
+        redirect: true,
+        callback_url: `${import.meta.env.VITE_API_URL}/payment/callback`,
         handler: async function (response) {
           try {
             // 4. Verify payment
@@ -640,7 +664,9 @@ export default function BookingFlow() {
               {packages.filter(p => isVehicleEligibleForPackage(selectedVehicle, p)).length === 0 && (
                 <div className="glass" style={{ padding: 32, textAlign: 'center', borderRadius: 24, border: '1px solid var(--border-glass)' }}>
                   <p className="text-secondary text-body-sm" style={{ marginBottom: 8 }}>No plans available for your vehicle model yet.</p>
-                  <p className="text-secondary" style={{ fontSize: 12 }}>Try the Trial Wash below, or contact support.</p>
+                  <p className="text-secondary" style={{ fontSize: 12 }}>
+                    {hasUsedTrial ? 'Please contact support.' : 'Try the Trial below, or contact support.'}
+                  </p>
                 </div>
               )}
               {packages.filter(p => isVehicleEligibleForPackage(selectedVehicle, p)).map((p, i) => {
@@ -682,37 +708,41 @@ export default function BookingFlow() {
                 )
               })}
 
-              <div className="divider" style={{ margin: '8px 0' }} />
-              
-              <button className="glass" onClick={() => {
-                const trialPkg = { isTrial: true, name: '1-Day Trial Wash', price: trialPrice, _id: null }
-                setSelectedPkg(trialPkg)
-                // Pre-select tomorrow's date
-                const tomorrow = new Date()
-                tomorrow.setDate(tomorrow.getDate() + 1)
-                setSelectedTrialDate(getLocalDateString(tomorrow))
-              }}
-                style={{ 
-                  padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                  borderRadius: 20, borderColor: selectedPkg?.isTrial ? 'var(--text-accent)' : 'var(--border-glass)',
-                  background: selectedPkg?.isTrial ? 'rgba(var(--bg-accent-rgb), 0.05)' : 'transparent'
-                }}>
-                <div className="flex items-center gap-12">
-                   <div style={{ width: 40, height: 40, background: 'rgba(var(--bg-accent-rgb), 0.1)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Clock size={20} color="var(--text-accent)" />
-                   </div>
-                   <div>
-                    <div style={{ fontWeight: 800 }}>1-Day Trial Wash</div>
-                    <div className="text-body-sm text-secondary">Experience Cleanzo once</div>
-                  </div>
-                </div>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>₹{trialPrice}</span>
-              </button>
+              {!hasUsedTrial && (
+                <>
+                  <div className="divider" style={{ margin: '8px 0' }} />
+                  
+                  <button className="glass" onClick={() => {
+                    const trialPkg = { isTrial: true, name: '1-Day Trial', price: trialPrice, _id: null }
+                    setSelectedPkg(trialPkg)
+                    // Pre-select tomorrow's date
+                    const tomorrow = new Date()
+                    tomorrow.setDate(tomorrow.getDate() + 1)
+                    setSelectedTrialDate(getLocalDateString(tomorrow))
+                  }}
+                    style={{ 
+                      padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                      borderRadius: 20, borderColor: selectedPkg?.isTrial ? 'var(--text-accent)' : 'var(--border-glass)',
+                      background: selectedPkg?.isTrial ? 'rgba(var(--bg-accent-rgb), 0.05)' : 'transparent'
+                    }}>
+                    <div className="flex items-center gap-12">
+                       <div style={{ width: 40, height: 40, background: 'rgba(var(--bg-accent-rgb), 0.1)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Clock size={20} color="var(--text-accent)" />
+                       </div>
+                       <div>
+                        <div style={{ fontWeight: 800 }}>1-Day Trial</div>
+                        <div className="text-body-sm text-secondary">Experience Cleanzo once</div>
+                      </div>
+                    </div>
+                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>₹{trialPrice}</span>
+                  </button>
+                </>
+              )}
 
               {selectedPkg?.isTrial && (
                 <>
                   <div className="animate-slide-up" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700 }}>SELECT TRIAL WASH DATE</label>
+                    <label className="text-label" style={{ paddingLeft: 8, color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700 }}>SELECT TRIAL DATE</label>
                     <div className="flex gap-12">
                       {(() => {
                         const today = new Date()
