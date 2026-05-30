@@ -28,7 +28,6 @@ const tabs = [
   { path: '/customer', icon: Home, label: 'Home', end: true },
   { path: '/customer/packages', icon: CreditCard, label: 'Plans' },
   { path: '/customer/marketplace', icon: ShoppingBag, label: 'Shop' },
-  { path: '/customer/history', icon: Clock, label: 'History' },
   { path: '/customer/profile', icon: User, label: 'Profile' },
 ]
 

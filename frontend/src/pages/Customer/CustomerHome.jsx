@@ -1,9 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Bell, ChevronRight, Calendar, SkipForward, Clock, Car, Check } from 'lucide-react'
+import { Bell, ChevronRight, Calendar, SkipForward, Clock, Car, Check, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
+
+const formatSlot = (slotStr) => {
+  if (!slotStr) return '—';
+  const parts = slotStr.split('_');
+  if (parts.length === 3) {
+    const [start, end, period] = parts;
+    return `${start}:00 - ${end}:00 ${period}`;
+  }
+  return slotStr;
+};
 
 export default function CustomerHome() {
   const { user } = useAuth()
@@ -23,7 +33,8 @@ export default function CustomerHome() {
   }) || null;
 
   const expiredTrial = !activeSub && (subscriptions || []).find(s => s.status === 'Expired' && s.isTrial)
-  const hasRemainingDays = activeSub && (activeSub.totalDays - (activeSub.completedDays || 0) - (activeSub.skippedDays || 0)) > 0
+  const remainingDays = activeSub ? Math.max(0, activeSub.totalDays - (activeSub.completedDays || 0) - (activeSub.skippedDays || 0)) : 0
+  const hasRemainingDays = remainingDays > 0
   const unreadCount = (notifications || []).filter(n => !n.read).length
   const recentHistory = (history || []).slice(0, 3)
 
@@ -106,27 +117,111 @@ export default function CustomerHome() {
 
         {/* Active Subscription Card */}
         {activeSub ? (
-          <Link to="/customer/subscriptions" className="glass animate-fade-in" style={{ padding: '24px 28px', borderRadius: 32, marginBottom: 32, display: 'block', background: 'var(--bg-glass-hover)', border: '1px solid var(--border-glass)' }}>
+          <Link to="/customer/subscriptions" className="glass animate-fade-in" style={{ padding: '24px 28px', borderRadius: 32, marginBottom: 32, display: 'block', background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.07) 100%)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)' }}>
             <div className="flex justify-between items-start" style={{ marginBottom: 20 }}>
               <div>
-                <div className="text-label text-lime mb-4">Active Plan</div>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800 }}>{activeSub.package?.name}</h2>
+                <div className="text-label text-lime mb-6" style={{ letterSpacing: '0.05em' }}>ACTIVE PLAN</div>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800 }}>{activeSub.package?.name || 'Standard Plan'}</h2>
+                <div className="text-body-xs text-secondary" style={{ marginTop: 4 }}>
+                  Expires: {new Date(activeSub.endDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
               </div>
-              <div className="glass flex items-center justify-center" style={{ width: 44, height: 44, borderRadius: 14 }}>
-                <Car size={22} className="text-secondary" />
+              
+              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                <div style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 32,
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  color: 'var(--accent-lime)'
+                }}>
+                  {remainingDays}
+                </div>
+                <div className="text-label text-secondary" style={{ fontSize: 9, letterSpacing: '0.05em' }}>DAYS LEFT</div>
               </div>
             </div>
-            
-            <div className="flex items-center gap-20">
-              <div>
-                <div className="text-label text-tertiary mb-2">Vehicle</div>
-                <div className="text-body-sm font-bold">{activeSub.vehicle?.brand} {activeSub.vehicle?.model}</div>
+
+            {/* Progress bar */}
+            <div style={{ marginBottom: 20 }}>
+              <div className="flex justify-between text-body-xs text-secondary" style={{ marginBottom: 6, fontWeight: 600 }}>
+                <span>Plan Progress</span>
+                <span>{activeSub.completedDays || 0} / {activeSub.totalDays || 30} cleans</span>
               </div>
-              <div style={{ width: 1, height: 24, background: 'var(--divider)' }} />
-              <div>
-                <div className="text-label text-tertiary mb-2">Next Clean</div>
-                <div className="text-body-sm font-bold">{activeSub.nextServiceDate ? new Date(activeSub.nextServiceDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '—'}</div>
+              <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ 
+                  width: `${Math.min(100, ((activeSub.completedDays || 0) / (activeSub.totalDays || 30)) * 100)}%`, 
+                  height: '100%', 
+                  background: 'linear-gradient(90deg, var(--primary-blue) 0%, var(--accent-lime) 100%)',
+                  borderRadius: 3,
+                  transition: 'width 0.8s ease'
+                }} />
               </div>
+            </div>
+
+            {/* Details Grid */}
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '16px 20px', 
+              padding: '16px 0', 
+              borderTop: '1px solid var(--divider)', 
+              borderBottom: '1px solid var(--divider)', 
+              marginBottom: 16 
+            }}>
+              <div>
+                <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: '0.05em' }}>VEHICLE</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Car size={14} className="text-secondary" />
+                  <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeSub.vehicle?.brand} {activeSub.vehicle?.model}</span>
+                </div>
+                <div className="text-body-xs text-secondary" style={{ marginLeft: 20 }}>{activeSub.vehicle?.number}</div>
+              </div>
+
+              <div>
+                <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: '0.05em' }}>TIME SLOT</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Clock size={14} className="text-secondary" />
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{formatSlot(activeSub.slot)}</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: '0.05em' }}>CLEANER</div>
+                {activeSub.assignedCleaner ? (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <User size={14} className="text-secondary" />
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{activeSub.assignedCleaner.name}</span>
+                      {activeSub.assignedCleaner.rating && (
+                        <span style={{ fontSize: 11, color: '#FFB800', display: 'flex', alignItems: 'center', gap: 2 }}>
+                          ★<span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{activeSub.assignedCleaner.rating}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-body-xs text-secondary" style={{ marginLeft: 20 }}>{activeSub.assignedCleaner.phone}</div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div className="animate-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFB800' }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-tertiary)' }}>Assigning...</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: '0.05em' }}>NEXT WASH</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Calendar size={14} className="text-secondary" />
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>
+                    {activeSub.nextWash ? new Date(activeSub.nextWash).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center text-body-xs font-bold" style={{ color: 'var(--primary-blue)' }}>
+              <span>Manage Plan & Support</span>
+              <ChevronRight size={14} />
             </div>
           </Link>
         ) : (
@@ -174,7 +269,21 @@ export default function CustomerHome() {
 
           <div className="quick-actions-grid">
             {[
-              { icon: Calendar, label: 'New Booking', to: '/customer/booking', color: 'var(--text-accent)', bg: 'rgba(var(--bg-accent-rgb), 0.1)', disabled: false },
+              activeSub ? {
+                icon: Calendar,
+                label: 'Extend Service',
+                to: `/customer/packages?extend=true&vehicleId=${activeSub.vehicle?._id}`,
+                color: 'var(--text-accent)',
+                bg: 'rgba(var(--bg-accent-rgb), 0.1)',
+                disabled: false
+              } : {
+                icon: Calendar,
+                label: 'New Booking',
+                to: '/customer/booking',
+                color: 'var(--text-accent)',
+                bg: 'rgba(var(--bg-accent-rgb), 0.1)',
+                disabled: false
+              },
               { icon: SkipForward, label: 'Skip Today', to: '/customer/skip', color: 'var(--primary-blue)', bg: 'rgba(0,122,255,0.1)', disabled: !hasRemainingDays },
               { icon: Car, label: 'My Garage', to: '/customer/vehicles', color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.05)', disabled: false },
             ].map((a, i) => {

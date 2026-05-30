@@ -164,6 +164,15 @@ export const updateVehicle = asyncHandler(async (req, res) => {
 });
 
 export const deleteVehicle = asyncHandler(async (req, res) => {
+  const activeSubscription = await Subscription.findOne({
+    vehicle: req.params.id,
+    customer: req.user._id,
+    status: 'Active'
+  });
+  if (activeSubscription) {
+    throw new ApiError(400, 'Cannot delete a vehicle with an active subscription');
+  }
+
   const vehicle = await Vehicle.findOneAndUpdate(
     { _id: req.params.id, customer: req.user._id },
     { isActive: false },

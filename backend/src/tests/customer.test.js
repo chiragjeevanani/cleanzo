@@ -58,6 +58,29 @@ describe('CUST | Vehicle CRUD', () => {
     expect(res.body.vehicles.find(v => v._id === vehicle._id.toString())).toBeUndefined();
   });
 
+  it('CUST-4b: cannot delete vehicle if it has an active subscription', async () => {
+    const { customer, token } = await createCustomer();
+    const vehicle = await createVehicle(customer._id);
+    
+    await Subscription.create({
+      customer: customer._id,
+      vehicle: vehicle._id,
+      society: new mongoose.Types.ObjectId(),
+      slot: '06_07_AM',
+      isTrial: false,
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      totalDays: 30,
+      remainingDays: 30,
+      amount: 399,
+      status: 'Active',
+    });
+
+    const res = await api.delete(`/api/customer/vehicles/${vehicle._id}`).set(authHeader(token));
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/cannot delete a vehicle with an active subscription/i);
+  });
+
   it('CUST-3: cannot update another customer\'s vehicle', async () => {
     const { customer: c1 } = await createCustomer();
     const { token: t2 } = await createCustomer();

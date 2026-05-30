@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import { ChevronRight, Car, Sun, Moon, LogOut, HelpCircle, Shield, Bell, MapPin, FileText, Loader2, Pencil, X, Check, CreditCard, ArrowLeft, Download } from 'lucide-react'
+import { ChevronRight, Car, Sun, Moon, LogOut, HelpCircle, Shield, Bell, MapPin, FileText, Loader2, Pencil, X, Check, CreditCard, ArrowLeft, Download, Clock } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { validateName, validateEmail, formatCityState } from '../../utils/helpers'
 
@@ -91,6 +91,7 @@ export default function CustomerProfile() {
 
   const menuItems = [
     { icon: Car, label: 'My Vehicles', to: '/customer/vehicles' },
+    { icon: Clock, label: 'Service History', to: '/customer/history' },
     { icon: MapPin, label: 'Saved Address', to: '/customer/addresses' },
     { icon: FileText, label: 'Terms of Service', to: '/customer/terms' },
     { icon: Shield, label: 'Privacy Policy', to: '/customer/privacy' },
@@ -308,7 +309,17 @@ export default function CustomerProfile() {
         <button 
           onClick={() => { setView('billing'); fetchPayments(); }}
           className="glass" 
-          style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer', textAlign: 'left', color: 'inherit' }}
+          style={{ 
+            padding: '14px 20px', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            width: '100%', 
+            cursor: 'pointer', 
+            textAlign: 'left', 
+            color: 'inherit',
+            fontSize: 'inherit'
+          }}
         >
           <div className="flex items-center gap-12">
             <CreditCard size={20} style={{ color: 'var(--text-secondary)' }} />

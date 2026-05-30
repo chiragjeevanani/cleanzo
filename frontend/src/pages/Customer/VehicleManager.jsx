@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Plus, Car, ChevronDown, X, Camera,
-  ImageIcon, Pencil, EyeOff, Loader2, FlipHorizontal,
+  ImageIcon, Pencil, Trash2, Loader2, FlipHorizontal,
 } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
@@ -42,7 +42,7 @@ const compressImage = (file, maxWidth = 1200, quality = 0.82) =>
 export default function VehicleManager() {
   const navigate = useNavigate()
   const { showToast, dismissToast } = useToast()
-  const { vehicles, loading: dataLoading, refreshVehicles } = useCustomerData()
+  const { vehicles, subscriptions, loading: dataLoading, refreshVehicles } = useCustomerData()
 
   const [adding, setAdding]             = useState(false)
   const [editVehicle, setEditVehicle]   = useState(null)
@@ -53,7 +53,7 @@ export default function VehicleManager() {
   const [submitting, setSubmitting]     = useState(false)
   const [compressing, setCompressing]   = useState(false)
   const [error, setError]               = useState('')
-  const [confirmHideId, setConfirmHideId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [loadingBrands, setLoadingBrands] = useState(true)
   const [showPhotoPicker, setShowPhotoPicker] = useState(false)
 
@@ -292,11 +292,14 @@ export default function VehicleManager() {
     } finally { setSubmitting(false) }
   }
 
-  const hideVehicle = async (id) => {
+  const deleteVehicle = async (id) => {
     try {
       await apiClient.delete(`/customer/vehicles/${id}`)
-      setConfirmHideId(null); refreshVehicles(); showToast('Vehicle hidden successfully')
-    } catch { setConfirmHideId(null); setError('Failed to hide vehicle.') }
+      setConfirmDeleteId(null); refreshVehicles(); showToast('Vehicle deleted successfully', 'success')
+    } catch (err) {
+      setConfirmDeleteId(null);
+      showToast(err.message || 'Failed to delete vehicle.', 'error')
+    }
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -457,30 +460,51 @@ export default function VehicleManager() {
         {vehicles.length === 0 && !adding && (
           <div className="text-center text-secondary py-8">No vehicles added yet.</div>
         )}
-        {vehicles.map(v => (
-          <div key={v._id} className="glass" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 'var(--radius)', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-glass)', flexShrink: 0 }}>
-                <Car size={22} style={{ color: 'var(--primary-blue)' }} />
+        {vehicles.map(v => {
+          const hasActiveSub = (subscriptions || []).some(s => s.vehicle?._id === v._id && s.status === 'Active');
+          return (
+            <div key={v._id} className="glass" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 'var(--radius)', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-glass)', flexShrink: 0 }}>
+                  <Car size={22} style={{ color: 'var(--primary-blue)' }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>{v.brand} {v.model}</div>
+                  <div className="text-body-sm text-secondary" style={{ lineHeight: 1.5, wordBreak: 'break-word' }}>{v.number} · {v.parking || 'No parking info'}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => startEdit(v)} style={{ color: 'var(--text-secondary)', padding: 8, background: 'none', border: 'none', cursor: 'pointer' }}><Pencil size={18} /></button>
+                  <button 
+                    onClick={() => {
+                      if (hasActiveSub) {
+                        showToast('Cannot delete a vehicle with an active subscription', 'error')
+                      } else {
+                        setConfirmDeleteId(v._id)
+                      }
+                    }} 
+                    style={{ 
+                      color: hasActiveSub ? 'var(--text-tertiary)' : '#ff453a', 
+                      opacity: hasActiveSub ? 0.35 : 1,
+                      padding: 8, 
+                      background: 'none', 
+                      border: 'none', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>{v.brand} {v.model}</div>
-                <div className="text-body-sm text-secondary" style={{ lineHeight: 1.5, wordBreak: 'break-word' }}>{v.number} · {v.parking || 'No parking info'}</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                <button onClick={() => startEdit(v)} style={{ color: 'var(--text-secondary)', padding: 8, background: 'none', border: 'none', cursor: 'pointer' }}><Pencil size={18} /></button>
-                <button onClick={() => setConfirmHideId(v._id)} style={{ color: 'var(--text-tertiary)', padding: 8, background: 'none', border: 'none', cursor: 'pointer' }}><EyeOff size={18} /></button>
-              </div>
+              {v.photos?.length > 0 && (
+                <div className="flex gap-8 overflow-x-auto" style={{ paddingBottom: 4, marginLeft: 60 }}>
+                  {v.photos.map((p, i) => (
+                    <img key={i} src={p} alt={`${v.model} ${i}`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-glass)', flexShrink: 0 }} />
+                  ))}
+                </div>
+              )}
             </div>
-            {v.photos?.length > 0 && (
-              <div className="flex gap-8 overflow-x-auto" style={{ paddingBottom: 4, marginLeft: 60 }}>
-                {v.photos.map((p, i) => (
-                  <img key={i} src={p} alt={`${v.model} ${i}`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-glass)', flexShrink: 0 }} />
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── Photo source picker sheet ──────────────────────────────────────── */}
@@ -577,20 +601,20 @@ export default function VehicleManager() {
         </div>
       )}
 
-      {/* Hide confirmation modal */}
-      {confirmHideId && (
+      {/* Delete confirmation modal */}
+      {confirmDeleteId && (
         <div className="modal-overlay" style={{ backdropFilter: 'blur(20px)', backgroundColor: 'rgba(0,0,0,0.85)' }}>
           <div className="glass animate-scale-in" style={{ width: 360, padding: '36px 32px', borderRadius: 28, border: '1px solid rgba(255,255,255,0.05)', boxShadow: 'var(--shadow-lg)', background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-surface) 100%)', textAlign: 'center' }}>
-            <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <EyeOff size={22} color="var(--text-secondary)" />
+            <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,50,50,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Trash2 size={22} color="var(--error)" />
             </div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Hide Vehicle?</h2>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Delete Vehicle?</h2>
             <p className="text-secondary" style={{ fontSize: 14, marginBottom: 24 }}>
-              This will hide the vehicle from your active garage, but will preserve its booking history.
+              Are you sure you want to delete this vehicle? This action cannot be undone.
             </p>
             <div className="flex gap-12">
-              <button className="btn btn-glass w-full" onClick={() => setConfirmHideId(null)}>Cancel</button>
-              <button className="btn w-full btn-primary" style={{ borderRadius: 14 }} onClick={() => hideVehicle(confirmHideId)}>Hide</button>
+              <button className="btn btn-glass w-full" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+              <button className="btn w-full btn-primary" style={{ borderRadius: 14, backgroundColor: 'var(--error)', color: '#fff' }} onClick={() => deleteVehicle(confirmDeleteId)}>Delete</button>
             </div>
           </div>
         </div>
