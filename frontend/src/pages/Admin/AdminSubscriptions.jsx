@@ -229,9 +229,9 @@ export default function AdminSubscriptions() {
           background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <div className="glass" style={{
+          <div className="glass-solid" style={{
             borderRadius: 20, padding: 32, maxWidth: 440, width: '90%',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid var(--border-glass)',
             boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -257,7 +257,7 @@ export default function AdminSubscriptions() {
             </div>
 
             <div style={{
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+              background: 'var(--bg-glass)', border: '1px solid var(--border-glass)',
               borderRadius: 12, padding: '14px 16px', marginBottom: 24, fontSize: 13,
               color: 'var(--text-secondary)', lineHeight: 1.6,
             }}>
@@ -307,9 +307,9 @@ export default function AdminSubscriptions() {
           background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <div className="glass" style={{
+          <div className="glass-solid" style={{
             borderRadius: 20, padding: 32, maxWidth: 440, width: '90%',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid var(--border-glass)',
             boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -335,7 +335,7 @@ export default function AdminSubscriptions() {
             </div>
 
             <div style={{
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+              background: 'var(--bg-glass)', border: '1px solid var(--border-glass)',
               borderRadius: 12, padding: '14px 16px', marginBottom: 24, fontSize: 13,
               color: 'var(--text-secondary)', lineHeight: 1.6,
             }}>

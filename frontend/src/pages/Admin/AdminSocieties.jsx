@@ -1256,13 +1256,13 @@ export default function AdminSocieties() {
                             />
                             <select 
                                className="input-field" 
-                               style={{ flex: 1.2, minWidth: 110, background: '#1c1c1e', color: '#fff', cursor: 'pointer' }} 
+                               style={{ flex: 1.2, minWidth: 110, background: 'var(--bg-glass)', color: 'var(--text-primary)', cursor: 'pointer' }} 
                                value={slot.status || 'Open'} 
                                onChange={e => handleSlotChange(idx, 'status', e.target.value)}
                             >
-                               <option value="Open">🟢 Open</option>
-                               <option value="Closed">🔴 Closed</option>
-                               <option value="Blocked">🚫 Blocked</option>
+                               <option value="Open" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>🟢 Open</option>
+                               <option value="Closed" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>🔴 Closed</option>
+                               <option value="Blocked" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>🚫 Blocked</option>
                             </select>
                             <button type="button" className="btn-icon btn-glass text-error" onClick={() => handleRemoveSlot(idx)}>
                                <X size={14} />

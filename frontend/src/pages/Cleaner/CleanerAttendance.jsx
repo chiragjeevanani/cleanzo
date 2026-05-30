@@ -416,7 +416,7 @@ const CleanerAttendance = () => {
           padding: 20,
           zIndex: 999
         }}>
-          <div className="glass animate-scale-in" style={{
+          <div className="glass-solid animate-scale-in" style={{
             width: '100%',
             maxWidth: 420,
             borderRadius: 28,
@@ -495,7 +495,7 @@ const CleanerAttendance = () => {
                     padding: '14px 16px',
                     borderRadius: 16,
                     border: '1px solid var(--border-glass)',
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'var(--bg-glass)',
                     color: 'var(--text-primary)',
                     fontSize: 14,
                     fontFamily: 'inherit',
@@ -516,7 +516,7 @@ const CleanerAttendance = () => {
                     padding: '14px 16px',
                     borderRadius: 16,
                     border: '1px solid var(--border-glass)',
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'var(--bg-glass)',
                     color: 'var(--text-primary)',
                     fontSize: 14,
                     fontFamily: 'inherit',

@@ -226,7 +226,7 @@ export default function AdminGrievances() {
       {/* Grievance Detail Modal */}
       {selectedGrievance && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div className="glass" style={{ width: '100%', maxWidth: 600, borderRadius: 24, padding: 28, position: 'relative', border: '1px solid var(--border-glass)' }}>
+          <div className="glass-solid" style={{ width: '100%', maxWidth: 600, borderRadius: 24, padding: 28, position: 'relative', border: '1px solid var(--border-glass)' }}>
             <button 
               onClick={handleCloseDetail} 
               style={{ position: 'absolute', top: 20, right: 20, background: 'var(--bg-glass)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-primary)' }}
@@ -255,7 +255,7 @@ export default function AdminGrievances() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span className="text-secondary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Issue Description</span>
-                <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', background: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 12 }}>
+                <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', padding: 12, borderRadius: 12 }}>
                   {selectedGrievance.issue}
                 </p>
               </div>

@@ -190,7 +190,7 @@ export default function AdminCategories() {
           justifyContent: 'center',
           padding: '20px 0'
         }}>
-          <div className="glass animate-scale-in" 
+          <div className="glass-solid animate-scale-in" 
             style={{ 
               width: 540, 
               padding: '48px 56px', 
@@ -225,7 +225,7 @@ export default function AdminCategories() {
                 <input 
                   required 
                   className="input-field" 
-                  style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
+                  style={{ background: 'var(--bg-glass)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
                   value={formData.name} 
                   onChange={e => setFormData({ ...formData, name: e.target.value })} 
                   placeholder="e.g. Products, Services, Car Care" 
@@ -236,12 +236,12 @@ export default function AdminCategories() {
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>ICON *</label>
                 <select 
                   className="input-field cursor-pointer" 
-                  style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
+                  style={{ background: 'var(--bg-glass)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
                   value={formData.icon} 
                   onChange={e => setFormData({ ...formData, icon: e.target.value })}
                 >
                   {availableIcons.map(iconName => (
-                    <option key={iconName} value={iconName} style={{ backgroundColor: '#1C1C1E', color: '#FFFFFF' }}>{iconName}</option>
+                    <option key={iconName} value={iconName} style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>{iconName}</option>
                   ))}
                 </select>
               </div>
@@ -250,7 +250,7 @@ export default function AdminCategories() {
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>DESCRIPTION</label>
                 <textarea 
                   className="input-field" 
-                  style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', minHeight: 80, fontSize: 14, resize: 'none' }}
+                  style={{ background: 'var(--bg-glass)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', minHeight: 80, fontSize: 14, resize: 'none' }}
                   value={formData.description} 
                   onChange={e => setFormData({ ...formData, description: e.target.value })} 
                   placeholder="Describe what items belong in this marketplace category..." 
@@ -263,7 +263,7 @@ export default function AdminCategories() {
                   <input 
                     type="number" 
                     className="input-field" 
-                    style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
+                    style={{ background: 'var(--bg-glass)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
                     value={formData.sortOrder} 
                     onChange={e => setFormData({ ...formData, sortOrder: e.target.value })} 
                     placeholder="0" 

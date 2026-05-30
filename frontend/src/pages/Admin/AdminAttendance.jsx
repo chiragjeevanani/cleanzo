@@ -243,14 +243,14 @@ export default function AdminAttendance() {
                 padding: '10px 14px',
                 borderRadius: 10,
                 border: '1px solid var(--border-glass)',
-                background: 'rgba(255,255,255,0.03)',
+                background: 'var(--bg-glass)',
                 color: 'var(--text-primary)',
                 outline: 'none'
               }}
             >
-              <option value="" style={{ background: '#121212' }}>All Areas</option>
+              <option value="" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>All Areas</option>
               {areas.map(a => (
-                <option key={a} value={a} style={{ background: '#121212' }}>{a}</option>
+                <option key={a} value={a} style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>{a}</option>
               ))}
             </select>
           </div>
@@ -265,16 +265,16 @@ export default function AdminAttendance() {
                 padding: '10px 14px',
                 borderRadius: 10,
                 border: '1px solid var(--border-glass)',
-                background: 'rgba(255,255,255,0.03)',
+                background: 'var(--bg-glass)',
                 color: 'var(--text-primary)',
                 outline: 'none'
               }}
             >
-              <option value="all" style={{ background: '#121212' }}>All Statuses</option>
-              <option value="present" style={{ background: '#121212' }}>Present</option>
-              <option value="absent" style={{ background: '#121212' }}>Absent</option>
-              <option value="leave" style={{ background: '#121212' }}>On Leave</option>
-              <option value="pending" style={{ background: '#121212' }}>Pending / No Log</option>
+              <option value="all" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>All Statuses</option>
+              <option value="present" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>Present</option>
+              <option value="absent" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>Absent</option>
+              <option value="leave" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>On Leave</option>
+              <option value="pending" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>Pending / No Log</option>
             </select>
           </div>
 
@@ -403,7 +403,7 @@ export default function AdminAttendance() {
           padding: 20,
           zIndex: 999
         }}>
-          <div className="glass animate-scale-in" style={{
+          <div className="glass-solid animate-scale-in" style={{
             width: '100%',
             maxWidth: 420,
             borderRadius: 28,
@@ -446,14 +446,14 @@ export default function AdminAttendance() {
                     padding: '12px 14px',
                     borderRadius: 12,
                     border: '1px solid var(--border-glass)',
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'var(--bg-glass)',
                     color: 'var(--text-primary)',
                     outline: 'none'
                   }}
                 >
-                  <option value="present" style={{ background: '#121212' }}>Present</option>
-                  <option value="absent" style={{ background: '#121212' }}>Absent</option>
-                  <option value="leave" style={{ background: '#121212' }}>On Leave</option>
+                  <option value="present" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>Present</option>
+                  <option value="absent" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>Absent</option>
+                  <option value="leave" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>On Leave</option>
                 </select>
               </div>
 
@@ -469,7 +469,7 @@ export default function AdminAttendance() {
                         padding: '12px 14px',
                         borderRadius: 12,
                         border: '1px solid var(--border-glass)',
-                        background: 'rgba(255,255,255,0.03)',
+                        background: 'var(--bg-glass)',
                         color: 'var(--text-primary)',
                         outline: 'none'
                       }}
@@ -486,7 +486,7 @@ export default function AdminAttendance() {
                         padding: '12px 14px',
                         borderRadius: 12,
                         border: '1px solid var(--border-glass)',
-                        background: 'rgba(255,255,255,0.03)',
+                        background: 'var(--bg-glass)',
                         color: 'var(--text-primary)',
                         outline: 'none'
                       }}
@@ -507,7 +507,7 @@ export default function AdminAttendance() {
                     padding: '12px 14px',
                     borderRadius: 12,
                     border: '1px solid var(--border-glass)',
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'var(--bg-glass)',
                     color: 'var(--text-primary)',
                     fontSize: 14,
                     fontFamily: 'inherit',

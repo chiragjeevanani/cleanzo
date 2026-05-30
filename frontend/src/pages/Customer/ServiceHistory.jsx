@@ -48,7 +48,7 @@ function RatingModal({ task, onClose, onSubmit }) {
 
       {/* Main modal sheet */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-        <div className="glass" style={{ width: '100%', maxWidth: 480, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: '24px 20px 36px', animation: 'slideUp 0.3s ease-out', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="glass-solid" style={{ width: '100%', maxWidth: 480, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: '24px 20px 36px', animation: 'slideUp 0.3s ease-out', maxHeight: '90vh', overflowY: 'auto' }}>
           
           {/* Header */}
           <div className="flex justify-between items-center" style={{ marginBottom: 20 }}>
@@ -157,8 +157,8 @@ function RatingModal({ task, onClose, onSubmit }) {
                 placeholder="Any feedback for the cleaner? (Optional)"
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
-                className="glass"
-                style={{ width: '100%', padding: '12px 16px', borderRadius: 12, minHeight: 80, border: '1px solid var(--border-glass)', background: 'transparent', color: 'white', resize: 'vertical', marginBottom: 16, boxSizing: 'border-box' }}
+                className="input-field"
+                style={{ width: '100%', padding: '12px 16px', borderRadius: 12, minHeight: 80, border: '1px solid var(--border-glass)', background: 'var(--bg-glass)', color: 'var(--text-primary)', resize: 'vertical', marginBottom: 16, boxSizing: 'border-box' }}
               />
 
               {ratingError && (

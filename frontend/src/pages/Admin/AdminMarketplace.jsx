@@ -314,7 +314,7 @@ export default function AdminMarketplace() {
           justifyContent: 'center',
           padding: '20px 0'
         }}>
-          <div className="glass animate-scale-in" 
+          <div className="glass-solid animate-scale-in" 
             style={{ 
               width: 720, 
               padding: '48px 56px', 
@@ -349,14 +349,14 @@ export default function AdminMarketplace() {
                 <div className="flex flex-col gap-12">
                   <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>PRODUCT IDENTITY</label>
                   <input required className="input-field" 
-                    style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 17, fontWeight: 500 }}
+                    style={{ background: 'var(--bg-glass)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 17, fontWeight: 500 }}
                     value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Microfiber Polishing Cloth" />
                 </div>
 
                 <div className="flex flex-col gap-12">
                   <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>DESCRIPTION</label>
                   <textarea required className="input-field" 
-                    style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', minHeight: 120, fontSize: 15, resize: 'none', lineHeight: 1.6 }}
+                    style={{ background: 'var(--bg-glass)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', minHeight: 120, fontSize: 15, resize: 'none', lineHeight: 1.6 }}
                     value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Highlight features, material, and benefits..." />
                 </div>
 
@@ -364,13 +364,13 @@ export default function AdminMarketplace() {
                   <div className="flex flex-col gap-12">
                     <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>BASE PRICE (₹)</label>
                     <input required type="number" className="input-field" 
-                      style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 18, fontWeight: 700 }}
+                      style={{ background: 'var(--bg-glass)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 18, fontWeight: 700 }}
                       value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} placeholder="0" />
                   </div>
                   <div className="flex flex-col gap-12">
                     <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>OFFER PRICE (₹)</label>
                     <input type="number" className="input-field" 
-                      style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 18, fontWeight: 700, color: 'var(--accent-lime)' }}
+                      style={{ background: 'var(--bg-glass)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 18, fontWeight: 700, color: 'var(--accent-lime)' }}
                       value={formData.discountPrice} onChange={e => setFormData({ ...formData, discountPrice: e.target.value })} placeholder="Optional" />
                   </div>
                 </div>
@@ -379,21 +379,21 @@ export default function AdminMarketplace() {
                   <div className="flex flex-col gap-12">
                     <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>MARKETPLACE CATEGORY</label>
                     <select className="input-field cursor-pointer" 
-                      style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 16, appearance: 'none' }}
+                      style={{ background: 'var(--bg-glass)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 16, appearance: 'none' }}
                       value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                      {categories.map(c => <option key={c} value={c} style={{ backgroundColor: '#1C1C1E', color: '#FFFFFF' }}>{c}</option>)}
+                      {categories.map(c => <option key={c} value={c} style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>{c}</option>)}
                     </select>
                   </div>
                   <div className="flex flex-col gap-12">
                     <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>INVENTORY LEVEL</label>
                     <input required type="number" className="input-field" 
-                      style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 17 }}
+                      style={{ background: 'var(--bg-glass)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 17 }}
                       value={formData.stock} onChange={e => setFormData({ ...formData, stock: e.target.value })} placeholder="Units available" />
                   </div>
                 </div>
 
                 {/* Media Section */}
-                <div className="flex flex-col gap-16" style={{ background: 'rgba(255,255,255,0.02)', padding: 32, borderRadius: 24, border: '1px dashed var(--divider)' }}>
+                <div className="flex flex-col gap-16" style={{ background: 'var(--bg-glass)', padding: 32, borderRadius: 24, border: '1px dashed var(--border-glass)' }}>
                   <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>PRODUCT MEDIA</label>
                   <div className="flex flex-wrap gap-16">
                     {formData.images.map((url, i) => (
