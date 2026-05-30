@@ -198,15 +198,15 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
       const parsed = typeof error === 'string' ? JSON.parse(error) : error;
       reason = parsed.description || reason;
     } catch (_) {}
-    return res.redirect(`${frontendOrigin}/customer/booking?status=failed&error=${encodeURIComponent(reason)}`);
+    return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=${encodeURIComponent(reason)}`);
   }
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-    return res.redirect(`${frontendOrigin}/customer/booking?status=failed&error=Missing%20payment%20parameters`);
+    return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Missing%20payment%20parameters`);
   }
 
   if (!razorpay) {
-    return res.redirect(`${frontendOrigin}/customer/booking?status=failed&error=Payment%20service%20not%20configured`);
+    return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Payment%20service%20not%20configured`);
   }
 
   try {
@@ -218,7 +218,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
       .digest('hex');
 
     if (expectedSignature !== razorpay_signature) {
-      return res.redirect(`${frontendOrigin}/customer/booking?status=failed&error=Payment%20verification%20failed`);
+      return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Payment%20verification%20failed`);
     }
 
     // 2. Fetch order metadata notes
@@ -232,7 +232,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
     if (type === 'extension') {
       const sub = await Subscription.findOne({ _id: subscriptionId, customer: customerId, status: 'Active' });
       if (!sub) {
-        return res.redirect(`${frontendOrigin}/customer/packages?status=failed&error=Active%20subscription%20not%20found`);
+        return res.redirect(303, `${frontendOrigin}/customer/packages?status=failed&error=Active%20subscription%20not%20found`);
       }
 
       // Mark payment as verified inside DB
@@ -274,11 +274,11 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
 
       await clearCache(`cache:${customerId}:*`);
 
-      return res.redirect(`${frontendOrigin}/customer/packages?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}&extended=true`);
+      return res.redirect(303, `${frontendOrigin}/customer/packages?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}&extended=true`);
     }
 
     if (!customerId || !vehicleId || !societyId || !slotId) {
-      return res.redirect(`${frontendOrigin}/customer/booking?status=failed&error=Invalid%20order%20metadata`);
+      return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Invalid%20order%20metadata`);
     }
 
     // 3. Mark payment as verified inside DB
@@ -300,7 +300,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
     // 4. Fetch the customer to replicate auth context object
     const customer = await Customer.findById(customerId);
     if (!customer) {
-      return res.redirect(`${frontendOrigin}/customer/booking?status=failed&error=Customer%20not%20found`);
+      return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Customer%20not%20found`);
     }
 
     // 5. Construct mock req/res to call createSubscription logic
@@ -352,10 +352,10 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
     });
 
     // 6. Success redirect back to frontend booking flow
-    return res.redirect(`${frontendOrigin}/customer/booking?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}`);
+    return res.redirect(303, `${frontendOrigin}/customer/booking?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}`);
 
   } catch (err) {
     console.error('Error in handlePaymentCallback:', err);
-    return res.redirect(`${frontendOrigin}/customer/booking?status=failed&error=${encodeURIComponent(err.message || 'Verification failed')}`);
+    return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=${encodeURIComponent(err.message || 'Verification failed')}`);
   }
 });

@@ -123,7 +123,6 @@ export default function PackageSelect() {
 
       // 3. Configure Razorpay options
       const _apiBase = import.meta.env.VITE_API_URL || ''
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
       const options = {
         key: razorpayKey,
@@ -132,9 +131,10 @@ export default function PackageSelect() {
         name: 'Cleanzo',
         description: `Plan Extension for ${activeSubForVehicle.vehicle?.model}`,
         order_id: order.id,
-        // On mobile, we ALWAYS set redirect: true to avoid popup blockers and iframe issues.
-        // On desktop, we use redirect if the API is HTTPS, otherwise we use the inline handler.
-        ...((isMobile || _apiBase.startsWith('https://')) ? {
+        // Use redirect mode ONLY when the backend is publicly reachable (HTTPS / production).
+        // In development (HTTP / localhost), Razorpay's servers can't reach the callback URL,
+        // so we always use the inline modal handler which works on both desktop and mobile.
+        ...(_apiBase.startsWith('https://') ? {
           redirect: true,
           callback_url: `${_apiBase}/payment/callback?frontendOrigin=${encodeURIComponent(window.location.origin)}`,
         } : {}),

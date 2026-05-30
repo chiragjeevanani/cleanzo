@@ -119,3 +119,15 @@ describe('PAY-5 | idempotent verify — duplicate paymentId', () => {
     expect(count).toBe(1);
   });
 });
+
+describe('PAY-7 | POST /payment/callback redirect status', () => {
+  it('redirects with 303 See Other status when payment callback receives an error', async () => {
+    const res = await api
+      .post('/api/payment/callback')
+      .send({ error: '{"description":"User cancelled payment"}' });
+    expect(res.status).toBe(303);
+    expect(res.headers.location).toContain('status=failed');
+    expect(res.headers.location).toContain('User%20cancelled%20payment');
+  });
+});
+
