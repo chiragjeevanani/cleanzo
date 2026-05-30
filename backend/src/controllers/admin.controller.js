@@ -407,17 +407,26 @@ export const updateUser = asyncHandler(async (req, res) => {
 });
 
 export const deleteUser = asyncHandler(async (req, res) => {
-  const user = await Customer.findByIdAndUpdate(req.params.id, { isActive: false }, { returnDocument: 'after' });
+  const user = await Customer.findByIdAndDelete(req.params.id);
   if (!user) throw new ApiError(404, 'User not found');
+
+  // Cascade delete associated records
+  await Promise.all([
+    Vehicle.deleteMany({ customer: user._id }),
+    Subscription.deleteMany({ customer: user._id }),
+    Task.deleteMany({ customer: user._id }),
+    Rating.deleteMany({ customer: user._id }),
+    Grievance.deleteMany({ customer: user._id })
+  ]);
 
   await logActivity({
     type: 'user_deleted',
-    message: `Admin deactivated user: ${user.firstName} ${user.lastName}`,
+    message: `Admin deleted user: ${user.firstName} ${user.lastName}`,
     performer: req.user._id,
     metadata: { userId: user._id }
   });
 
-  res.json({ success: true, message: 'User deactivated successfully' });
+  res.json({ success: true, message: 'User deleted successfully' });
 });
 
 export const getCleanerById = asyncHandler(async (req, res) => {

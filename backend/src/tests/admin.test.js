@@ -60,13 +60,13 @@ describe('ADMIN | User management', () => {
     expect(res.body).toHaveProperty('total');
   });
 
-  it('deactivates (soft-deletes) a user', async () => {
+  it('permanently deletes a user from the database and cascades', async () => {
     const { token } = await createAdmin();
     const { customer } = await createCustomer();
     const res = await api.delete(`/api/admin/users/${customer._id}`).set(authHeader(token));
     expect(res.status).toBe(200);
     const updated = await (await import('../models/Customer.js')).default.findById(customer._id);
-    expect(updated.isActive).toBe(false);
+    expect(updated).toBeNull();
   });
 });
 

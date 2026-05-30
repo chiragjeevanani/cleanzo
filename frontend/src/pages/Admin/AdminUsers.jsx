@@ -126,7 +126,7 @@ export default function AdminUsers() {
       await apiClient.delete(`/admin/users/${userId}`)
       setUsers(prev => prev.filter(u => u._id !== userId))
     } catch {
-      setError('Failed to deactivate user. Please try again.')
+      setError('Failed to delete user. Please try again.')
     }
     setConfirmDelete(null)
   }
