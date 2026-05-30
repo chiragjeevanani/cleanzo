@@ -129,6 +129,39 @@ export default function PackageSelect() {
     setProcessing(true)
     setPaymentError('')
 
+    const isTestingMode = import.meta.env.VITE_TESTING_MODE === 'true' || import.meta.env.DEV;
+
+    if (isTestingMode) {
+      try {
+        const mockOrderId = `order_mock_${Date.now()}`;
+        const mockPaymentId = `pay_mock_${Date.now()}`;
+        const mockSignature = 'mock_signature';
+
+        // 1. Verify mock payment
+        await apiClient.post('/payment/verify', {
+          razorpay_order_id: mockOrderId,
+          razorpay_payment_id: mockPaymentId,
+          razorpay_signature: mockSignature
+        })
+
+        // 2. Extend Subscription
+        await apiClient.post(`/customer/subscriptions/${activeSubForVehicle._id}/extend`, {
+          paymentId: mockPaymentId
+        })
+
+        setProcessing(false)
+        refreshAll()
+        setExtensionStep(3)
+        return;
+      } catch (err) {
+        setProcessing(false)
+        const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Mock extension failed.'
+        setPaymentError(errMsg)
+        setExtensionStep(4)
+        return;
+      }
+    }
+
     try {
       // 1. Get Razorpay key
       const keyRes = await apiClient.get('/payment/key')

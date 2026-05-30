@@ -259,6 +259,48 @@ export default function BookingFlow() {
     setProcessing(true)
     setPaymentError('')
 
+    const isTestingMode = import.meta.env.VITE_TESTING_MODE === 'true' || import.meta.env.DEV;
+
+    if (isTestingMode) {
+      try {
+        const mockOrderId = `order_mock_${Date.now()}`;
+        const mockPaymentId = `pay_mock_${Date.now()}`;
+        const mockSignature = 'mock_signature';
+
+        // 1. Verify mock payment
+        await apiClient.post('/payment/verify', {
+          razorpay_order_id: mockOrderId,
+          razorpay_payment_id: mockPaymentId,
+          razorpay_signature: mockSignature
+        })
+
+        // 2. Create Subscription
+        await apiClient.post('/customer/subscriptions', {
+          vehicleId: selectedVehicle._id,
+          packageId: selectedPkg._id || null,
+          isTrial: selectedPkg.isTrial || false,
+          societyId: selectedSociety._id,
+          slotId: selectedSlot.slotId,
+          specialInstructions,
+          paymentId: mockPaymentId,
+          startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
+          isPremiumOverride: activeOverride,
+          overrideReason: activeOverride ? overrideReason : undefined
+        })
+
+        setProcessing(false)
+        refreshAll()
+        setStep(4)
+        return;
+      } catch (err) {
+        setProcessing(false)
+        const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Mock payment failed.'
+        setPaymentError(errMsg)
+        setStep(5)
+        return;
+      }
+    }
+
     try {
       // 1. Get Razorpay key
       const keyRes = await apiClient.get('/payment/key')
