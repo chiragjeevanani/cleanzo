@@ -242,6 +242,14 @@ export default function BookingFlow() {
       const order = orderRes.order
 
       // 3. Configure Razorpay options
+      // Razorpay's card (3DS) and mock-payment flows always do a server-side redirect
+      // after the bank page — they POST to callback_url regardless of the `redirect` flag.
+      // We enable the redirect flow only when the API is reachable by Razorpay's servers
+      // (i.e., a public HTTPS URL). On localhost the callback cannot be reached, so we
+      // fall back to handler-only mode (works for UPI and non-3DS flows in local dev).
+      const _apiBase = import.meta.env.VITE_API_URL || ''
+      const _useRedirect = _apiBase.startsWith('https://')
+
       const options = {
         key: razorpayKey,
         amount: order.amount,
@@ -249,6 +257,10 @@ export default function BookingFlow() {
         name: 'Cleanzo',
         description: `${selectedPkg.name} for ${selectedVehicle.model}`,
         order_id: order.id,
+        ...(_useRedirect ? {
+          redirect: true,
+          callback_url: `${_apiBase}/payment/callback`,
+        } : {}),
         handler: async function (response) {
           try {
             // 4. Verify payment

@@ -115,6 +115,9 @@ export default function PackageSelect() {
       const order = orderRes.order
 
       // 3. Configure Razorpay options
+      const _apiBase = import.meta.env.VITE_API_URL || ''
+      const _useRedirect = _apiBase.startsWith('https://')
+
       const options = {
         key: razorpayKey,
         amount: order.amount,
@@ -122,6 +125,10 @@ export default function PackageSelect() {
         name: 'Cleanzo',
         description: `Plan Extension for ${activeSubForVehicle.vehicle?.model}`,
         order_id: order.id,
+        ...(_useRedirect ? {
+          redirect: true,
+          callback_url: `${_apiBase}/payment/callback`,
+        } : {}),
         handler: async function (response) {
           try {
             // 4. Verify payment
