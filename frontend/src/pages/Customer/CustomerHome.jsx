@@ -284,7 +284,7 @@ export default function CustomerHome() {
                 bg: 'rgba(var(--bg-accent-rgb), 0.1)',
                 disabled: false
               },
-              { icon: SkipForward, label: 'Skip Today', to: '/customer/skip', color: 'var(--primary-blue)', bg: 'rgba(0,122,255,0.1)', disabled: !hasRemainingDays },
+              { icon: SkipForward, label: 'Skip Days', to: '/customer/skip', color: 'var(--primary-blue)', bg: 'rgba(0,122,255,0.1)', disabled: !hasRemainingDays },
               { icon: Car, label: 'My Garage', to: '/customer/vehicles', color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.05)', disabled: false },
             ].map((a, i) => {
               const content = (

@@ -1,7 +1,7 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Share2, CheckCircle2, XCircle, ChevronRight, HelpCircle, Star, Plus, Minus } from 'lucide-react'
+import { ArrowLeft, Share2, CheckCircle2, XCircle } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
 
@@ -12,7 +12,6 @@ export default function PlanDetail() {
   const vehicleId = searchParams.get('vehicleId')
   const [pkg, setPkg] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [openFaq, setOpenFaq] = useState(null)
   const { subscriptions } = useCustomerData()
   
   const activeSubForVehicle = (subscriptions || []).find(
@@ -46,37 +45,17 @@ export default function PlanDetail() {
     'Pet hair removal (Elite only)'
   ].filter(item => !(pkg.features || []).includes(item))
 
-  const faqs = [
-    { q: 'What are the service timings?', a: 'We work dedicatedly from 5:00 AM to 10:00 AM every morning so your car is ready before you leave for work.' },
-    { q: 'Do you work on Sundays/Holidays?', a: 'Yes! We work 365 days a year, including all public holidays and festivals. No leaves, no excuses.' },
-    { q: 'Is interior cleaning included?', a: 'Our standard plans focus on daily exterior cleaning. Interior deep cleaning and detailing are available as flexible add-ons.' },
-    { q: 'How does the prepaid model work?', a: 'You pay for the month in advance. We provide doorstep service daily without any follow-ups required.' }
-  ]
-
-  // Map package to specific images
-  const pkgImages = {
-    1: 'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=2831&auto=format&fit=crop',
-    2: 'https://images.unsplash.com/photo-1607860108855-64acf2078ed9?q=80&w=2942&auto=format&fit=crop',
-    3: 'https://images.unsplash.com/photo-1552933529-e359b24772ff?q=80&w=2940&auto=format&fit=crop'
-  }
-
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh', paddingBottom: 100 }}>
-      {/* Banner */}
-      <div style={{ position: 'relative', height: 260, width: '100%', overflow: 'hidden' }}>
-        <img 
-          src={pkgImages[pkg.id] || pkgImages[2]} 
-          alt={pkg.name} 
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', zIndex: 10 }}>
-          <button onClick={() => navigate(-1)} style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}>
-            <ArrowLeft size={20} />
-          </button>
-          <button style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}>
-            <Share2 size={20} />
-          </button>
-        </div>
+      {/* Header */}
+      <div className="app-header" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)' }}>
+        <button onClick={() => navigate(-1)} style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ArrowLeft size={20} /> 
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Plan Details</span>
+        </button>
+        <button style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}>
+          <Share2 size={20} className="text-secondary" />
+        </button>
       </div>
 
       <div style={{ padding: '24px 20px' }}>
@@ -86,12 +65,6 @@ export default function PlanDetail() {
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-accent)' }}>₹{pkg.price}</div>
             <div className="text-secondary text-body-sm" style={{ textDecoration: 'line-through' }}>₹{Math.round(pkg.price * 1.2)}</div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-4" style={{ marginBottom: 24 }}>
-          <Star size={16} fill="var(--warning)" color="var(--warning)" />
-          <span style={{ fontWeight: 600 }}>4.9</span>
-          <span className="text-secondary text-body-sm">(27.8k ratings)</span>
         </div>
 
         <div className="divider" style={{ marginBottom: 32 }} />
@@ -143,34 +116,6 @@ export default function PlanDetail() {
                 </div>
               </div>
             ))}
-          </div>
-        </section>
-
-        <div className="divider" style={{ marginBottom: 32 }} />
-
-        {/* FAQs */}
-        <section style={{ marginBottom: 40 }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 16 }}>FAQs</h2>
-          <div className="flex flex-col gap-8">
-            {faqs.map((faq, i) => {
-              const isOpen = openFaq === i
-              return (
-                <div key={i} className="glass" style={{ overflow: 'hidden' }}>
-                  <div 
-                    onClick={() => setOpenFaq(isOpen ? null : i)}
-                    style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                  >
-                    <span style={{ fontWeight: 500, fontSize: 15 }}>{faq.q}</span>
-                    {isOpen ? <Minus size={18} className="text-lime" /> : <Plus size={18} className="text-secondary" />}
-                  </div>
-                  {isOpen && (
-                    <div style={{ padding: '0 20px 16px', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }} className="animate-fade-in">
-                      {faq.a}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
           </div>
         </section>
       </div>

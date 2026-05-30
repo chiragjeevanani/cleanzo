@@ -461,7 +461,33 @@ export default function CustomerAuth() {
             : `Redirecting to your ${role === 'crew' ? 'crew' : 'customer'} dashboard…`}
         </p>
         {mode === 'signup' && formData.societyName && (
-          <button className="btn-primary" style={{ marginTop: 24, padding: '12px 24px', borderRadius: 12 }} onClick={() => navigate('/')}>Back to Home</button>
+          <button 
+            className="btn-primary" 
+            style={{ marginTop: 24, padding: '12px 24px', borderRadius: 12 }} 
+            onClick={() => {
+              setMode('login');
+              setStep('form');
+              setSignupStep(1);
+              setFormData({
+                firstName: '',
+                lastName: '',
+                email: '',
+                phone: '',
+                city: '',
+                society: '',
+                societyName: '',
+                area: '',
+                pincode: '',
+                referralCode: '',
+                otp: ['', '', '', '', '', ''],
+              });
+              setSocietySearch('');
+              setIsOtherSociety(false);
+              navigate('/login', { replace: true });
+            }}
+          >
+            Okay
+          </button>
         )}
       </div>
     </div>
