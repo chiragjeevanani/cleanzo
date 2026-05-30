@@ -7,8 +7,12 @@ import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import * as publicCtrl from '../controllers/public.controller.js';
 import { logActivity } from '../controllers/admin.controller.js';
 import { cacheMiddleware } from '../middleware/cache.js';
+import { publicApiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
+
+// IP-based limit for all public (unauthenticated) routes: 150 req / 15 min
+router.use(publicApiLimiter);
 
 // ─── SOCIETIES & AVAILABILITY ────────────────────
 router.get('/societies/search', publicCtrl.searchSocieties);

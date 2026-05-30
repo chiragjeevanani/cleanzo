@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import routes from './routes/index.js';
-import { apiLimiter } from './middleware/rateLimiter.js';
+import { globalIpLimiter } from './middleware/rateLimiter.js';
 import { ApiError } from './utils/ApiError.js';
 
 const app = express();
@@ -54,7 +54,7 @@ if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
-app.use('/api', apiLimiter);
+app.use('/api', globalIpLimiter);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Cleanzo Backend is running!', timestamp: new Date().toISOString() });

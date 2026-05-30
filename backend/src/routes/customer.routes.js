@@ -3,11 +3,13 @@ import { protect, authorize } from '../middleware/auth.js';
 import { upload, validateImageBytes } from '../middleware/upload.js';
 import * as ctrl from '../controllers/customer.controller.js';
 import { cacheMiddleware } from '../middleware/cache.js';
+import { customerApiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-// All routes require customer auth
+// Auth first, then per-user rate limit (300 req / 15 min per customer ID)
 router.use(protect, authorize('customer'));
+router.use(customerApiLimiter);
 
 router.get('/profile', cacheMiddleware(300, true), ctrl.getProfile);
 router.put('/profile', ctrl.updateProfile);

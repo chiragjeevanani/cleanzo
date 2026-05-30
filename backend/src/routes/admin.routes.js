@@ -2,10 +2,13 @@ import { Router } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 import * as ctrl from '../controllers/admin.controller.js';
+import { adminApiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
+// Auth first, then per-user rate limit (800 req / 15 min per admin ID)
 router.use(protect, authorize('admin', 'superadmin'));
+router.use(adminApiLimiter);
 
 router.get('/profile', ctrl.getProfile);
 router.post('/upload', upload.single('image'), ctrl.uploadImage);

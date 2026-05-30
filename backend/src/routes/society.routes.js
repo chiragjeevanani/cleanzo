@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
 import * as ctrl from '../controllers/society.controller.js';
+import { societyApiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-// All routes require a valid society JWT
+// Auth first, then per-user rate limit (200 req / 15 min per society ID)
 router.use(protect, authorize('society'));
+router.use(societyApiLimiter);
 
 router.get('/dashboard', ctrl.getDashboard);
 router.get('/commissions', ctrl.getCommissions);

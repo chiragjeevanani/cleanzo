@@ -2,10 +2,13 @@ import { Router } from 'express';
 import { protect, authorize } from '../middleware/auth.js';
 import { upload, kycUpload, validateImageBytes } from '../middleware/upload.js';
 import * as ctrl from '../controllers/cleaner.controller.js';
+import { cleanerApiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
+// Auth first, then per-user rate limit (500 req / 15 min per cleaner ID)
 router.use(protect, authorize('cleaner'));
+router.use(cleanerApiLimiter);
 
 router.get('/profile', ctrl.getProfile);
 router.put('/profile', ctrl.updateProfile);
