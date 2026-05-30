@@ -118,58 +118,18 @@ export default function BookingFlow() {
     }
   }, [step, navigate])
 
-  // Handle callback redirect from /api/payment-callback (Vercel function)
-  // On mobile, Razorpay's card/3DS flow always redirects the browser. The Vercel
-  // function receives the POST and redirects back here with payment params in the URL.
+  // Handle callback redirect parameters from Razorpay
   useEffect(() => {
-    const status   = queryParams.get('status')
-    const err      = queryParams.get('error')
-    const orderId  = queryParams.get('razorpay_order_id')
-    const pmtId    = queryParams.get('razorpay_payment_id')
-    const sig      = queryParams.get('razorpay_signature')
-
-    if (status === 'payment_return' && pmtId && user) {
-      // Restore booking context saved to localStorage before Razorpay opened
-      let ctx = null
-      try { ctx = JSON.parse(localStorage.getItem('cleanzo_pending_booking') || 'null') } catch {}
-
-      if (!ctx) {
-        setPaymentError('Booking context lost after redirect. Please try again.')
-        setStep(5)
-        return
-      }
-
-      setProcessing(true)
-      ;(async () => {
-        try {
-          await apiClient.post('/payment/verify', {
-            razorpay_order_id: orderId,
-            razorpay_payment_id: pmtId,
-            razorpay_signature: sig,
-          })
-          await apiClient.post('/customer/subscriptions', {
-            ...ctx,
-            paymentId: pmtId,
-          })
-          localStorage.removeItem('cleanzo_pending_booking')
-          setProcessing(false)
-          refreshAll()
-          setStep(4)
-        } catch (verifyErr) {
-          localStorage.removeItem('cleanzo_pending_booking')
-          setProcessing(false)
-          setPaymentError(verifyErr.message || 'Payment verification failed. Contact support.')
-          setStep(5)
-        }
-      })()
-    } else if (status === 'success') {
+    const status = queryParams.get('status')
+    const err = queryParams.get('error')
+    if (status === 'success') {
       refreshAll()
       setStep(4)
     } else if (status === 'failed') {
       setPaymentError(err || 'Payment failed')
       setStep(5)
     }
-  }, [location.search, user, refreshAll])
+  }, [location.search, refreshAll])
 
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -259,48 +219,6 @@ export default function BookingFlow() {
     setProcessing(true)
     setPaymentError('')
 
-    const isTestingMode = import.meta.env.VITE_TESTING_MODE === 'true' || import.meta.env.DEV;
-
-    if (isTestingMode) {
-      try {
-        const mockOrderId = `order_mock_${Date.now()}`;
-        const mockPaymentId = `pay_mock_${Date.now()}`;
-        const mockSignature = 'mock_signature';
-
-        // 1. Verify mock payment
-        await apiClient.post('/payment/verify', {
-          razorpay_order_id: mockOrderId,
-          razorpay_payment_id: mockPaymentId,
-          razorpay_signature: mockSignature
-        })
-
-        // 2. Create Subscription
-        await apiClient.post('/customer/subscriptions', {
-          vehicleId: selectedVehicle._id,
-          packageId: selectedPkg._id || null,
-          isTrial: selectedPkg.isTrial || false,
-          societyId: selectedSociety._id,
-          slotId: selectedSlot.slotId,
-          specialInstructions,
-          paymentId: mockPaymentId,
-          startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
-          isPremiumOverride: activeOverride,
-          overrideReason: activeOverride ? overrideReason : undefined
-        })
-
-        setProcessing(false)
-        refreshAll()
-        setStep(4)
-        return;
-      } catch (err) {
-        setProcessing(false)
-        const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Mock payment failed.'
-        setPaymentError(errMsg)
-        setStep(5)
-        return;
-      }
-    }
-
     try {
       // 1. Get Razorpay key
       const keyRes = await apiClient.get('/payment/key')
@@ -327,19 +245,8 @@ export default function BookingFlow() {
       const order = orderRes.order
 
       // 3. Configure Razorpay options
+      const _apiBase = import.meta.env.VITE_API_URL || ''
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-
-      const bookingCtx = {
-        vehicleId: selectedVehicle._id,
-        packageId: selectedPkg._id || null,
-        isTrial: selectedPkg.isTrial || false,
-        societyId: selectedSociety._id,
-        slotId: selectedSlot.slotId,
-        specialInstructions,
-        startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
-        isPremiumOverride: activeOverride,
-        overrideReason: activeOverride ? overrideReason : undefined
-      }
 
       const options = {
         key: razorpayKey,
@@ -348,9 +255,11 @@ export default function BookingFlow() {
         name: 'Cleanzo',
         description: `${selectedPkg.name} for ${selectedVehicle.model}`,
         order_id: order.id,
-        ...(isMobile ? {
+        // On mobile, we ALWAYS set redirect: true to avoid popup blockers and iframe issues.
+        // On desktop, we use redirect if the API is HTTPS, otherwise we use the inline handler.
+        ...((isMobile || _apiBase.startsWith('https://')) ? {
           redirect: true,
-          callback_url: `${window.location.origin}/api/payment-callback?type=booking`,
+          callback_url: `${_apiBase}/payment/callback`,
         } : {}),
         handler: async function (response) {
           try {
@@ -410,9 +319,6 @@ export default function BookingFlow() {
         prefill: options.prefill,
         theme: options.theme
       });
-
-      // Save context to localStorage before opening payment in case page redirects (mobile)
-      localStorage.setItem('cleanzo_pending_booking', JSON.stringify(bookingCtx))
 
       // 4. Open Razorpay checkout — rzp.open() is non-blocking, do NOT put setProcessing(false)
       // in a finally block here; the modal handlers above manage it instead

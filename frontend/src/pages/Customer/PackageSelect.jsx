@@ -39,45 +39,9 @@ export default function PackageSelect() {
     const status = queryParams.get('status')
     const extended = queryParams.get('extended')
     const err = queryParams.get('error')
-    const orderId = queryParams.get('razorpay_order_id')
-    const pmtId = queryParams.get('razorpay_payment_id')
-    const sig = queryParams.get('razorpay_signature')
     
     if (extended === 'true') {
-      if (status === 'payment_return' && pmtId) {
-        // Restore extension context
-        let ctx = null
-        try { ctx = JSON.parse(localStorage.getItem('cleanzo_pending_extension') || 'null') } catch {}
-
-        if (!ctx) {
-          setPaymentError('Extension context lost after redirect. Please try again.')
-          setExtensionStep(4) // Failed screen
-          return
-        }
-
-        setProcessing(true)
-        ;(async () => {
-          try {
-            await apiClient.post('/payment/verify', {
-              razorpay_order_id: orderId,
-              razorpay_payment_id: pmtId,
-              razorpay_signature: sig,
-            })
-            await apiClient.post(`/customer/subscriptions/${ctx.subscriptionId}/extend`, {
-              paymentId: pmtId,
-            })
-            localStorage.removeItem('cleanzo_pending_extension')
-            setProcessing(false)
-            refreshAll()
-            setExtensionStep(3) // Success screen
-          } catch (verifyErr) {
-            localStorage.removeItem('cleanzo_pending_extension')
-            setProcessing(false)
-            setPaymentError(verifyErr.response?.data?.message || verifyErr.response?.data?.error || verifyErr.message || 'Payment verification or plan extension failed.')
-            setExtensionStep(4)
-          }
-        })()
-      } else if (status === 'success') {
+      if (status === 'success') {
         refreshAll()
         setExtensionStep(3) // Success screen
       } else if (status === 'failed') {
@@ -129,39 +93,6 @@ export default function PackageSelect() {
     setProcessing(true)
     setPaymentError('')
 
-    const isTestingMode = import.meta.env.VITE_TESTING_MODE === 'true' || import.meta.env.DEV;
-
-    if (isTestingMode) {
-      try {
-        const mockOrderId = `order_mock_${Date.now()}`;
-        const mockPaymentId = `pay_mock_${Date.now()}`;
-        const mockSignature = 'mock_signature';
-
-        // 1. Verify mock payment
-        await apiClient.post('/payment/verify', {
-          razorpay_order_id: mockOrderId,
-          razorpay_payment_id: mockPaymentId,
-          razorpay_signature: mockSignature
-        })
-
-        // 2. Extend Subscription
-        await apiClient.post(`/customer/subscriptions/${activeSubForVehicle._id}/extend`, {
-          paymentId: mockPaymentId
-        })
-
-        setProcessing(false)
-        refreshAll()
-        setExtensionStep(3)
-        return;
-      } catch (err) {
-        setProcessing(false)
-        const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Mock extension failed.'
-        setPaymentError(errMsg)
-        setExtensionStep(4)
-        return;
-      }
-    }
-
     try {
       // 1. Get Razorpay key
       const keyRes = await apiClient.get('/payment/key')
@@ -185,11 +116,8 @@ export default function PackageSelect() {
       const order = orderRes.order
 
       // 3. Configure Razorpay options
+      const _apiBase = import.meta.env.VITE_API_URL || ''
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-
-      const extensionCtx = {
-        subscriptionId: activeSubForVehicle._id,
-      }
 
       const options = {
         key: razorpayKey,
@@ -198,9 +126,11 @@ export default function PackageSelect() {
         name: 'Cleanzo',
         description: `Plan Extension for ${activeSubForVehicle.vehicle?.model}`,
         order_id: order.id,
-        ...(isMobile ? {
+        // On mobile, we ALWAYS set redirect: true to avoid popup blockers and iframe issues.
+        // On desktop, we use redirect if the API is HTTPS, otherwise we use the inline handler.
+        ...((isMobile || _apiBase.startsWith('https://')) ? {
           redirect: true,
-          callback_url: `${window.location.origin}/api/payment-callback?type=extension`,
+          callback_url: `${_apiBase}/payment/callback`,
         } : {}),
         handler: async function (response) {
           try {
@@ -234,9 +164,6 @@ export default function PackageSelect() {
           ondismiss: () => setProcessing(false)
         }
       }
-
-      // Save context to localStorage before opening payment in case page redirects (mobile)
-      localStorage.setItem('cleanzo_pending_extension', JSON.stringify(extensionCtx))
 
       const rzp = new window.Razorpay(options)
       rzp.on('payment.failed', function (response) {
