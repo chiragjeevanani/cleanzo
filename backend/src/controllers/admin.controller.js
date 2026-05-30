@@ -1377,16 +1377,22 @@ export const triggerCronJob = asyncHandler(async (req, res) => {
 /**
  * POST /api/admin/maintenance/assign-all-cleaners
  *
- * Finds every Active subscription that either:
- *   a) has no assignedCleaner, OR
- *   b) whose assigned cleaner is inactive / unavailable / on leave today
+ * Body (optional): { redistribute: boolean }
  *
- * Then auto-assigns an eligible cleaner using load-balanced round-robin,
- * creates today's task if missing, and returns a detailed report.
+ * Default mode  — fills in subscriptions that have no eligible cleaner.
+ * Redistribute  — reassigns ALL active subscriptions fresh using round-robin
+ *                 so the workload is evenly spread across all available cleaners.
  *
- * This is separate from triggerCronJob — it does NOT run expiry or reminders.
+ * Pool selection (per society):
+ *   1. society.cleaners[] if admin explicitly populated it
+ *   2. Global pool of all active/available cleaners (fallback)
+ *   NOTE: we intentionally do NOT derive the pool from existing subscription
+ *   assignments — that caused a feedback loop where a single cleaner kept getting
+ *   picked because they were the only one in every "fromSubs" result.
  */
 export const assignAllCleaners = asyncHandler(async (req, res) => {
+  const { redistribute = false } = req.body || {};
+
   const today = getISTMidnight();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1415,29 +1421,28 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
     approvedLeaves.map(l => l.cleaner.toString())
   );
 
-  // 3. Identify subscriptions that need a cleaner
+  // 3. Identify which subscriptions need assignment
   const needsCleaner = [];
   let alreadyAssigned = 0;
 
   for (const sub of activeSubs) {
-    // Skip subs that haven't started yet
     if (sub.startDate && today < getISTMidnight(sub.startDate)) continue;
 
-    const cleaner = sub.assignedCleaner;
-    const isOk = cleaner &&
-                 cleaner.isActive !== false &&
-                 cleaner.isAvailable !== false &&
-                 !cleanersOnLeaveToday.has(cleaner._id.toString());
-
-    if (isOk) {
-      alreadyAssigned++;
-      continue;
+    if (redistribute) {
+      // Force mode: redistribute ALL active subs for a clean round-robin
+      needsCleaner.push(sub);
+    } else {
+      const cleaner = sub.assignedCleaner;
+      const isOk = cleaner &&
+                   cleaner.isActive !== false &&
+                   cleaner.isAvailable !== false &&
+                   !cleanersOnLeaveToday.has(cleaner._id.toString());
+      if (isOk) { alreadyAssigned++; continue; }
+      needsCleaner.push(sub);
     }
-
-    needsCleaner.push(sub);
   }
 
-  console.log(`[ASSIGN-ALL] ${activeSubs.length} active subs — ${alreadyAssigned} already assigned, ${needsCleaner.length} need a cleaner`);
+  console.log(`[ASSIGN-ALL] ${activeSubs.length} active subs — ${alreadyAssigned} already assigned, ${needsCleaner.length} need a cleaner${redistribute ? ' (redistribute mode)' : ''}`);
 
   if (needsCleaner.length === 0) {
     return res.json({
@@ -1448,11 +1453,9 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
     });
   }
 
-  // 4. Pre-fetch global fallback pool (all active/available cleaners not on leave)
-  const allCleaners = await Cleaner.find({
-    isActive: true,
-    isAvailable: true,
-  }).select('_id name').lean();
+  // 4. Global pool — all active/available cleaners not on leave today
+  const allCleaners = await Cleaner.find({ isActive: true, isAvailable: true })
+    .select('_id name').lean();
   const globalPool = allCleaners.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
 
   console.log(`[ASSIGN-ALL] Global pool: ${allCleaners.length} active/available, ${globalPool.length} not on leave`);
@@ -1462,14 +1465,11 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
       success: true,
       message: 'No active and available cleaners found in the system. Cannot assign.',
       assigned: 0, alreadyAssigned, failed: 0, unassigned: needsCleaner.length, total: activeSubs.length,
-      details: needsCleaner.map(s => ({
-        subscriptionId: s._id,
-        reason: 'No cleaners available in system',
-      })),
+      details: needsCleaner.map(s => ({ subscriptionId: s._id, reason: 'No cleaners available in system' })),
     });
   }
 
-  // 5. Group by society for load-balanced assignment
+  // 5. Group by society
   const NO_SOCIETY = '__no_society__';
   const bySociety = new Map();
   for (const sub of needsCleaner) {
@@ -1481,8 +1481,6 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
   }
 
   // 6. Assign cleaners using slot-aware round-robin
-  //    For each society bucket, group subs by their slot, then for each slot
-  //    count per-cleaner tasks in THAT slot today, and pick the least-loaded.
   let assignedCount = 0;
   let failedCount = 0;
   const details = [];
@@ -1490,24 +1488,23 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
   for (const [sid, { societyObjId, subs }] of bySociety) {
     const label = sid === NO_SOCIETY ? 'NO_SOCIETY' : sid;
 
-    // Try society-specific cleaners first, then global fallback
+    // Build the cleaner pool for this society.
+    //
+    // Priority:
+    //   1. society.cleaners[] — only if admin explicitly configured this list
+    //   2. Global pool of ALL active/available cleaners
+    //
+    // We intentionally do NOT pull from existing subscription.assignedCleaner
+    // values (the old approach). That created a feedback loop: one cleaner in
+    // the list → everyone gets that cleaner → list stays at one cleaner forever.
     let pool;
     if (sid !== NO_SOCIETY) {
-      const fromSubs = await Subscription.distinct('assignedCleaner', {
-        society: societyObjId,
-        status: 'Active',
-        assignedCleaner: { $exists: true, $ne: null },
-      });
       const societyDoc = await Society.findById(societyObjId).select('cleaners').lean();
       const fromSocietyList = (societyDoc?.cleaners || []).map(c => c.toString());
-      const candidateIds = [...new Set([
-        ...fromSubs.map(id => id.toString()),
-        ...fromSocietyList,
-      ])];
 
-      if (candidateIds.length > 0) {
+      if (fromSocietyList.length > 0) {
         const eligible = await Cleaner.find({
-          _id: { $in: candidateIds },
+          _id: { $in: fromSocietyList },
           isActive: true,
           isAvailable: true,
         }).select('_id name').lean();
@@ -1515,8 +1512,10 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
       }
 
       if (!pool || pool.length === 0) {
-        console.log(`[ASSIGN-ALL] Society ${label}: no society-specific cleaners — using global pool`);
+        console.log(`[ASSIGN-ALL] Society ${label}: no society.cleaners configured — using global pool (${globalPool.length} cleaners)`);
         pool = [...globalPool];
+      } else {
+        console.log(`[ASSIGN-ALL] Society ${label}: using society.cleaners pool (${pool.length} cleaners)`);
       }
     } else {
       pool = [...globalPool];

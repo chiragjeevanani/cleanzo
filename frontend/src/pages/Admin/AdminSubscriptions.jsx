@@ -34,6 +34,7 @@ export default function AdminSubscriptions() {
   const [cronRunAt, setCronRunAt]             = useState('')
 
   // Assign All Cleaners state
+  const [distributeAll, setDistributeAll] = useState(false)
   const [showAssignConfirm, setShowAssignConfirm] = useState(false)
   const [assignRunning, setAssignRunning]         = useState(false)
   const [assignResults, setAssignResults]         = useState(null)
@@ -132,7 +133,7 @@ export default function AdminSubscriptions() {
     setShowAssignConfirm(false)
     setAssignResults(null)
     try {
-      const res = await apiClient.post('/admin/maintenance/assign-all-cleaners')
+      const res = await apiClient.post('/admin/maintenance/assign-all-cleaners', { redistribute: distributeAll })
       setAssignResults(res)
       if (res.assigned > 0) {
         showToast(`✅ Assigned cleaners to ${res.assigned} subscription(s).`)
@@ -308,11 +309,12 @@ export default function AdminSubscriptions() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <div className="glass-solid" style={{
-            borderRadius: 20, padding: 32, maxWidth: 440, width: '90%',
+            borderRadius: 20, padding: 32, maxWidth: 460, width: '90%',
             border: '1px solid var(--border-glass)',
             boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 12, flexShrink: 0,
                 background: 'rgba(50,215,75,0.12)', border: '1px solid rgba(50,215,75,0.25)',
@@ -321,9 +323,9 @@ export default function AdminSubscriptions() {
                 <Users size={20} style={{ color: '#32d74b' }} />
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>Assign All Cleaners?</div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Assign All Cleaners</div>
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-                  This will assign cleaners to all active subscriptions.
+                  Distribute work across all available cleaners
                 </div>
               </div>
               <button
@@ -334,24 +336,76 @@ export default function AdminSubscriptions() {
               </button>
             </div>
 
+            {/* Mode toggle */}
             <div style={{
               background: 'var(--bg-glass)', border: '1px solid var(--border-glass)',
-              borderRadius: 12, padding: '14px 16px', marginBottom: 24, fontSize: 13,
-              color: 'var(--text-secondary)', lineHeight: 1.6,
+              borderRadius: 14, marginBottom: 16, overflow: 'hidden',
             }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {[
-                  { icon: '🔍', label: 'Find all active subscriptions without an eligible cleaner' },
-                  { icon: '⚖️', label: 'Load-balance across available cleaners per society' },
-                  { icon: '📋', label: 'Create today\'s task if missing' },
-                  { icon: '✅', label: 'Assign cleaners immediately' },
-                ].map(({ icon, label }) => (
-                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 15 }}>{icon}</span>
-                    <span>{label}</span>
+              {/* Option A — Fill unassigned only */}
+              <button
+                onClick={() => setDistributeAll(false)}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'flex-start', gap: 12,
+                  padding: '14px 16px', background: 'none', border: 'none',
+                  borderBottom: '1px solid var(--border-glass)', cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{
+                  width: 18, height: 18, borderRadius: '50%', flexShrink: 0, marginTop: 2,
+                  border: `2px solid ${!distributeAll ? '#32d74b' : 'var(--border-glass)'}`,
+                  background: !distributeAll ? '#32d74b' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {!distributeAll && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>
+                    Fill unassigned only
                   </div>
-                ))}
-              </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    Only assign cleaners to subscriptions that currently have none. Keeps existing assignments untouched.
+                  </div>
+                </div>
+              </button>
+
+              {/* Option B — Redistribute all (round-robin) */}
+              <button
+                onClick={() => setDistributeAll(true)}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'flex-start', gap: 12,
+                  padding: '14px 16px', background: distributeAll ? 'rgba(50,215,75,0.04)' : 'none',
+                  border: 'none', cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                <div style={{
+                  width: 18, height: 18, borderRadius: '50%', flexShrink: 0, marginTop: 2,
+                  border: `2px solid ${distributeAll ? '#32d74b' : 'var(--border-glass)'}`,
+                  background: distributeAll ? '#32d74b' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {distributeAll && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>
+                    Redistribute all (round-robin) ⚖️
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    Reassign <strong>all</strong> active subscriptions fresh. Spreads work evenly — each cleaner gets an equal share. Use this to fix skewed assignments.
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* Info note */}
+            <div style={{
+              fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 20,
+              padding: '10px 14px', borderRadius: 10,
+              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              {distributeAll
+                ? '⚖️ Round-robin: subscription 1 → cleaner A, sub 2 → cleaner B, sub 3 → cleaner C … each cleaner gets equal work. Today\'s task is updated immediately.'
+                : '🔍 Only subscriptions with no cleaner (or an inactive/on-leave cleaner) will be filled. Others are left as-is.'}
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
@@ -366,12 +420,15 @@ export default function AdminSubscriptions() {
                 className="btn btn-sm"
                 onClick={handleAssignAllCleaners}
                 style={{
-                  flex: 1, background: 'linear-gradient(135deg, #32d74b, #28a745)', color: '#fff',
-                  border: 'none', borderRadius: 10, fontWeight: 700,
+                  flex: 1,
+                  background: distributeAll
+                    ? 'linear-gradient(135deg, #007AFF, #0056CC)'
+                    : 'linear-gradient(135deg, #32d74b, #28a745)',
+                  color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}
               >
-                <Users size={14} /> Assign Now
+                <Users size={14} /> {distributeAll ? 'Redistribute All' : 'Assign Now'}
               </button>
             </div>
           </div>
