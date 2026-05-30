@@ -26,10 +26,11 @@ try {
  * Body: { amount, currency, packageId, vehicleId }
  */
 export const createOrder = asyncHandler(async (req, res) => {
-  const { 
+  const {
     amount, currency = 'INR', packageId, vehicleId,
     societyId, slotId, specialInstructions, isTrial, startDate,
-    isPremiumOverride, overrideReason, type, subscriptionId
+    isPremiumOverride, overrideReason, type, subscriptionId,
+    frontendOrigin,   // caller passes window.location.origin so callback redirect is reliable
   } = req.body;
   if (!amount) throw new ApiError(400, 'Amount is required');
   if (amount < 1 || amount > 100000) throw new ApiError(400, 'Amount must be between ₹1 and ₹1,00,000');
@@ -51,6 +52,7 @@ export const createOrder = asyncHandler(async (req, res) => {
       overrideReason: overrideReason || '',
       type: type || 'purchase',
       subscriptionId: subscriptionId || '',
+      frontendOrigin: frontendOrigin || '',  // stored so callback can redirect correctly
     },
   };
 
@@ -134,20 +136,42 @@ export const getKey = asyncHandler(async (req, res) => {
 export const handlePaymentCallback = asyncHandler(async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, error } = req.body;
 
-  const referer = req.headers.referer || '';
-  let frontendOrigin = 'http://localhost:5173';
-  if (referer.includes('cleanzo.in')) {
-    frontendOrigin = referer.includes('admin') ? 'https://admin.cleanzo.in' : 'https://cleanzo.in';
-  } else if (referer.includes('vercel.app')) {
-    frontendOrigin = 'https://cleanzo-theta.vercel.app';
-  } else if (referer.includes('trycleanzo.com')) {
-    frontendOrigin = referer.includes('admin') ? 'https://admin.trycleanzo.com' : 'https://trycleanzo.com';
-  } else if (referer) {
+  // Determine where to redirect the browser after processing.
+  //
+  // Priority order:
+  //   1. frontendOrigin stored in the Razorpay order notes at order-creation time
+  //      (set by the frontend via window.location.origin — most reliable)
+  //   2. FRONTEND_URL environment variable (set in production server config)
+  //   3. Referer header fallback (unreliable — Razorpay's own domain is often the referer,
+  //      not the customer's browser origin, so this was causing blank-screen redirects to localhost)
+  //
+  // We resolve the order early so we can read the stored frontendOrigin from notes.
+  let frontendOrigin = process.env.FRONTEND_URL || '';
+
+  // If we have the order id, fetch it now to get the stored frontendOrigin from notes
+  if (razorpay_order_id && razorpay && !frontendOrigin) {
     try {
-      const urlObj = new URL(referer);
-      frontendOrigin = urlObj.origin;
+      const ord = await razorpay.orders.fetch(razorpay_order_id);
+      if (ord?.notes?.frontendOrigin) frontendOrigin = ord.notes.frontendOrigin;
     } catch (_) {}
   }
+
+  // Final fallback: referer header (best-effort; may be Razorpay's domain on mobile)
+  if (!frontendOrigin) {
+    const referer = req.headers.referer || '';
+    if (referer.includes('cleanzo.in')) {
+      frontendOrigin = referer.includes('admin') ? 'https://admin.cleanzo.in' : 'https://cleanzo.in';
+    } else if (referer.includes('trycleanzo.com')) {
+      frontendOrigin = referer.includes('admin') ? 'https://admin.trycleanzo.com' : 'https://trycleanzo.com';
+    } else if (referer.includes('vercel.app')) {
+      frontendOrigin = 'https://cleanzo-theta.vercel.app';
+    } else if (referer) {
+      try { frontendOrigin = new URL(referer).origin; } catch (_) {}
+    }
+  }
+
+  // Absolute last resort — known production URL
+  if (!frontendOrigin) frontendOrigin = 'https://trycleanzo.com';
 
   if (error) {
     let reason = 'Payment failed';

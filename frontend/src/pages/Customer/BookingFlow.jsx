@@ -236,7 +236,10 @@ export default function BookingFlow() {
         isTrial: selectedPkg.isTrial || false,
         startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
         isPremiumOverride: activeOverride,
-        overrideReason: activeOverride ? overrideReason : undefined
+        overrideReason: activeOverride ? overrideReason : undefined,
+        // Stored in Razorpay order notes so the callback can redirect back correctly.
+        // Razorpay's referer on mobile is their own domain, not the customer's origin.
+        frontendOrigin: window.location.origin,
       })
 
       const order = orderRes.order

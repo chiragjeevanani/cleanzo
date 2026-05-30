@@ -109,7 +109,8 @@ export default function PackageSelect() {
         societyId: activeSubForVehicle.society?._id || activeSubForVehicle.society,
         slotId: activeSubForVehicle.slot,
         type: 'extension',
-        subscriptionId: activeSubForVehicle._id
+        subscriptionId: activeSubForVehicle._id,
+        frontendOrigin: window.location.origin,
       })
 
       const order = orderRes.order
