@@ -39,9 +39,45 @@ export default function PackageSelect() {
     const status = queryParams.get('status')
     const extended = queryParams.get('extended')
     const err = queryParams.get('error')
+    const orderId = queryParams.get('razorpay_order_id')
+    const pmtId = queryParams.get('razorpay_payment_id')
+    const sig = queryParams.get('razorpay_signature')
     
     if (extended === 'true') {
-      if (status === 'success') {
+      if (status === 'payment_return' && pmtId) {
+        // Restore extension context
+        let ctx = null
+        try { ctx = JSON.parse(localStorage.getItem('cleanzo_pending_extension') || 'null') } catch {}
+
+        if (!ctx) {
+          setPaymentError('Extension context lost after redirect. Please try again.')
+          setExtensionStep(4) // Failed screen
+          return
+        }
+
+        setProcessing(true)
+        ;(async () => {
+          try {
+            await apiClient.post('/payment/verify', {
+              razorpay_order_id: orderId,
+              razorpay_payment_id: pmtId,
+              razorpay_signature: sig,
+            })
+            await apiClient.post(`/customer/subscriptions/${ctx.subscriptionId}/extend`, {
+              paymentId: pmtId,
+            })
+            localStorage.removeItem('cleanzo_pending_extension')
+            setProcessing(false)
+            refreshAll()
+            setExtensionStep(3) // Success screen
+          } catch (verifyErr) {
+            localStorage.removeItem('cleanzo_pending_extension')
+            setProcessing(false)
+            setPaymentError(verifyErr.response?.data?.message || verifyErr.response?.data?.error || verifyErr.message || 'Payment verification or plan extension failed.')
+            setExtensionStep(4)
+          }
+        })()
+      } else if (status === 'success') {
         refreshAll()
         setExtensionStep(3) // Success screen
       } else if (status === 'failed') {
@@ -116,8 +152,11 @@ export default function PackageSelect() {
       const order = orderRes.order
 
       // 3. Configure Razorpay options
-      const _apiBase = import.meta.env.VITE_API_URL || ''
-      const _useRedirect = _apiBase.startsWith('https://')
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+      const extensionCtx = {
+        subscriptionId: activeSubForVehicle._id,
+      }
 
       const options = {
         key: razorpayKey,
@@ -126,9 +165,9 @@ export default function PackageSelect() {
         name: 'Cleanzo',
         description: `Plan Extension for ${activeSubForVehicle.vehicle?.model}`,
         order_id: order.id,
-        ...(_useRedirect ? {
+        ...(isMobile ? {
           redirect: true,
-          callback_url: `${_apiBase}/payment/callback`,
+          callback_url: `${window.location.origin}/api/payment-callback?type=extension`,
         } : {}),
         handler: async function (response) {
           try {
@@ -162,6 +201,9 @@ export default function PackageSelect() {
           ondismiss: () => setProcessing(false)
         }
       }
+
+      // Save context to localStorage before opening payment in case page redirects (mobile)
+      localStorage.setItem('cleanzo_pending_extension', JSON.stringify(extensionCtx))
 
       const rzp = new window.Razorpay(options)
       rzp.on('payment.failed', function (response) {
@@ -250,6 +292,40 @@ export default function PackageSelect() {
   if (extensionStep > 0) {
     return (
       <div className="animate-fade-in" style={{ padding: '0 20px', paddingBottom: 100 }}>
+        {processing && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(10, 10, 10, 0.85)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 24,
+            padding: 24,
+            textAlign: 'center'
+          }} className="animate-fade-in">
+            <div style={{
+              width: 64,
+              height: 64,
+              borderRadius: '50%',
+              border: '4px solid rgba(var(--bg-accent-rgb), 0.1)',
+              borderTop: '4px solid var(--bg-accent)',
+              animation: 'spin 1s linear infinite'
+            }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
+                Securing Connection...
+              </h3>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', maxWidth: 280, margin: '0 auto', lineHeight: 1.5 }}>
+                Connecting to the secure payment gateway. Please do not close or refresh this page.
+              </p>
+            </div>
+          </div>
+        )}
         {extensionStep < 3 && (
           <div className="app-header" style={{ padding: '16px 0', background: 'transparent' }}>
             <button 
@@ -465,6 +541,40 @@ export default function PackageSelect() {
 
   return (
     <div style={{ padding: '0 20px' }}>
+      {processing && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(10, 10, 10, 0.85)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 24,
+          padding: 24,
+          textAlign: 'center'
+        }} className="animate-fade-in">
+          <div style={{
+            width: 64,
+            height: 64,
+            borderRadius: '50%',
+            border: '4px solid rgba(var(--bg-accent-rgb), 0.1)',
+            borderTop: '4px solid var(--bg-accent)',
+            animation: 'spin 1s linear infinite'
+          }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
+              Securing Connection...
+            </h3>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', maxWidth: 280, margin: '0 auto', lineHeight: 1.5 }}>
+              Connecting to the secure payment gateway. Please do not close or refresh this page.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="app-header" style={{ padding: '16px 0' }}>
         <button onClick={() => navigate(-1)} className="flex items-center gap-8 bg-transparent border-none text-[color:var(--text-primary)] cursor-pointer p-0">
           <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Subscription Plans</span>
