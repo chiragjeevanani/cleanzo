@@ -88,7 +88,16 @@ export default function BookingFlow() {
     return settings.trialPrice || 30
   }
   
-  const [step, setStep] = useState(0)
+  // Determine initial step from URL query params so that on a Razorpay
+  // redirect-back the success/failure screen renders on the very first frame
+  // (instead of waiting for a useEffect and getting stuck behind the loading skeleton).
+  const initialStatus = queryParams.get('status')
+  const initialError = queryParams.get('error')
+  const [step, setStep] = useState(() => {
+    if (initialStatus === 'success') return 4
+    if (initialStatus === 'failed') return 5
+    return 0
+  })
   const [countdown, setCountdown] = useState(5)
 
   // Selections
@@ -118,18 +127,16 @@ export default function BookingFlow() {
     }
   }, [step, navigate])
 
-  // Handle callback redirect parameters from Razorpay
+  // On Razorpay redirect-back, trigger a data refresh so the new subscription
+  // appears when the user navigates to the dashboard after the countdown.
   useEffect(() => {
-    const status = queryParams.get('status')
-    const err = queryParams.get('error')
-    if (status === 'success') {
+    if (initialStatus === 'success') {
       refreshAll()
-      setStep(4)
-    } else if (status === 'failed') {
-      setPaymentError(err || 'Payment failed')
-      setStep(5)
+    } else if (initialStatus === 'failed') {
+      setPaymentError(initialError || 'Payment failed')
     }
-  }, [location.search, refreshAll])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -259,7 +266,7 @@ export default function BookingFlow() {
         // On desktop, we use redirect if the API is HTTPS, otherwise we use the inline handler.
         ...((isMobile || _apiBase.startsWith('https://')) ? {
           redirect: true,
-          callback_url: `${_apiBase}/payment/callback`,
+          callback_url: `${_apiBase}/payment/callback?frontendOrigin=${encodeURIComponent(window.location.origin)}`,
         } : {}),
         handler: async function (response) {
           try {
@@ -340,7 +347,8 @@ export default function BookingFlow() {
 
   const isLoading = dataLoading.vehicles || dataLoading.packages || dataLoading.societies || dataLoading.subscriptions || dataLoading.settings
   
-  if (isLoading) return (
+  // Success/failure screens don't need any data — skip the loading skeleton
+  if (isLoading && step < 4) return (
     <div className="app-shell">
       <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent', position: 'relative' }}>
         <div className="skeleton" style={{ width: 40, height: 40, borderRadius: 14 }} />

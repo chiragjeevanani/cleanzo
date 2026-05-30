@@ -145,34 +145,47 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
   // Determine where to redirect the browser after processing.
   //
   // Priority order:
-  //   1. frontendOrigin stored in the Razorpay order notes at order-creation time
-  //      (set by the frontend via window.location.origin — most reliable)
-  //   2. FRONTEND_URL environment variable (set in production server config)
-  //   3. Referer header fallback (unreliable — Razorpay's own domain is often the referer,
-  //      not the customer's browser origin, so this was causing blank-screen redirects to localhost)
+  //   1. frontendOrigin passed as a query parameter on the callback URL
+  //      (appended by the frontend: callback_url?frontendOrigin=... — most reliable)
+  //   2. frontendOrigin stored in the Razorpay order notes at order-creation time
+  //   3. FRONTEND_URL environment variable (set in production server config)
+  //   4. Referer header fallback (excluding razorpay.com domains which are never valid)
   //
-  // We resolve the order early so we can read the stored frontendOrigin from notes.
-  let frontendOrigin = process.env.FRONTEND_URL || '';
+  let frontendOrigin = '';
 
-  // If we have the order id, fetch it now to get the stored frontendOrigin from notes
-  if (razorpay_order_id && razorpay && !frontendOrigin) {
+  // 1. Query parameter — appended by the frontend at checkout time
+  if (req.query.frontendOrigin) {
+    frontendOrigin = req.query.frontendOrigin;
+  }
+
+  // 2. Order notes — stored when the order was created
+  if (!frontendOrigin && razorpay_order_id && razorpay) {
     try {
       const ord = await razorpay.orders.fetch(razorpay_order_id);
       if (ord?.notes?.frontendOrigin) frontendOrigin = ord.notes.frontendOrigin;
     } catch (_) {}
   }
 
-  // Final fallback: referer header (best-effort; may be Razorpay's domain on mobile)
+  // 3. Environment variable
+  if (!frontendOrigin) {
+    frontendOrigin = process.env.FRONTEND_URL || '';
+  }
+
+  // 4. Referer header fallback — but NEVER use razorpay.com domains
   if (!frontendOrigin) {
     const referer = req.headers.referer || '';
-    if (referer.includes('cleanzo.in')) {
-      frontendOrigin = referer.includes('admin') ? 'https://admin.cleanzo.in' : 'https://cleanzo.in';
-    } else if (referer.includes('trycleanzo.com')) {
-      frontendOrigin = referer.includes('admin') ? 'https://admin.trycleanzo.com' : 'https://trycleanzo.com';
-    } else if (referer.includes('vercel.app')) {
-      frontendOrigin = 'https://cleanzo-theta.vercel.app';
-    } else if (referer) {
-      try { frontendOrigin = new URL(referer).origin; } catch (_) {}
+    // Razorpay's own domains must be ignored; they are never valid frontend origins
+    const isRazorpayReferer = referer.includes('razorpay.com');
+    if (!isRazorpayReferer && referer) {
+      if (referer.includes('cleanzo.in')) {
+        frontendOrigin = referer.includes('admin') ? 'https://admin.cleanzo.in' : 'https://cleanzo.in';
+      } else if (referer.includes('trycleanzo.com')) {
+        frontendOrigin = referer.includes('admin') ? 'https://admin.trycleanzo.com' : 'https://trycleanzo.com';
+      } else if (referer.includes('vercel.app')) {
+        frontendOrigin = 'https://cleanzo-theta.vercel.app';
+      } else {
+        try { frontendOrigin = new URL(referer).origin; } catch (_) {}
+      }
     }
   }
 

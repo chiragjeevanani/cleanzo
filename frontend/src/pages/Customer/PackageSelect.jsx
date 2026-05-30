@@ -18,7 +18,17 @@ export default function PackageSelect() {
   const loading = dataLoading.packages || dataLoading.subscriptions
   const error = '' // Handled by global context if needed
 
-  const [extensionStep, setExtensionStep] = useState(0)
+  // Determine initial extension step from URL query params (Razorpay redirect-back)
+  const initialStatus = queryParams.get('status')
+  const initialExtended = queryParams.get('extended')
+  const initialError = queryParams.get('error')
+  const [extensionStep, setExtensionStep] = useState(() => {
+    if (initialExtended === 'true') {
+      if (initialStatus === 'success') return 3
+      if (initialStatus === 'failed') return 4
+    }
+    return 0
+  })
   const [countdown, setCountdown] = useState(5)
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -34,22 +44,18 @@ export default function PackageSelect() {
     }
   }, [location.search])
 
-  // Handle callback redirect parameters from Razorpay
+  // On Razorpay redirect-back, trigger a data refresh so the updated subscription
+  // appears when the user navigates to the dashboard after the countdown.
   useEffect(() => {
-    const status = queryParams.get('status')
-    const extended = queryParams.get('extended')
-    const err = queryParams.get('error')
-    
-    if (extended === 'true') {
-      if (status === 'success') {
+    if (initialExtended === 'true') {
+      if (initialStatus === 'success') {
         refreshAll()
-        setExtensionStep(3) // Success screen
-      } else if (status === 'failed') {
-        setPaymentError(err || 'Payment failed')
-        setExtensionStep(4) // Failed screen
+      } else if (initialStatus === 'failed') {
+        setPaymentError(initialError || 'Payment failed')
       }
     }
-  }, [location.search, refreshAll])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 5-second countdown timer for success screen redirection
   useEffect(() => {
@@ -130,7 +136,7 @@ export default function PackageSelect() {
         // On desktop, we use redirect if the API is HTTPS, otherwise we use the inline handler.
         ...((isMobile || _apiBase.startsWith('https://')) ? {
           redirect: true,
-          callback_url: `${_apiBase}/payment/callback`,
+          callback_url: `${_apiBase}/payment/callback?frontendOrigin=${encodeURIComponent(window.location.origin)}`,
         } : {}),
         handler: async function (response) {
           try {
@@ -192,7 +198,8 @@ export default function PackageSelect() {
     }
   }, [vehicles, selectedVehicleId])
 
-  if (loading) return (
+  // Success/failure screens don't need any data — skip the loading skeleton
+  if (loading && extensionStep < 3) return (
     <div className="app-shell">
       <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
         <div className="skeleton" style={{ width: 150, height: 24, borderRadius: 8 }} />
