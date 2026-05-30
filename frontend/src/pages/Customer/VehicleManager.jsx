@@ -9,30 +9,40 @@ import { useCustomerData } from '../../context/CustomerDataContext'
 const EMPTY_FORM = { brand: '', model: '', number: '', flatNumber: '', blockTower: '', slotPillar: '', category: 'sedan', color: '', photos: [] }
 
 // ── Image compression via Canvas API ─────────────────────────────────────────
-// Resizes to max 1200px width and converts to JPEG at 80% quality.
-// Cuts typical phone photos from 4–8 MB down to ~200–400 KB before upload.
+// Resizes to max 1200px and re-encodes as JPEG at 80% quality.
+// Falls back to the original file on any failure (null blob, load error, etc.)
 const compressImage = (file, maxWidth = 1200, quality = 0.8) =>
   new Promise((resolve) => {
     const img = new Image()
     const blobUrl = URL.createObjectURL(file)
+
     img.onload = () => {
       URL.revokeObjectURL(blobUrl)
-      let { width, height } = img
-      if (width > maxWidth) {
-        height = Math.round((height * maxWidth) / width)
-        width = maxWidth
+      try {
+        let { width, height } = img
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => {
+            // blob is null on memory-constrained mobile — fall back to original
+            if (!blob) { resolve(file); return }
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
+          },
+          'image/jpeg',
+          quality
+        )
+      } catch {
+        resolve(file) // canvas failed — use original
       }
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
-      canvas.toBlob(
-        (blob) => resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })),
-        'image/jpeg',
-        quality
-      )
     }
-    img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(file) } // fallback: use original
+
+    img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(file) }
     img.src = blobUrl
   })
 
@@ -99,6 +109,8 @@ export default function VehicleManager() {
   // ── Handle file selection from either input ───────────────────────────────
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files)
+    // Reset immediately so the same file/photo can be re-selected if needed
+    e.target.value = ''
     if (!files.length) return
 
     const currentCount = form.photos.length
@@ -112,9 +124,15 @@ export default function VehicleManager() {
     if (files.length > allowed) setError(`Only the first ${allowed} image(s) were added (max 5).`)
     else setError('')
 
-    setCompressing(true)
+    // ── Phase 1: show preview IMMEDIATELY from original file ─────────────────
+    // The user sees the image the instant it's picked — no waiting for Canvas.
+    const startIdx = currentCount // position where these photos will sit in the array
+    const immediateUrls = toProcess.map(f => URL.createObjectURL(f))
+    setImagePreviews(prev => [...prev, ...immediateUrls])
+    setForm(prev => ({ ...prev, photos: [...prev.photos, ...toProcess] }))
 
-    // Step 1 — show "Optimising" progress toast (duration=0 means it stays until dismissed)
+    // ── Phase 2: compress in background, silently swap ────────────────────────
+    setCompressing(true)
     const optimisingId = showToast(
       `🔄 Optimising ${toProcess.length > 1 ? `${toProcess.length} images` : 'image'}…`,
       'info',
@@ -124,24 +142,36 @@ export default function VehicleManager() {
     try {
       const compressed = await Promise.all(toProcess.map(f => compressImage(f)))
 
-      // Step 2 — dismiss optimising, show ready confirmation
+      // Replace the original files with compressed versions in form state
+      setForm(prev => {
+        const photos = [...prev.photos]
+        compressed.forEach((cf, i) => { photos[startIdx + i] = cf })
+        return { ...prev, photos }
+      })
+
+      // Swap preview URLs (revoke old blobs to free memory)
+      const compressedUrls = compressed.map(f => URL.createObjectURL(f))
+      setImagePreviews(prev => {
+        const next = [...prev]
+        immediateUrls.forEach((url, i) => {
+          URL.revokeObjectURL(url)
+          next[startIdx + i] = compressedUrls[i]
+        })
+        return next
+      })
+
       dismissToast(optimisingId)
       showToast(
-        `✅ ${compressed.length > 1 ? `${compressed.length} photos` : 'Photo'} optimised & ready`,
+        `✅ ${toProcess.length > 1 ? `${toProcess.length} photos` : 'Photo'} optimised & ready`,
         'success',
         2500
       )
-
-      setForm(prev => ({ ...prev, photos: [...prev.photos, ...compressed] }))
-      const previews = compressed.map(f => URL.createObjectURL(f))
-      setImagePreviews(prev => [...prev, ...previews])
     } catch {
+      // Compression failed — keep the original files already in state
       dismissToast(optimisingId)
-      setError('Failed to process image. Please try again.')
-      showToast('❌ Failed to optimise image', 'error', 3000)
+      showToast('✅ Photo added (original quality)', 'success', 2000)
     } finally {
       setCompressing(false)
-      e.target.value = '' // allow re-selecting the same file
     }
   }
 
@@ -463,7 +493,7 @@ export default function VehicleManager() {
 
             {/* Camera option */}
             <button
-              onClick={() => { setShowPhotoPicker(false); setTimeout(() => cameraInputRef.current?.click(), 50) }}
+              onClick={() => { setShowPhotoPicker(false); setTimeout(() => cameraInputRef.current?.click(), 300) }}
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 16, padding: '16px 0', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: 'var(--text-primary)' }}
             >
               <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(0,122,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -477,7 +507,7 @@ export default function VehicleManager() {
 
             {/* Gallery option */}
             <button
-              onClick={() => { setShowPhotoPicker(false); setTimeout(() => galleryInputRef.current?.click(), 50) }}
+              onClick={() => { setShowPhotoPicker(false); setTimeout(() => galleryInputRef.current?.click(), 300) }}
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 16, padding: '16px 0', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)' }}
             >
               <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(52,199,89,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
