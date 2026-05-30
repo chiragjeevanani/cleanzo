@@ -122,8 +122,6 @@ export default function PackageSelect() {
         name: 'Cleanzo',
         description: `Plan Extension for ${activeSubForVehicle.vehicle?.model}`,
         order_id: order.id,
-        redirect: true,
-        callback_url: `${import.meta.env.VITE_API_URL}/payment/callback`,
         handler: async function (response) {
           try {
             // 4. Verify payment
