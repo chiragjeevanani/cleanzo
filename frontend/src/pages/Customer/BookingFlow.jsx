@@ -300,10 +300,13 @@ export default function BookingFlow() {
         name: 'Cleanzo',
         description: `${selectedPkg.name} for ${selectedVehicle.model}`,
         order_id: order.id,
-        // Redirect mode for production (HTTPS); Vercel function handles the POST-back.
-        // In development (localhost) the modal handler covers non-redirect flows.
-        redirect: true,
-        callback_url: `${window.location.origin}/api/payment-callback?type=booking`,
+        // Use redirect mode ONLY when the backend is publicly reachable (HTTPS / production).
+        // In development (HTTP / localhost), Razorpay's servers can't reach the callback URL,
+        // so we always use the inline modal handler which works on both desktop and mobile.
+        ...(apiBase.startsWith('https://') ? {
+          redirect: true,
+          callback_url: `${apiBase}/payment/callback?frontendOrigin=${encodeURIComponent(window.location.origin)}`,
+        } : {}),
         handler: async function (response) {
           try {
             await apiClient.post('/payment/verify', {

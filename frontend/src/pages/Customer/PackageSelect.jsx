@@ -104,7 +104,7 @@ export default function PackageSelect() {
       const keyRes = await apiClient.get('/payment/key')
       const razorpayKey = keyRes.key
 
-      const amount = activeSubForVehicle.package?.price || activeSubForVehicle.amount;
+      const amount = activeSubForVehicle.amount || activeSubForVehicle.package?.price;
 
       // 2. Create Order
       const orderRes = await apiClient.post('/payment/create-order', {
@@ -324,7 +324,7 @@ export default function PackageSelect() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 4, fontSize: 9 }}>CURRENT PLAN</div>
-                    <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-accent)' }}>{activeSubForVehicle?.package?.name}</div>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text-accent)' }}>{activeSubForVehicle?.package?.name || 'Standard Plan'}</div>
                     <div className="text-body-sm text-secondary">Active</div>
                   </div>
                 </div>
@@ -377,10 +377,10 @@ export default function PackageSelect() {
                 <div className="flex justify-between items-center">
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 18 }}>Plan Extension (30 Days)</div>
-                    <div className="text-body-sm text-secondary">{activeSubForVehicle?.package?.name} Package</div>
+                    <div className="text-body-sm text-secondary">{activeSubForVehicle?.package?.name || 'Standard'} Package</div>
                   </div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>
-                    ₹{activeSubForVehicle?.package?.price || activeSubForVehicle?.amount}
+                    ₹{activeSubForVehicle?.amount || activeSubForVehicle?.package?.price || 0}
                   </div>
                 </div>
 
@@ -389,7 +389,7 @@ export default function PackageSelect() {
                 <div className="flex justify-between items-center">
                   <span style={{ fontWeight: 800, fontSize: 18 }}>Total Amount</span>
                   <span style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 28, color: 'var(--text-accent)' }}>
-                    ₹{activeSubForVehicle?.package?.price || activeSubForVehicle?.amount}
+                    ₹{activeSubForVehicle?.amount || activeSubForVehicle?.package?.price || 0}
                   </span>
                 </div>
               </div>
@@ -418,7 +418,7 @@ export default function PackageSelect() {
                 style={{ flex: 2, borderRadius: 20, fontWeight: 800, fontSize: 18, padding: 18, boxShadow: '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' }} 
                 onClick={handleExtensionPayment}
               >
-                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${activeSubForVehicle?.package?.price || activeSubForVehicle?.amount}`}
+                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${activeSubForVehicle?.amount || activeSubForVehicle?.package?.price || 0}`}
               </button>
             </div>
           </div>
@@ -637,7 +637,7 @@ export default function PackageSelect() {
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-accent)' }}>₹{activeSubForVehicle.package?.price || activeSubForVehicle.amount}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-accent)' }}>₹{activeSubForVehicle.amount || activeSubForVehicle.package?.price || 0}</div>
                 <div className="text-body-sm text-secondary">/month</div>
               </div>
             </div>
