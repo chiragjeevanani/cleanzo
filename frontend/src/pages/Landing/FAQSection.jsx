@@ -13,7 +13,7 @@ const FALLBACK_FAQS = [
     answer: "Our crew operates between 6:00 AM and 12:00 PM daily. This ensures your car is clean and ready before you leave for work."
   },
   {
-    question: "Is this a waterless wash?",
+    question: "Is this a waterless clean?",
     answer: "We use a water-efficient cleaning protocol with premium microfiber cloths and specialized cleaning agents to ensure a scratch-free, high-gloss finish while being environmentally conscious."
   },
   {

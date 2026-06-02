@@ -1,4 +1,17 @@
 /**
+ * Order plans for customer-facing lists: Basic → Standard → Premium,
+ * regardless of the order the API returns them in. Unknown tiers go last,
+ * with price as a stable tiebreaker.
+ */
+const TIER_ORDER = { BASIC: 0, STANDARD: 1, PREMIUM: 2 };
+export function tierRank(pkg) {
+  return TIER_ORDER[(pkg?.tier || '').toUpperCase()] ?? 99;
+}
+export function sortPackagesByTier(packages = []) {
+  return [...packages].sort((a, b) => tierRank(a) - tierRank(b) || (a.price || 0) - (b.price || 0));
+}
+
+/**
  * Human-readable relative time (e.g. "2 min ago", "3 hrs ago")
  */
 export function timeAgo(date) {

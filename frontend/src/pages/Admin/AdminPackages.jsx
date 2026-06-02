@@ -20,6 +20,7 @@ export default function AdminPackages() {
     price: '',
     trialPrice: '',
     features: '',
+    excludedFeatures: '',
     popular: false
   })
 
@@ -60,7 +61,7 @@ export default function AdminPackages() {
   const closeModal = () => {
     setShowAddModal(false)
     setEditPkg(null)
-    setFormData({ name: '', tier: 'BASIC', price: '', trialPrice: '', features: '', popular: false })
+    setFormData({ name: '', tier: 'BASIC', price: '', trialPrice: '', features: '', excludedFeatures: '', popular: false })
     setSelectedModels({})
     setError('')
   }
@@ -73,6 +74,7 @@ export default function AdminPackages() {
       price: String(pkg.price),
       trialPrice: pkg.trialPrice !== undefined && pkg.trialPrice !== null ? String(pkg.trialPrice) : '',
       features: (pkg.features || []).join(', '),
+      excludedFeatures: (pkg.excludedFeatures || []).join(', '),
       popular: pkg.popular || false,
     })
 
@@ -222,6 +224,7 @@ export default function AdminPackages() {
         price: Number(formData.price),
         trialPrice: formData.trialPrice ? Number(formData.trialPrice) : null,
         features: formData.features.split(',').map(f => f.trim()).filter(f => f),
+        excludedFeatures: formData.excludedFeatures.split(',').map(f => f.trim()).filter(f => f),
         applicableModels
       }
       if (editPkg) {
@@ -582,10 +585,19 @@ export default function AdminPackages() {
               </div>
 
               <div className="flex flex-col gap-8">
-                <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>INCLUDED FEATURES</label>
-                <textarea className="input-field" 
+                <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>WHAT'S INCLUDED</label>
+                <textarea className="input-field"
                   style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', minHeight: 100, fontSize: 15, resize: 'none', lineHeight: '1.5' }}
-                  value={formData.features} onChange={e => setFormData({...formData, features: e.target.value})} placeholder="Wash, Vacuum, Polish (separated by commas)" />
+                  value={formData.features} onChange={e => setFormData({...formData, features: e.target.value})} placeholder="Exterior clean, Vacuum, Tyre polish (separated by commas)" />
+                <span className="text-tertiary" style={{ fontSize: 11 }}>Shown as the "Includes" list on the customer plan detail page.</span>
+              </div>
+
+              <div className="flex flex-col gap-8">
+                <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>WHAT'S EXCLUDED</label>
+                <textarea className="input-field"
+                  style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', minHeight: 80, fontSize: 15, resize: 'none', lineHeight: '1.5' }}
+                  value={formData.excludedFeatures} onChange={e => setFormData({...formData, excludedFeatures: e.target.value})} placeholder="Interior shampoo, Engine bay detailing (separated by commas)" />
+                <span className="text-tertiary" style={{ fontSize: 11 }}>Shown as the "Does not include" list on the customer plan detail page.</span>
               </div>
 
               <div className="flex items-center" style={{ gap: 12 }}>

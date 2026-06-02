@@ -29,6 +29,8 @@ import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.servic
 import Attendance from '../models/Attendance.js';
 import LeaveRequest from '../models/LeaveRequest.js';
 import Settings from '../models/Settings.js';
+import PackageDiscount from '../models/PackageDiscount.js';
+import Coupon from '../models/Coupon.js';
 
 
 
@@ -542,18 +544,18 @@ export const getAllPackages = asyncHandler(async (req, res) => {
 });
 
 export const createPackage = asyncHandler(async (req, res) => {
-  const { name, tier, price, trialPrice, category, features, popular, sortOrder, applicableModels, showOnLanding } = req.body;
+  const { name, tier, price, trialPrice, category, features, excludedFeatures, popular, sortOrder, applicableModels, showOnLanding } = req.body;
   if (!name || !price) throw new ApiError(400, 'Name and price are required');
-  const pkg = await Package.create({ name, tier, price, trialPrice, category, features, popular, sortOrder, applicableModels, showOnLanding });
+  const pkg = await Package.create({ name, tier, price, trialPrice, category, features, excludedFeatures, popular, sortOrder, applicableModels, showOnLanding });
   await clearCache('cache:global:*');
   res.status(201).json({ success: true, package: pkg });
 });
 
 export const updatePackage = asyncHandler(async (req, res) => {
-  const { name, tier, price, trialPrice, category, features, popular, sortOrder, isActive, applicableModels, showOnLanding } = req.body;
+  const { name, tier, price, trialPrice, category, features, excludedFeatures, popular, sortOrder, isActive, applicableModels, showOnLanding } = req.body;
   const pkg = await Package.findByIdAndUpdate(
     req.params.id,
-    { name, tier, price, trialPrice, category, features, popular, sortOrder, isActive, applicableModels, showOnLanding },
+    { name, tier, price, trialPrice, category, features, excludedFeatures, popular, sortOrder, isActive, applicableModels, showOnLanding },
     { returnDocument: 'after', runValidators: true }
   );
   if (!pkg) throw new ApiError(404, 'Package not found');
@@ -566,6 +568,173 @@ export const deletePackage = asyncHandler(async (req, res) => {
   if (!pkg) throw new ApiError(404, 'Package not found');
   await clearCache('cache:global:*');
   res.json({ success: true, message: 'Package deleted successfully' });
+});
+
+// ─── PACKAGE DISCOUNTS ───────────────────────────
+const DEFAULT_GLOBAL_DISCOUNT = { percent: 0, note: '', isActive: false };
+
+export const getDiscounts = asyncHandler(async (req, res) => {
+  const [globalSetting, individual] = await Promise.all([
+    Settings.findOne({ key: 'packageDiscount' }),
+    PackageDiscount.find().populate('package', 'name tier price').sort('-createdAt'),
+  ]);
+  res.json({
+    success: true,
+    global: globalSetting?.value || DEFAULT_GLOBAL_DISCOUNT,
+    individual,
+  });
+});
+
+export const updateGlobalDiscount = asyncHandler(async (req, res) => {
+  const { percent, note, isActive } = req.body;
+  const pct = Number(percent);
+  if (Number.isNaN(pct) || pct < 0 || pct > 100) {
+    throw new ApiError(400, 'Percent must be a number between 0 and 100');
+  }
+  const value = { percent: pct, note: note || '', isActive: !!isActive };
+  const setting = await Settings.findOneAndUpdate(
+    { key: 'packageDiscount' },
+    { value, description: 'Global discount applied to all package prices' },
+    { upsert: true, new: true }
+  );
+  await clearCache('cache:global:*');
+  res.json({ success: true, global: setting.value });
+});
+
+export const createIndividualDiscount = asyncHandler(async (req, res) => {
+  const { packageId, brand, model, percent, note, isActive } = req.body;
+  if (!packageId || !brand) throw new ApiError(400, 'Package and brand are required');
+  const pct = Number(percent);
+  if (Number.isNaN(pct) || pct < 0 || pct > 100) {
+    throw new ApiError(400, 'Percent must be a number between 0 and 100');
+  }
+  const pkg = await Package.findById(packageId);
+  if (!pkg) throw new ApiError(404, 'Package not found');
+
+  try {
+    const discount = await PackageDiscount.create({
+      package: packageId,
+      brand,
+      model: model || '',
+      percent: pct,
+      note: note || '',
+      isActive: isActive === undefined ? true : !!isActive,
+    });
+    await clearCache('cache:global:*');
+    const populated = await discount.populate('package', 'name tier price');
+    res.status(201).json({ success: true, discount: populated });
+  } catch (err) {
+    if (err.code === 11000) {
+      throw new ApiError(409, 'A discount already exists for this package, brand and model');
+    }
+    throw err;
+  }
+});
+
+export const updateIndividualDiscount = asyncHandler(async (req, res) => {
+  const { brand, model, percent, note, isActive } = req.body;
+  const update = {};
+  if (brand !== undefined) update.brand = brand;
+  if (model !== undefined) update.model = model || '';
+  if (note !== undefined) update.note = note || '';
+  if (isActive !== undefined) update.isActive = !!isActive;
+  if (percent !== undefined) {
+    const pct = Number(percent);
+    if (Number.isNaN(pct) || pct < 0 || pct > 100) {
+      throw new ApiError(400, 'Percent must be a number between 0 and 100');
+    }
+    update.percent = pct;
+  }
+  try {
+    const discount = await PackageDiscount.findByIdAndUpdate(
+      req.params.id,
+      update,
+      { returnDocument: 'after', runValidators: true }
+    ).populate('package', 'name tier price');
+    if (!discount) throw new ApiError(404, 'Discount not found');
+    await clearCache('cache:global:*');
+    res.json({ success: true, discount });
+  } catch (err) {
+    if (err.code === 11000) {
+      throw new ApiError(409, 'A discount already exists for this package, brand and model');
+    }
+    throw err;
+  }
+});
+
+export const deleteIndividualDiscount = asyncHandler(async (req, res) => {
+  const discount = await PackageDiscount.findByIdAndDelete(req.params.id);
+  if (!discount) throw new ApiError(404, 'Discount not found');
+  await clearCache('cache:global:*');
+  res.json({ success: true, message: 'Discount deleted successfully' });
+});
+
+// ─── COUPONS ─────────────────────────────────────
+const COUPON_CATEGORIES = ['first_purchase', 'renewal', 'extension'];
+
+const buildCouponPayload = (body) => {
+  const { code, description, discountType, discountValue, appliesTo, societies,
+          expiresAt, maxRedemptions, oncePerCustomer, minOrderAmount, isActive } = body;
+
+  if (!code || !code.trim()) throw new ApiError(400, 'Coupon code is required');
+  if (!['percent', 'flat'].includes(discountType)) throw new ApiError(400, 'Discount type must be percent or flat');
+  const value = Number(discountValue);
+  if (Number.isNaN(value) || value <= 0) throw new ApiError(400, 'Discount value must be greater than 0');
+  if (discountType === 'percent' && value > 100) throw new ApiError(400, 'Percent discount cannot exceed 100');
+  if (!COUPON_CATEGORIES.includes(appliesTo)) throw new ApiError(400, 'Invalid coupon category');
+
+  return {
+    code: code.trim().toUpperCase(),
+    description: description || '',
+    discountType,
+    discountValue: value,
+    appliesTo,
+    societies: Array.isArray(societies) ? societies : [],
+    expiresAt: expiresAt ? new Date(expiresAt) : null,
+    maxRedemptions: maxRedemptions === '' || maxRedemptions == null ? null : Number(maxRedemptions),
+    oncePerCustomer: oncePerCustomer === undefined ? true : !!oncePerCustomer,
+    minOrderAmount: minOrderAmount ? Number(minOrderAmount) : 0,
+    isActive: isActive === undefined ? true : !!isActive,
+  };
+};
+
+export const getCoupons = asyncHandler(async (req, res) => {
+  const coupons = await Coupon.find().populate('societies', 'name').sort('-createdAt');
+  res.json({ success: true, coupons });
+});
+
+export const createCoupon = asyncHandler(async (req, res) => {
+  const payload = buildCouponPayload(req.body);
+  try {
+    const coupon = await Coupon.create(payload);
+    const populated = await coupon.populate('societies', 'name');
+    res.status(201).json({ success: true, coupon: populated });
+  } catch (err) {
+    if (err.code === 11000) throw new ApiError(409, 'A coupon with this code already exists');
+    throw err;
+  }
+});
+
+export const updateCoupon = asyncHandler(async (req, res) => {
+  const payload = buildCouponPayload(req.body);
+  try {
+    const coupon = await Coupon.findByIdAndUpdate(
+      req.params.id,
+      payload,
+      { returnDocument: 'after', runValidators: true }
+    ).populate('societies', 'name');
+    if (!coupon) throw new ApiError(404, 'Coupon not found');
+    res.json({ success: true, coupon });
+  } catch (err) {
+    if (err.code === 11000) throw new ApiError(409, 'A coupon with this code already exists');
+    throw err;
+  }
+});
+
+export const deleteCoupon = asyncHandler(async (req, res) => {
+  const coupon = await Coupon.findByIdAndDelete(req.params.id);
+  if (!coupon) throw new ApiError(404, 'Coupon not found');
+  res.json({ success: true, message: 'Coupon deleted successfully' });
 });
 
 // ─── SUBSCRIPTIONS ───────────────────────────────
@@ -1241,7 +1410,7 @@ export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
       const locName = subscription.society?.name || 'assigned area';
       sendPushNotification(cleaner.fcmTokens, {
         title: '🧹 New Task Assigned!',
-        body: `You have a wash job at ${locName} today.`,
+        body: `You have a clean job at ${locName} today.`,
         data: { type: 'task_assigned', link: NOTIFICATION_LINKS.task_assigned },
       }).catch(() => {});
     }

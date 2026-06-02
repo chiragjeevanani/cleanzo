@@ -39,6 +39,19 @@ router.post('/packages', ctrl.createPackage);
 router.put('/packages/:id', ctrl.updatePackage);
 router.delete('/packages/:id', ctrl.deletePackage);
 
+// Package Discounts
+router.get('/discounts', ctrl.getDiscounts);
+router.put('/discounts/global', ctrl.updateGlobalDiscount);
+router.post('/discounts/individual', ctrl.createIndividualDiscount);
+router.put('/discounts/individual/:id', ctrl.updateIndividualDiscount);
+router.delete('/discounts/individual/:id', ctrl.deleteIndividualDiscount);
+
+// Coupons
+router.get('/coupons', ctrl.getCoupons);
+router.post('/coupons', ctrl.createCoupon);
+router.put('/coupons/:id', ctrl.updateCoupon);
+router.delete('/coupons/:id', ctrl.deleteCoupon);
+
 
 router.get('/subscriptions', ctrl.getAllSubscriptions);
 router.put('/subscriptions/:subscriptionId/assign-cleaner', ctrl.assignCleanerToSubscription);

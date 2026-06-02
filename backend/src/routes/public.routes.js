@@ -122,6 +122,25 @@ router.get('/settings', cacheMiddleware(3600), asyncHandler(async (req, res) => 
 
 router.get('/packages', cacheMiddleware(3600), publicCtrl.listActivePackages);
 
+/**
+ * GET /api/public/discounts
+ * Returns the active package discount config for the customer app + landing page.
+ * { global: { percent, note, isActive }, individual: [{ package, brand, model, percent, note }] }
+ */
+router.get('/discounts', cacheMiddleware(300), asyncHandler(async (req, res) => {
+  const { default: Settings } = await import('../models/Settings.js');
+  const { default: PackageDiscount } = await import('../models/PackageDiscount.js');
+  const [globalSetting, individual] = await Promise.all([
+    Settings.findOne({ key: 'packageDiscount' }),
+    PackageDiscount.find({ isActive: true }).select('package brand model percent note'),
+  ]);
+  res.json({
+    success: true,
+    global: globalSetting?.value || { percent: 0, note: '', isActive: false },
+    individual,
+  });
+}));
+
 router.get('/banners', cacheMiddleware(3600), asyncHandler(async (req, res) => {
   const { default: Banner } = await import('../models/Banner.js');
   const banners = await Banner.find({ isActive: true }).sort('order -createdAt');

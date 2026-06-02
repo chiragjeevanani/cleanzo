@@ -52,7 +52,7 @@ export const expireSubscriptions = async () => {
           recipientModel: 'Customer',
           type: 'subscription',
           title: 'Subscription Expired',
-          message: 'Your Cleanzo subscription has expired. Renew now to continue daily car washing!',
+          message: 'Your Cleanzo subscription has expired. Renew now to continue daily car cleaning!',
           data: { subscriptionId: sub._id },
         });
 

@@ -7,7 +7,9 @@ import Customer from '../models/Customer.js';
 import Subscription from '../models/Subscription.js';
 import { clearCache } from '../middleware/cache.js';
 import { logActivity } from './admin.controller.js';
-import { createSubscription } from './customer.controller.js';
+import { createSubscription, applyUpgrade } from './customer.controller.js';
+import Package from '../models/Package.js';
+import { validateCoupon, redeemCoupon } from '../utils/coupon.js';
 
 let razorpay = null;
 try {
@@ -29,7 +31,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   const {
     amount, currency = 'INR', packageId, vehicleId,
     societyId, slotId, specialInstructions, isTrial, startDate,
-    isPremiumOverride, overrideReason, type, subscriptionId,
+    isPremiumOverride, overrideReason, type, subscriptionId, couponCode,
     frontendOrigin,   // caller passes window.location.origin so callback redirect is reliable
   } = req.body;
   if (!amount) throw new ApiError(400, 'Amount is required');
@@ -52,6 +54,7 @@ export const createOrder = asyncHandler(async (req, res) => {
       overrideReason: overrideReason || '',
       type: type || 'purchase',
       subscriptionId: subscriptionId || '',
+      couponCode: couponCode || '',
       frontendOrigin: frontendOrigin || '',  // stored so callback can redirect correctly
     },
   };
@@ -223,16 +226,83 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
 
     // 2. Fetch order metadata notes
     const order = await razorpay.orders.fetch(razorpay_order_id);
-    const { 
-      customerId, packageId, vehicleId, societyId, slotId, 
+    const {
+      customerId, packageId, vehicleId, societyId, slotId,
       specialInstructions, isTrial, startDate, isPremiumOverride, overrideReason,
-      type, subscriptionId 
+      type, subscriptionId, couponCode
     } = order.notes || {};
 
-    if (type === 'extension') {
-      const sub = await Subscription.findOne({ _id: subscriptionId, customer: customerId, status: 'Active' });
+    if (type === 'upgrade') {
+      const sub = await Subscription.findOne({ _id: subscriptionId, customer: customerId, status: 'Active' })
+        .populate('package').populate('vehicle');
       if (!sub) {
         return res.redirect(303, `${frontendOrigin}/customer/packages?status=failed&error=Active%20subscription%20not%20found`);
+      }
+      const targetPkg = await Package.findById(packageId);
+      if (!targetPkg) {
+        return res.redirect(303, `${frontendOrigin}/customer/packages?status=failed&error=Package%20not%20found`);
+      }
+
+      const existing = await Payment.findOne({ paymentId: razorpay_payment_id });
+      if (!existing) {
+        await Payment.create({
+          customer: customerId,
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          signature: razorpay_signature,
+          amount: order.amount,
+          status: 'verified',
+          subscription: sub._id,
+          package: targetPkg._id,
+          vehicle: sub.vehicle?._id,
+          type: 'purchase'
+        });
+      } else if (!existing.subscription) {
+        existing.subscription = sub._id;
+        existing.package = targetPkg._id;
+        existing.vehicle = sub.vehicle?._id;
+        await existing.save();
+      }
+
+      try {
+        await applyUpgrade(sub, targetPkg);
+      } catch (e) {
+        return res.redirect(303, `${frontendOrigin}/customer/packages?status=failed&error=${encodeURIComponent(e.message || 'Upgrade failed')}`);
+      }
+
+      await logActivity({
+        type: 'subscription_upgraded',
+        message: `Subscription upgraded to ${targetPkg.name} for customer ${customerId}`,
+        metadata: { subscriptionId: sub._id, customerId, paymentId: razorpay_payment_id }
+      });
+
+      await clearCache(`cache:${customerId}:*`);
+      return res.redirect(303, `${frontendOrigin}/customer/subscriptions?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}&upgraded=true`);
+    }
+
+    if (type === 'extension') {
+      const sub = await Subscription.findOne({ _id: subscriptionId, customer: customerId, status: 'Active' }).populate('package');
+      if (!sub) {
+        return res.redirect(303, `${frontendOrigin}/customer/packages?status=failed&error=Active%20subscription%20not%20found`);
+      }
+
+      // Validate an extension coupon if one was applied at checkout
+      let couponDoc = null;
+      let couponDiscount = 0;
+      if (couponCode) {
+        try {
+          const result = await validateCoupon({
+            code: couponCode,
+            customerId,
+            category: 'extension',
+            societyId: sub.society,
+            baseAmount: sub.package?.price || sub.amount || 0,
+          });
+          couponDoc = result.coupon;
+          couponDiscount = result.discountAmount;
+        } catch (err) {
+          console.error('Extension coupon validation failed in callback:', err.message);
+        }
       }
 
       // Mark payment as verified inside DB
@@ -263,8 +333,20 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
       sub.remainingDays = (sub.remainingDays || 0) + 30;
       sub.endDate = new Date(sub.endDate.getTime() + 30 * 24 * 60 * 60 * 1000);
       sub.maxSkips = (sub.maxSkips || 1) + 1;
+      if (couponDoc) {
+        sub.couponCode = couponDoc.code;
+        sub.couponDiscount = couponDiscount;
+      }
 
       await sub.save({ validateModifiedOnly: true });
+
+      if (couponDoc) {
+        try {
+          await redeemCoupon(couponDoc, customerId, sub._id, couponDiscount);
+        } catch (err) {
+          console.error('Failed to record coupon redemption (extension callback):', err.message);
+        }
+      }
 
       await logActivity({
         type: 'subscription_extended',
@@ -315,7 +397,8 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
         isTrial: isTrial === 'true',
         startDate: startDate || undefined,
         isPremiumOverride: isPremiumOverride === 'true',
-        overrideReason: overrideReason || undefined
+        overrideReason: overrideReason || undefined,
+        couponCode: couponCode || undefined
       },
       user: {
         _id: customer._id,

@@ -1,12 +1,14 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Check, ArrowRight, ChevronRight, Car, X } from 'lucide-react'
+import { ArrowLeft, Check, ArrowRight, ChevronRight, Car, X, ShoppingBag, Crown } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
+import { getPackagePricing } from '../../utils/pricing'
+import { sortPackagesByTier, tierRank } from '../../utils/helpers'
 
 export default function PackageSelect() {
-  const { packages, subscriptions, vehicles, loading: dataLoading, refreshAll } = useCustomerData()
+  const { packages, subscriptions, vehicles, discounts, loading: dataLoading, refreshAll } = useCustomerData()
   const navigate = useNavigate()
   const location = useLocation()
   const queryParams = new URLSearchParams(location.search)
@@ -14,6 +16,26 @@ export default function PackageSelect() {
 
   const activeSub = (subscriptions || []).find(s => s.status === 'Active') || null
   const activeSubForVehicle = (subscriptions || []).find(s => s.status === 'Active' && s.vehicle?._id === selectedVehicleId) || null
+
+  // Coupon state (extension flow)
+  const [couponInput, setCouponInput] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState(null) // { code, discountAmount }
+  const [couponError, setCouponError] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+
+  // Upgrade flow
+  const isUpgrade = queryParams.get('upgrade') === 'true'
+  const [upgradeTarget, setUpgradeTarget] = useState(null)
+
+  // Extension price reflects the CURRENT discount config for the sub's package + vehicle
+  const extensionPricing = activeSubForVehicle
+    ? getPackagePricing(activeSubForVehicle.package, activeSubForVehicle.vehicle, discounts)
+    : null
+  const baseExtensionAmount = extensionPricing
+    ? extensionPricing.effectivePrice
+    : (activeSubForVehicle?.amount || activeSubForVehicle?.package?.price || 0)
+  const extensionCouponDiscount = appliedCoupon ? Math.min(appliedCoupon.discountAmount, baseExtensionAmount) : 0
+  const extensionAmount = baseExtensionAmount - extensionCouponDiscount
 
   const loading = dataLoading.packages || dataLoading.subscriptions
   const error = '' // Handled by global context if needed
@@ -34,13 +56,51 @@ export default function PackageSelect() {
   const [processing, setProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState('')
 
-  // Pre-select vehicle and open extension flow if navigated from Subscription Detail page
+  // Clear any applied coupon / upgrade selection when the selected vehicle changes
+  useEffect(() => {
+    setAppliedCoupon(null)
+    setCouponInput('')
+    setCouponError('')
+    setUpgradeTarget(null)
+  }, [selectedVehicleId])
+
+  const applyExtensionCoupon = async () => {
+    if (!couponInput.trim() || !activeSubForVehicle) return
+    setCouponLoading(true)
+    setCouponError('')
+    try {
+      const res = await apiClient.post('/customer/coupons/validate', {
+        code: couponInput.trim(),
+        type: 'extension',
+        subscriptionId: activeSubForVehicle._id,
+        societyId: activeSubForVehicle.society?._id || activeSubForVehicle.society,
+        baseAmount: baseExtensionAmount,
+      })
+      setAppliedCoupon({ code: res.code, discountAmount: res.discountAmount })
+    } catch (err) {
+      setAppliedCoupon(null)
+      setCouponError(err?.message || 'Invalid coupon code')
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const removeExtensionCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponInput('')
+    setCouponError('')
+  }
+
+  // Pre-select vehicle and open extension/upgrade flow if navigated from Subscription Detail page
   useEffect(() => {
     const initialVehicleId = queryParams.get('vehicleId')
     const initialExtend = queryParams.get('extend')
+    const initialUpgrade = queryParams.get('upgrade')
     if (initialExtend === 'true' && initialVehicleId) {
       setSelectedVehicleId(initialVehicleId)
       setExtensionStep(1)
+    } else if (initialUpgrade === 'true' && initialVehicleId) {
+      setSelectedVehicleId(initialVehicleId)
     }
   }, [location.search])
 
@@ -104,7 +164,7 @@ export default function PackageSelect() {
       const keyRes = await apiClient.get('/payment/key')
       const razorpayKey = keyRes.key
 
-      const amount = activeSubForVehicle.amount || activeSubForVehicle.package?.price;
+      const amount = extensionAmount;
 
       // 2. Create Order
       const orderRes = await apiClient.post('/payment/create-order', {
@@ -116,6 +176,7 @@ export default function PackageSelect() {
         slotId: activeSubForVehicle.slot,
         type: 'extension',
         subscriptionId: activeSubForVehicle._id,
+        couponCode: appliedCoupon?.code || undefined,
         frontendOrigin: window.location.origin,
       })
 
@@ -149,7 +210,8 @@ export default function PackageSelect() {
 
             // 5. Extend Subscription
             await apiClient.post(`/customer/subscriptions/${activeSubForVehicle._id}/extend`, {
-              paymentId: response.razorpay_payment_id
+              paymentId: response.razorpay_payment_id,
+              couponCode: appliedCoupon?.code || undefined
             })
 
             setProcessing(false)
@@ -184,6 +246,81 @@ export default function PackageSelect() {
       const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to initiate payment. Please try again.'
       setPaymentError(errMsg)
       setExtensionStep(4)
+    }
+  }
+
+  // ── Upgrade payment ─────────────────────────────────────────────────────────
+  const handleUpgradePayment = async (targetPkg) => {
+    if (!activeSubForVehicle || !targetPkg) return
+    const targetPricing = getPackagePricing(targetPkg, activeSubForVehicle.vehicle, discounts)
+    const amount = targetPricing.hasDiscount ? targetPricing.effectivePrice : targetPkg.price
+
+    setProcessing(true)
+    setPaymentError('')
+    try {
+      const keyRes = await apiClient.get('/payment/key')
+      const orderRes = await apiClient.post('/payment/create-order', {
+        amount,
+        currency: 'INR',
+        packageId: targetPkg._id,
+        vehicleId: activeSubForVehicle.vehicle?._id,
+        societyId: activeSubForVehicle.society?._id || activeSubForVehicle.society,
+        slotId: activeSubForVehicle.slot,
+        type: 'upgrade',
+        subscriptionId: activeSubForVehicle._id,
+        frontendOrigin: window.location.origin,
+      })
+      const order = orderRes.order
+      const _apiBase = import.meta.env.VITE_API_URL || ''
+
+      const options = {
+        key: keyRes.key,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'Cleanzo',
+        description: `Upgrade to ${targetPkg.name} for ${activeSubForVehicle.vehicle?.model}`,
+        order_id: order.id,
+        ...(_apiBase.startsWith('https://') ? {
+          redirect: true,
+          callback_url: `${_apiBase}/payment/callback?frontendOrigin=${encodeURIComponent(window.location.origin)}`,
+        } : {}),
+        handler: async function (response) {
+          try {
+            await apiClient.post('/payment/verify', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            })
+            await apiClient.post(`/customer/subscriptions/${activeSubForVehicle._id}/upgrade`, {
+              packageId: targetPkg._id,
+              paymentId: response.razorpay_payment_id
+            })
+            setProcessing(false)
+            refreshAll()
+            navigate('/customer/subscriptions?status=success&upgraded=true')
+          } catch (verifyErr) {
+            setProcessing(false)
+            const errMsg = verifyErr.response?.data?.message || verifyErr.response?.data?.error || verifyErr.message || 'Payment verification or plan upgrade failed.'
+            setPaymentError(errMsg)
+          }
+        },
+        prefill: {
+          name: activeSubForVehicle.customer?.firstName ? `${activeSubForVehicle.customer.firstName} ${activeSubForVehicle.customer.lastName || ''}` : '',
+          email: activeSubForVehicle.customer?.email || '',
+        },
+        modal: { ondismiss: () => setProcessing(false) }
+      }
+
+      const rzp = new window.Razorpay(options)
+      rzp.on('payment.failed', function (response) {
+        setProcessing(false)
+        setPaymentError(`Payment failed: ${response.error.description}`)
+      })
+      rzp.open()
+    } catch (err) {
+      setProcessing(false)
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to initiate payment. Please try again.'
+      setPaymentError(errMsg)
     }
   }
 
@@ -251,10 +388,109 @@ export default function PackageSelect() {
     );
   };
 
-  // Filter packages based on the selected vehicle
+  // Filter packages based on the selected vehicle, ordered Basic → Standard → Premium
   const displayPackages = selectedVehicle
-    ? packages.filter(pkg => isVehicleEligibleForPackage(selectedVehicle, pkg))
+    ? sortPackagesByTier(packages.filter(pkg => isVehicleEligibleForPackage(selectedVehicle, pkg)))
     : [];
+
+  // ── Upgrade view ────────────────────────────────────────────────────────────
+  if (isUpgrade && activeSubForVehicle) {
+    const currentRank = tierRank(activeSubForVehicle.package)
+    const higherPlans = displayPackages.filter(p => tierRank(p) > currentRank)
+
+    return (
+      <div style={{ padding: '0 20px', paddingBottom: 100 }}>
+        {processing && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,10,10,0.85)', backdropFilter: 'blur(20px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 24, textAlign: 'center' }} className="animate-fade-in">
+            <div style={{ width: 64, height: 64, borderRadius: '50%', border: '4px solid rgba(var(--bg-accent-rgb),0.1)', borderTop: '4px solid var(--bg-accent)', animation: 'spin 1s linear infinite' }} />
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: '#fff' }}>Securing Connection…</h3>
+          </div>
+        )}
+
+        <div className="app-header" style={{ padding: '16px 0' }}>
+          <button onClick={() => navigate(-1)} className="flex items-center gap-8 bg-transparent border-none text-[color:var(--text-primary)] cursor-pointer p-0">
+            <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Upgrade Plan</span>
+          </button>
+        </div>
+
+        {paymentError && (
+          <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 16, fontSize: 14 }}>
+            {paymentError}
+          </div>
+        )}
+
+        {higherPlans.length === 0 ? (
+          /* Already on the top tier — appreciation + marketplace */
+          <div className="glass flex flex-col items-center text-center animate-fade-in-up" style={{ padding: '40px 24px', borderRadius: 28, marginTop: 24, gap: 16, border: '1px solid var(--bg-accent)' }}>
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(var(--bg-accent-rgb),0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Crown size={34} className="text-lime" />
+            </div>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800 }}>You're already Premium! 🎉</h2>
+            <p className="text-secondary text-body-md" style={{ maxWidth: 320 }}>
+              You're enjoying our highest tier of care for your {activeSubForVehicle.vehicle?.brand} {activeSubForVehicle.vehicle?.model}. Thank you for being a valued Cleanzo member.
+            </p>
+            <button className="btn btn-primary w-full" style={{ borderRadius: 16, padding: 16, fontWeight: 800, marginTop: 8 }} onClick={() => navigate('/customer/marketplace')}>
+              <ShoppingBag size={18} /> Explore the Marketplace
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-12" style={{ marginTop: 8 }}>
+            <div style={{ marginBottom: 4 }}>
+              <h3 className="text-headline-sm" style={{ marginBottom: 4 }}>Upgrade your plan</h3>
+              <p className="text-secondary text-body-sm">
+                You're on <strong>{activeSubForVehicle.package?.name || 'your current plan'}</strong>. Pick a higher tier — upgrading starts a fresh 30-day term.
+              </p>
+            </div>
+
+            {higherPlans.map(pkg => {
+              const pricing = getPackagePricing(pkg, activeSubForVehicle.vehicle, discounts)
+              return (
+                <div key={pkg._id} className="glass animate-fade-in" style={{ padding: 24, borderRadius: 24, border: '1px solid var(--border-glass)', marginBottom: 4 }}>
+                  <div className="flex justify-between items-start" style={{ marginBottom: 16 }}>
+                    <div>
+                      <div className="flex items-center gap-8 mb-4">
+                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>{pkg.name}</h2>
+                        {pkg.popular && <span className="chip chip-lime" style={{ fontSize: 9 }}>Popular</span>}
+                      </div>
+                      <div className="text-label text-tertiary" style={{ fontSize: 10 }}>{pkg.tier || 'Standard'} Tier</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      {pricing.hasDiscount && (
+                        <div className="flex items-center gap-6" style={{ justifyContent: 'flex-end' }}>
+                          <span className="text-body-sm text-secondary" style={{ textDecoration: 'line-through' }}>₹{pricing.originalPrice}</span>
+                          <span className="chip chip-lime" style={{ fontSize: 9 }}>{pricing.percent}% OFF</span>
+                        </div>
+                      )}
+                      <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-accent)' }}>₹{pricing.effectivePrice}</div>
+                      <div className="text-body-sm text-secondary">/month</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-10" style={{ marginBottom: 20 }}>
+                    {(pkg.features || []).slice(0, 4).map((f, i) => (
+                      <div key={i} className="flex items-center gap-10 text-body-sm">
+                        <Check size={16} className="text-lime" strokeWidth={3} />
+                        <span className="text-secondary">{f}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    className="btn btn-primary w-full"
+                    style={{ padding: 16, borderRadius: 16, fontWeight: 800 }}
+                    disabled={processing || !razorpayReady}
+                    onClick={() => handleUpgradePayment(pkg)}
+                  >
+                    {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Upgrade for ₹${pricing.effectivePrice}`}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   if (extensionStep > 0) {
     return (
@@ -311,7 +547,7 @@ export default function PackageSelect() {
           <div className="flex flex-col gap-24 animate-fade-in-up" style={{ marginTop: 12 }}>
             <div>
               <h3 className="text-headline-sm" style={{ marginBottom: 4 }}>Extend Plan</h3>
-              <p className="text-secondary text-body-sm">Extend your active wash plan for another 30 days.</p>
+              <p className="text-secondary text-body-sm">Extend your active clean plan for another 30 days.</p>
             </div>
 
             <div className="glass" style={{ padding: 24, borderRadius: 28 }}>
@@ -379,20 +615,76 @@ export default function PackageSelect() {
                     <div style={{ fontWeight: 800, fontSize: 18 }}>Plan Extension (30 Days)</div>
                     <div className="text-body-sm text-secondary">{activeSubForVehicle?.package?.name || 'Standard'} Package</div>
                   </div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>
-                    ₹{activeSubForVehicle?.amount || activeSubForVehicle?.package?.price || 0}
+                  <div style={{ textAlign: 'right' }}>
+                    {extensionPricing?.hasDiscount && (
+                      <div className="text-body-sm text-secondary" style={{ textDecoration: 'line-through' }}>₹{extensionPricing.originalPrice}</div>
+                    )}
+                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>
+                      ₹{baseExtensionAmount}
+                    </div>
                   </div>
                 </div>
+
+                {extensionPricing?.hasDiscount && extensionPricing.note && (
+                  <div style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>
+                    {extensionPricing.note}
+                  </div>
+                )}
+
+                {extensionCouponDiscount > 0 && (
+                  <div className="flex justify-between items-center" style={{ fontSize: 14, color: 'var(--success)' }}>
+                    <span>Coupon ({appliedCoupon.code})</span>
+                    <span style={{ fontWeight: 700 }}>−₹{extensionCouponDiscount}</span>
+                  </div>
+                )}
 
                 <div className="divider" style={{ opacity: 0.3 }} />
 
                 <div className="flex justify-between items-center">
                   <span style={{ fontWeight: 800, fontSize: 18 }}>Total Amount</span>
                   <span style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 28, color: 'var(--text-accent)' }}>
-                    ₹{activeSubForVehicle?.amount || activeSubForVehicle?.package?.price || 0}
+                    ₹{extensionAmount}
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Coupon */}
+            <div className="flex flex-col gap-10">
+              <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', paddingLeft: 4, letterSpacing: '0.06em' }}>
+                HAVE A COUPON?
+              </label>
+              {appliedCoupon ? (
+                <div className="glass" style={{ padding: '14px 18px', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(50,215,75,0.3)', background: 'rgba(50,215,75,0.04)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Check size={16} color="var(--success)" strokeWidth={3} />
+                    <span style={{ fontWeight: 800, letterSpacing: '0.05em' }}>{appliedCoupon.code}</span>
+                    <span style={{ color: 'var(--success)', fontSize: 13 }}>−₹{extensionCouponDiscount} applied</span>
+                  </div>
+                  <button onClick={removeExtensionCoupon} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Remove</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <input
+                    value={couponInput}
+                    onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponError('') }}
+                    placeholder="Enter coupon code"
+                    className="glass"
+                    style={{ flex: 1, padding: '14px 18px', borderRadius: 16, fontSize: 15, border: '1px solid var(--divider)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}
+                  />
+                  <button
+                    disabled={!couponInput.trim() || couponLoading}
+                    onClick={applyExtensionCoupon}
+                    className="btn btn-primary"
+                    style={{ borderRadius: 16, padding: '0 24px', fontWeight: 800 }}
+                  >
+                    {couponLoading ? '…' : 'Apply'}
+                  </button>
+                </div>
+              )}
+              {couponError && (
+                <span style={{ fontSize: 12, color: 'var(--error)', paddingLeft: 4 }}>{couponError}</span>
+              )}
             </div>
 
             <div className="glass" style={{ padding: '20px 24px', borderRadius: 24, display: 'flex', alignItems: 'center', gap: 16, border: '1px solid rgba(50,215,75,0.2)' }}>
@@ -418,7 +710,7 @@ export default function PackageSelect() {
                 style={{ flex: 2, borderRadius: 20, fontWeight: 800, fontSize: 18, padding: 18, boxShadow: '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' }} 
                 onClick={handleExtensionPayment}
               >
-                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${activeSubForVehicle?.amount || activeSubForVehicle?.package?.price || 0}`}
+                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${extensionAmount}`}
               </button>
             </div>
           </div>
@@ -440,7 +732,7 @@ export default function PackageSelect() {
                 Plan Extended!
               </h2>
               <p className="text-secondary text-body-md" style={{ maxWidth: 360, margin: '0 auto' }}>
-                Your subscription has been extended successfully. Your wash service days have been increased.
+                Your subscription has been extended successfully. Your clean service days have been increased.
               </p>
             </div>
 
@@ -696,10 +988,11 @@ export default function PackageSelect() {
 
         {!activeSubForVehicle && displayPackages.map(pkg => {
           const isElite = pkg.name.toLowerCase() === 'elite';
-          
+          const pricing = getPackagePricing(pkg, selectedVehicle, discounts);
+
           const cardContent = (
             <>
-              <div className="flex justify-between items-start" style={{ marginBottom: 20 }}>
+              <div className="flex justify-between items-start" style={{ marginBottom: pricing.hasDiscount && pricing.note ? 12 : 20 }}>
                 <div>
                   <div className="flex items-center gap-8 mb-4">
                     <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>{pkg.name}</h2>
@@ -707,12 +1000,24 @@ export default function PackageSelect() {
                   </div>
                   <div className="text-label text-tertiary" style={{ fontSize: 10 }}>{pkg.tier || 'Standard'} Tier</div>
                 </div>
-                
+
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-accent)' }}>₹{pkg.price}</div>
+                  {pricing.hasDiscount && (
+                    <div className="flex items-center gap-6" style={{ justifyContent: 'flex-end' }}>
+                      <span className="text-body-sm text-secondary" style={{ textDecoration: 'line-through' }}>₹{pricing.originalPrice}</span>
+                      <span className="chip chip-lime" style={{ fontSize: 9 }}>{pricing.percent}% OFF</span>
+                    </div>
+                  )}
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-accent)' }}>₹{pricing.effectivePrice}</div>
                   <div className="text-body-sm text-secondary">/month</div>
                 </div>
               </div>
+
+              {pricing.hasDiscount && pricing.note && (
+                <div style={{ fontSize: 12, color: 'var(--success)', marginBottom: 16, fontWeight: 600 }}>
+                  {pricing.note}
+                </div>
+              )}
 
               <div className="flex flex-col gap-10" style={{ marginBottom: 24 }}>
                 {(pkg.features || []).slice(0, 4).map((f, i) => (
@@ -723,7 +1028,7 @@ export default function PackageSelect() {
                 ))}
               </div>
 
-              <button 
+              <button
                 className="btn btn-primary w-full py-16 rounded-2xl shadow-lg shadow-primary/10"
               >
                 Get Started with {pkg.name}

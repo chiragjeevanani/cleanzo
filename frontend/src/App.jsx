@@ -16,7 +16,6 @@ import CustomerAuth from './pages/Customer/CustomerAuth'
 import JoinAsCleaner from './pages/Landing/JoinAsCleaner'
 import SocietyLogin from './pages/Society/SocietyLogin'
 import SocietyApp from './pages/Society/SocietyApp'
-import Warranty from './pages/Landing/Warranty'
 import OfflineDetector from './components/OfflineDetector'
 
 function ScrollToTop() {
@@ -96,7 +95,6 @@ export default function App() {
               <Route path="/join-crew" element={<JoinAsCleaner />} />
               <Route path="/" element={<LandingPage />} />
               <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/warranty" element={<Warranty />} />
 
               {/* Protected: Customer Portal */}
               <Route

@@ -9,6 +9,7 @@ const packageSchema = new Schema({
   duration:  { type: String, default: 'Monthly' },
   perDay:    { type: Number },
   features:  [{ type: String }],
+  excludedFeatures: [{ type: String }],
   category:  { 
     type: String, 
     required: false, 

@@ -3,22 +3,26 @@ import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { mockPackages } from '../../data/mockData'
+import { getPackagePricing } from '../../utils/pricing'
 import './PricingSection.css'
 
 export default function PricingSection() {
   const [packages, setPackages] = useState([])
   const [loading, setLoading] = useState(true)
   const [trialPrice, setTrialPrice] = useState(null)
+  // Landing has no selected vehicle, so only the global discount can apply
+  const [discounts, setDiscounts] = useState({ global: {}, individual: [] })
 
   useEffect(() => {
     let active = true;
 
-    // Fetch packages and public settings in parallel
+    // Fetch packages, public settings, and discounts in parallel
     Promise.all([
       apiClient.get('/public/packages'),
       apiClient.get('/public/settings'),
+      apiClient.get('/public/discounts').catch(() => null),
     ])
-      .then(([pkgRes, settingsRes]) => {
+      .then(([pkgRes, settingsRes, discountRes]) => {
         if (!active) return;
         if (pkgRes.success && pkgRes.packages && pkgRes.packages.length > 0) {
           setPackages(pkgRes.packages)
@@ -29,6 +33,9 @@ export default function PricingSection() {
           setTrialPrice(settingsRes.trialPrice ?? 30)
         } else {
           setTrialPrice(30)
+        }
+        if (discountRes?.success) {
+          setDiscounts({ global: discountRes.global || {}, individual: discountRes.individual || [] })
         }
       })
       .catch(err => {
@@ -71,20 +78,33 @@ export default function PricingSection() {
             <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', background: 'var(--bg-glass)', borderRadius: '24px', border: '1px dashed var(--border-glass)' }}>
               <p className="text-secondary">No active subscription plans available at the moment. Please check back later.</p>
             </div>
-          ) : packages.map((pkg) => (
+          ) : packages.map((pkg) => {
+            const pricing = getPackagePricing(pkg, null, discounts)
+            return (
             <div key={pkg._id || pkg.id} className={`pricing-card-premium ${pkg.popular ? 'featured' : ''}`}>
               {pkg.popular && <div className="popular-tag">MOST REQUESTED</div>}
-              
+
               <div className="card-top">
                 <h3 className="tier-name">{pkg.name}</h3>
                 <p className="tier-desc" style={{ textTransform: 'capitalize' }}>Tier: {pkg.tier} • For {(pkg.category || 'vehicle').replace('_', ' ')}s</p>
               </div>
 
+              {pricing.hasDiscount && (
+                <div className="tier-discount-row">
+                  <span className="tier-original-price">₹{pricing.originalPrice}</span>
+                  <span className="tier-discount-badge">{pricing.percent}% OFF</span>
+                </div>
+              )}
+
               <div className="tier-price">
                 <span className="currency">₹</span>
-                <span className="amount">{pkg.price}</span>
+                <span className="amount">{pricing.effectivePrice}</span>
                 <span className="period">/mo</span>
               </div>
+
+              {pricing.hasDiscount && pricing.note && (
+                <p className="tier-discount-note">{pricing.note}</p>
+              )}
 
               <Link to="/login" className={`btn btn-lg pricing-btn ${pkg.popular ? 'btn-primary' : 'btn-glass'}`}>
                 {pkg.popular ? 'GET STARTED' : 'START SUBSCRIPTION'}
@@ -100,7 +120,8 @@ export default function PricingSection() {
                 ))}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
         
         <div className="pricing-note-container reveal">

@@ -138,8 +138,8 @@ export default function SubscriptionDetail() {
               {remaining > 0 && <Link to="/customer/skip" className="btn btn-ghost" style={{ flex: 1 }}>Skip Day</Link>}
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => navigate(`/customer/packages?vehicleId=${subscription.vehicle?._id}&extend=true`)}><TrendingUp size={16} /> Extend</button>
             </div>
-            <Link to="/customer/packages" className="btn glass w-full" style={{ border: '1px dashed var(--border-glass)' }}>
-              Upgrade or Change Plan
+            <Link to={`/customer/packages?vehicleId=${subscription.vehicle?._id}&upgrade=true`} className="btn glass w-full" style={{ border: '1px dashed var(--border-glass)' }}>
+              Upgrade Plan
             </Link>
           </div>
         </>

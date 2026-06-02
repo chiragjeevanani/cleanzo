@@ -85,7 +85,7 @@ export default function Receipt() {
               <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, fontWeight: 800, color: '#0A0A0A', letterSpacing: '-0.02em' }}>Cleanzo</span>
             </div>
             <p style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.4 }}>
-              Premium Doorstep Car Wash Services<br />
+              Premium Doorstep Car Clean Services<br />
               support@cleanzo.in • www.cleanzo.in
             </p>
           </div>
@@ -133,7 +133,7 @@ export default function Receipt() {
               <tr style={{ borderBottom: '1px solid #F3F4F6' }}>
                 <td style={{ padding: '20px', fontSize: 14 }}>
                   <div style={{ fontWeight: 700, color: '#111827' }}>{payment.package?.name || 'Subscription Plan'} Extension</div>
-                  <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>Dynamic doorstep car cleaning wash subscription</div>
+                  <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>Dynamic doorstep car cleaning subscription</div>
                 </td>
                 <td style={{ padding: '20px', fontSize: 13, color: '#4B5563', textAlign: 'right', whiteSpace: 'nowrap' }}>
                   30 Service Days

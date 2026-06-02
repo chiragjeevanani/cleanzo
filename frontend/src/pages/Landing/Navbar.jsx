@@ -6,7 +6,7 @@ import './Navbar.css'
 import { getAppLogo } from '../../utils/helpers'
 
 const navLinks = [
-  { label: 'Services', href: '#services' },
+  { label: 'Pricing', href: '#pricing' },
   { label: 'Process', href: '#process' },
   { label: 'Gallery', href: '#gallery' },
   { label: 'Reviews', href: '#testimonials' },
@@ -46,7 +46,6 @@ export default function Navbar() {
           </Link>
 
           <div className="nav-links hide-mobile" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
-            <button className="nav-link" onClick={() => scrollTo('#services')}>SERVICES</button>
             <button className="nav-link" onClick={() => scrollTo('#pricing')}>PRICING</button>
             <button className="nav-link" onClick={() => scrollTo('#precision')}>MISSION</button>
             <button className="nav-link" onClick={() => scrollTo('#process')}>PROTOCOL</button>

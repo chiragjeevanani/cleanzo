@@ -53,6 +53,18 @@ const seedSettingsOnStartup = async () => {
     for (const s of defaults) {
       await Settings.findOneAndUpdate({ key: s.key }, s, { upsert: true, new: true });
     }
+    // Insert-only defaults: created once but never overwritten on restart so
+    // admin-configured values (e.g. the global package discount) are preserved.
+    const insertOnlyDefaults = [
+      { key: 'packageDiscount', value: { percent: 0, note: '', isActive: false }, description: 'Global discount applied to all package prices' },
+    ];
+    for (const s of insertOnlyDefaults) {
+      await Settings.findOneAndUpdate(
+        { key: s.key },
+        { $setOnInsert: s },
+        { upsert: true, new: true }
+      );
+    }
     console.log('✅ Settings defaults ensured');
   } catch (err) {
     console.error('❌ Settings seed failed:', err.message);

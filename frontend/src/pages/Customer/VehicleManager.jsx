@@ -326,6 +326,10 @@ export default function VehicleManager() {
 
   const selectStyle = { width: '100%', boxSizing: 'border-box', appearance: 'none', cursor: 'pointer', paddingRight: 36 }
 
+  // While a vehicle has an active subscription its identity (brand/model/number) is locked.
+  const editLocked = !!editVehicle && (subscriptions || []).some(s => s.vehicle?._id === editVehicle._id && s.status === 'Active')
+  const lockedStyle = { opacity: 0.6, cursor: 'not-allowed' }
+
   return (
     <div style={{ padding: '0 20px' }}>
       {/* Header */}
@@ -356,9 +360,15 @@ export default function VehicleManager() {
               {editVehicle ? 'Edit Vehicle Details' : 'Add New Vehicle'}
             </h3>
 
+            {editLocked && (
+              <div style={{ padding: '10px 14px', borderRadius: 12, background: 'rgba(0,102,255,0.06)', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)', fontSize: 13 }}>
+                🔒 Car name, model and number are locked while a plan is active. You can still update parking details, colour and photos.
+              </div>
+            )}
+
             <div style={{ position: 'relative' }}>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Brand <span style={{ color: 'var(--error)' }}>*</span></label>
-              <select className="input-field" style={selectStyle} value={form.brand} onChange={e => handleBrandChange(e.target.value)}>
+              <select className="input-field" style={{ ...selectStyle, ...(editLocked ? lockedStyle : {}) }} value={form.brand} disabled={editLocked} onChange={e => handleBrandChange(e.target.value)}>
                 <option value="" disabled>Select Brand</option>
                 {brandsList.map(b => <option key={b._id} value={b.name}>{b.name}</option>)}
               </select>
@@ -367,7 +377,7 @@ export default function VehicleManager() {
 
             <div style={{ position: 'relative' }}>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Model <span style={{ color: 'var(--error)' }}>*</span></label>
-              <select className="input-field" style={selectStyle} value={form.model} disabled={!form.brand} onChange={e => setForm({ ...form, model: e.target.value })}>
+              <select className="input-field" style={{ ...selectStyle, ...(editLocked ? lockedStyle : {}) }} value={form.model} disabled={editLocked || !form.brand} onChange={e => setForm({ ...form, model: e.target.value })}>
                 <option value="" disabled>Select Model</option>
                 {modelsList.map((m, i) => <option key={i} value={m}>{m}</option>)}
               </select>
@@ -376,7 +386,7 @@ export default function VehicleManager() {
 
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Number Plate <span style={{ color: 'var(--error)' }}>*</span></label>
-              <input className="input-field" placeholder="e.g. MH 02 AB 1234" value={form.number} onChange={e => setForm({ ...form, number: e.target.value.toUpperCase() })} />
+              <input className="input-field" style={editLocked ? lockedStyle : undefined} placeholder="e.g. MH 02 AB 1234" value={form.number} disabled={editLocked} onChange={e => setForm({ ...form, number: e.target.value.toUpperCase() })} />
             </div>
 
             <div>

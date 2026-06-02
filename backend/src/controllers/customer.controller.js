@@ -32,6 +32,8 @@ import { logActivity } from './admin.controller.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
 import { clearCache } from '../middleware/cache.js';
 import { getISTMidnight } from '../utils/dateHelper.js';
+import { getDiscountConfig, resolvePackageDiscount } from '../utils/discount.js';
+import { validateCoupon, redeemCoupon } from '../utils/coupon.js';
 import PartnerSociety from '../models/PartnerSociety.js';
 import SocietyCommission from '../models/SocietyCommission.js';
 import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.service.js';
@@ -124,7 +126,14 @@ export const addVehicle = asyncHandler(async (req, res) => {
 
 export const updateVehicle = asyncHandler(async (req, res) => {
   const { brand, model, number, flatNumber, blockTower, slotPillar, color, category } = req.body;
-  
+
+  const existing = await Vehicle.findOne({ _id: req.params.id, customer: req.user._id });
+  if (!existing) throw new ApiError(404, 'Vehicle not found');
+
+  // Identity fields (brand/model/number/category) are locked while a plan is active —
+  // keep the existing values regardless of what the client sends so the lock can't be bypassed.
+  const hasActiveSub = await Subscription.exists({ vehicle: existing._id, customer: req.user._id, status: 'Active' });
+
   const flatNumberClean = flatNumber || '';
   const blockTowerClean = blockTower || '';
   const slotPillarClean = slotPillar || '';
@@ -135,15 +144,15 @@ export const updateVehicle = asyncHandler(async (req, res) => {
   ].filter(Boolean).join(' · ');
 
   const updateFields = {
-    brand,
-    model,
-    number,
+    brand: hasActiveSub ? existing.brand : brand,
+    model: hasActiveSub ? existing.model : model,
+    number: hasActiveSub ? existing.number : number,
     flatNumber: flatNumberClean,
     blockTower: blockTowerClean,
     slotPillar: slotPillarClean,
     parking: parkingClean,
     color,
-    category
+    category: hasActiveSub ? existing.category : category
   };
 
   if (req.files && req.files.length > 0) {
@@ -289,8 +298,52 @@ export const getSocieties = asyncHandler(async (req, res) => {
   res.json({ success: true, societies });
 });
 
+// Resolve the coupon category for a customer's NEW booking (first_purchase vs renewal).
+const resolveNewBookingCategory = async (customerId) => {
+  const count = await Subscription.countDocuments({ customer: customerId, isTrial: false });
+  return count === 0 ? 'first_purchase' : 'renewal';
+};
+
+// POST /customer/coupons/validate — preview only, does NOT redeem the coupon.
+export const validateCouponCode = asyncHandler(async (req, res) => {
+  const { code, type, societyId, subscriptionId, baseAmount } = req.body;
+  if (!code) throw new ApiError(400, 'Please enter a coupon code');
+  if (!baseAmount || baseAmount <= 0) throw new ApiError(400, 'Invalid amount');
+
+  let category;
+  let resolvedSocietyId = societyId;
+  if (type === 'extension') {
+    category = 'extension';
+    if (!resolvedSocietyId && subscriptionId) {
+      const sub = await Subscription.findOne({ _id: subscriptionId, customer: req.user._id }).select('society');
+      resolvedSocietyId = sub?.society;
+    }
+  } else {
+    category = await resolveNewBookingCategory(req.user._id);
+  }
+
+  const { coupon, discountAmount, finalAmount } = await validateCoupon({
+    code,
+    customerId: req.user._id,
+    category,
+    societyId: resolvedSocietyId,
+    baseAmount: Number(baseAmount),
+  });
+
+  res.json({
+    success: true,
+    valid: true,
+    code: coupon.code,
+    description: coupon.description,
+    discountType: coupon.discountType,
+    discountValue: coupon.discountValue,
+    discountAmount,
+    finalAmount,
+  });
+});
+
 export const createSubscription = asyncHandler(async (req, res) => {
-  const { vehicleId, packageId, paymentId, societyId, slotId, specialInstructions, isTrial, startDate, isPremiumOverride, overrideReason } = req.body;
+  const { vehicleId, packageId, paymentId, societyId, slotId, specialInstructions, isTrial, startDate, isPremiumOverride, overrideReason, couponCode } = req.body;
   if (!vehicleId || !societyId || !slotId) {
     throw new ApiError(400, 'Vehicle, society, and slot are required');
   }
@@ -404,6 +457,20 @@ export const createSubscription = asyncHandler(async (req, res) => {
   let basePrice = isTrial ? trialPrice : pkg.price;
   let priorityFee = 0;
 
+  // Apply package discount (individual override or global) — never to trials.
+  // Computed server-side so the stored amount is authoritative regardless of the client.
+  let discountPercent = 0;
+  let discountNote = '';
+  if (!isTrial) {
+    const discountConfig = await getDiscountConfig();
+    const pricing = resolvePackageDiscount(pkg, vehicle, discountConfig);
+    if (pricing.hasDiscount) {
+      basePrice = pricing.effectivePrice;
+      discountPercent = pricing.percent;
+      discountNote = pricing.note;
+    }
+  }
+
   if (isPremiumOverride) {
     if (!overrideReason || !overrideReason.trim()) {
       throw new ApiError(400, 'Override reason is required for premium override bookings');
@@ -478,6 +545,23 @@ export const createSubscription = asyncHandler(async (req, res) => {
     }
   }
 
+  // Apply coupon (non-trial only) — validated server-side against the authoritative amount
+  let couponDoc = null;
+  let couponDiscount = 0;
+  if (!isTrial && couponCode) {
+    const category = await resolveNewBookingCategory(req.user._id);
+    const result = await validateCoupon({
+      code: couponCode,
+      customerId: req.user._id,
+      category,
+      societyId,
+      baseAmount: finalAmount,
+    });
+    couponDoc = result.coupon;
+    couponDiscount = result.discountAmount;
+    finalAmount = result.finalAmount;
+  }
+
   let finalStartDate = getISTMidnight();
   let nextWashVal = new Date(finalStartDate.getTime() + 24 * 60 * 60 * 1000);
   
@@ -510,6 +594,10 @@ export const createSubscription = asyncHandler(async (req, res) => {
     nextWash: nextWashVal,
     amount: finalAmount,
     priorityFee,
+    discountPercent,
+    discountNote,
+    couponCode: couponDoc ? couponDoc.code : undefined,
+    couponDiscount,
     isPremiumOverride: isPremiumOverride || false,
     overrideReason: isPremiumOverride ? overrideReason : undefined,
     specialInstructions,
@@ -526,6 +614,15 @@ export const createSubscription = asyncHandler(async (req, res) => {
         type: 'purchase',
       }
     ).catch(err => console.error('Failed to link payment to subscription:', err));
+  }
+
+  // Record coupon redemption (payment already succeeded — don't fail the sub on a redeem race)
+  if (couponDoc) {
+    try {
+      await redeemCoupon(couponDoc, req.user._id, sub._id, couponDiscount);
+    } catch (err) {
+      console.error('Failed to record coupon redemption:', err.message);
+    }
   }
 
   // Referral Reward (Give referrer a discount) — atomic, no race condition
@@ -580,7 +677,7 @@ export const createSubscription = asyncHandler(async (req, res) => {
     const dateStr = finalStartDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
     sendPushNotification(customer.fcmTokens, {
       title: '🚗 Subscription Activated!',
-      body: `Your ${isTrial ? 'trial' : 'car wash'} plan starts on ${dateStr}.`,
+      body: `Your ${isTrial ? 'trial' : 'car clean'} plan starts on ${dateStr}.`,
       data: { type: 'subscription_created', link: NOTIFICATION_LINKS.subscription_created },
     }).catch(() => {});
   }
@@ -722,7 +819,7 @@ export const skipService = asyncHandler(async (req, res) => {
       const formattedDates = parsedDates.map(d => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })).join(', ');
       sendPushNotification(customer.fcmTokens, {
         title: '📅 Service Skipped!',
-        body: `Your wash for ${formattedDates} has been skipped and subscription extended.`,
+        body: `Your clean for ${formattedDates} has been skipped and subscription extended.`,
         data: { type: 'service_skipped', link: NOTIFICATION_LINKS.service_skipped },
       }).catch(() => {});
     }
@@ -1010,7 +1107,7 @@ export const cancelMarketplaceOrder = asyncHandler(async (req, res) => {
 });
 
 export const extendSubscription = asyncHandler(async (req, res) => {
-  const { paymentId } = req.body;
+  const { paymentId, couponCode } = req.body;
   if (!paymentId) throw new ApiError(400, 'Payment ID is required');
 
   const sub = await Subscription.findOne({ _id: req.params.id, customer: req.user._id, status: 'Active' })
@@ -1027,13 +1124,40 @@ export const extendSubscription = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'This payment has already been used.');
   }
 
+  // Validate an extension coupon, if provided, against the sub's package price
+  let couponDoc = null;
+  let couponDiscount = 0;
+  if (couponCode) {
+    const result = await validateCoupon({
+      code: couponCode,
+      customerId: req.user._id,
+      category: 'extension',
+      societyId: sub.society,
+      baseAmount: sub.package?.price || sub.amount || 0,
+    });
+    couponDoc = result.coupon;
+    couponDiscount = result.discountAmount;
+  }
+
   // Extend subscription: add 30 days
   sub.totalDays += 30;
   sub.remainingDays = (sub.remainingDays || 0) + 30;
   sub.endDate = new Date(sub.endDate.getTime() + 30 * 24 * 60 * 60 * 1000);
   sub.maxSkips = (sub.maxSkips || 1) + 1;
+  if (couponDoc) {
+    sub.couponCode = couponDoc.code;
+    sub.couponDiscount = couponDiscount;
+  }
 
   await sub.save({ validateModifiedOnly: true });
+
+  if (couponDoc) {
+    try {
+      await redeemCoupon(couponDoc, req.user._id, sub._id, couponDiscount);
+    } catch (err) {
+      console.error('Failed to record coupon redemption:', err.message);
+    }
+  }
 
   verifiedPayment.subscription = sub._id;
   verifiedPayment.package = sub.package?._id;
@@ -1055,6 +1179,107 @@ export const extendSubscription = asyncHandler(async (req, res) => {
         title: '🔄 Subscription Extended!',
         body: `Your plan has been extended by 30 days. New end date is ${newEndDateStr}.`,
         data: { type: 'subscription_extended', link: NOTIFICATION_LINKS.subscription_created },
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('Failed to send push notification:', err.message);
+  }
+
+  await clearCache(`cache:${req.user._id}:*`);
+  res.json({ success: true, subscription: sub });
+});
+
+// ─── PLAN UPGRADE ────────────────────────────────
+const UPGRADE_TIER_RANK = { BASIC: 0, STANDARD: 1, PREMIUM: 2 };
+const tierRankOf = (pkg) => UPGRADE_TIER_RANK[(pkg?.tier || '').toUpperCase()] ?? 99;
+
+const isVehicleEligibleForPkg = (vehicle, pkg) => {
+  if (!pkg.applicableModels || pkg.applicableModels.length === 0) {
+    return (vehicle.category || '').toLowerCase() === (pkg.category || '').toLowerCase();
+  }
+  const brandMatch = pkg.applicableModels.find(a => a.brand.toLowerCase() === (vehicle.brand || '').toLowerCase());
+  if (!brandMatch) return false;
+  if (!brandMatch.models || brandMatch.models.length === 0) return true;
+  return brandMatch.models.some(m => m.toLowerCase() === (vehicle.model || '').toLowerCase());
+};
+
+/**
+ * Switch an active subscription to a strictly-higher-tier package on a fresh 30-day term.
+ * Validates tier + vehicle eligibility, recomputes the authoritative (discounted) amount.
+ * Shared by the customer endpoint and the Razorpay redirect callback. `sub` must have
+ * `package` and `vehicle` populated. Throws ApiError on invalid upgrades.
+ */
+export const applyUpgrade = async (sub, targetPkg) => {
+  if (!sub.vehicle) throw new ApiError(400, 'Vehicle details missing on subscription');
+  if (tierRankOf(targetPkg) <= tierRankOf(sub.package)) {
+    throw new ApiError(400, 'You can only upgrade to a higher-tier plan');
+  }
+  if (!isVehicleEligibleForPkg(sub.vehicle, targetPkg)) {
+    throw new ApiError(400, 'This plan is not available for your vehicle');
+  }
+
+  const config = await getDiscountConfig();
+  const pricing = resolvePackageDiscount(targetPkg, sub.vehicle, config);
+  const amount = pricing.hasDiscount ? pricing.effectivePrice : targetPkg.price;
+
+  const start = getISTMidnight();
+  const end = new Date(start);
+  end.setDate(end.getDate() + 30);
+
+  sub.package = targetPkg._id;
+  sub.amount = amount;
+  sub.discountPercent = pricing.hasDiscount ? pricing.percent : 0;
+  sub.discountNote = pricing.hasDiscount ? pricing.note : '';
+  sub.startDate = start;
+  sub.endDate = end;
+  sub.totalDays = 30;
+  sub.remainingDays = 30;
+  sub.completedDays = 0;
+  sub.skippedDays = 0;
+  sub.creditedDays = 0;
+  sub.nextWash = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  await sub.save({ validateModifiedOnly: true });
+  return sub;
+};
+
+export const upgradeSubscription = asyncHandler(async (req, res) => {
+  const { packageId, paymentId } = req.body;
+  if (!packageId) throw new ApiError(400, 'Target package is required');
+  if (!paymentId) throw new ApiError(400, 'Payment ID is required');
+
+  const sub = await Subscription.findOne({ _id: req.params.id, customer: req.user._id, status: 'Active' })
+    .populate('package')
+    .populate('vehicle');
+  if (!sub) throw new ApiError(404, 'Active subscription not found');
+
+  const targetPkg = await Package.findById(packageId);
+  if (!targetPkg) throw new ApiError(404, 'Package not found');
+
+  const verifiedPayment = await Payment.findOne({ paymentId, customer: req.user._id });
+  if (!verifiedPayment) throw new ApiError(400, 'Payment not verified. Please complete payment before upgrading.');
+  if (verifiedPayment.subscription) throw new ApiError(400, 'This payment has already been used.');
+
+  await applyUpgrade(sub, targetPkg);
+
+  verifiedPayment.subscription = sub._id;
+  verifiedPayment.package = targetPkg._id;
+  verifiedPayment.vehicle = sub.vehicle?._id;
+  verifiedPayment.type = 'purchase';
+  await verifiedPayment.save();
+
+  await logActivity({
+    type: 'subscription_upgraded',
+    message: `${req.user.firstName} ${req.user.lastName} upgraded to ${targetPkg.name}`,
+    metadata: { subscriptionId: sub._id, customerId: req.user._id, paymentId }
+  });
+
+  try {
+    const customer = await Customer.findById(req.user._id).select('fcmTokens');
+    if (customer?.fcmTokens?.length) {
+      sendPushNotification(customer.fcmTokens, {
+        title: '⭐ Plan Upgraded!',
+        body: `Your plan is now ${targetPkg.name}. Enjoy the upgraded service!`,
+        data: { type: 'subscription_upgraded', link: NOTIFICATION_LINKS.subscription_created },
       }).catch(() => {});
     }
   } catch (err) {

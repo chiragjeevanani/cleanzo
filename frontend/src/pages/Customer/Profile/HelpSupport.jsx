@@ -72,29 +72,32 @@ export default function HelpSupport() {
       <div style={{ padding: '32px 0 100px' }}>
         <h3 className="text-label text-secondary" style={{ marginBottom: 16 }}>Still need help?</h3>
         <div style={{ display: 'flex', gap: 12 }}>
-          <button 
-            className="glass" 
-            style={{ flex: 1, minWidth: 0, height: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid rgba(var(--accent-lime-rgb), 0.3)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-primary)' }} 
-            onClick={() => window.open('https://wa.me/919999999999', '_blank')}
+          <button
+            className="glass"
+            style={{ flex: 1, minWidth: 0, height: 110, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1px solid rgba(var(--accent-lime-rgb), 0.3)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-primary)' }}
+            onClick={() => window.open('https://wa.me/919555860362', '_blank')}
           >
             <MessageCircle size={24} style={{ color: 'var(--text-accent)' }} />
             <span style={{ fontWeight: 600, fontSize: 13 }}>WhatsApp</span>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>9555860362</span>
           </button>
-          <button 
-            className="glass" 
-            style={{ flex: 1, minWidth: 0, height: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid var(--border-glass)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-primary)' }} 
-            onClick={() => window.location.href = 'tel:+919999999999'}
+          <button
+            className="glass"
+            style={{ flex: 1, minWidth: 0, height: 110, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1px solid var(--border-glass)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-primary)' }}
+            onClick={() => window.location.href = 'tel:+919555860362'}
           >
             <PhoneCall size={24} style={{ color: 'var(--primary-blue)' }} />
-            <span style={{ fontWeight: 600, fontSize: 13 }}>Call Us</span>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>Call</span>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>9555860362</span>
           </button>
-          <button 
-            className="glass" 
-            style={{ flex: 1, minWidth: 0, height: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid var(--border-glass)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-primary)' }} 
-            onClick={() => window.location.href = 'mailto:support@cleanzo.com'}
+          <button
+            className="glass"
+            style={{ flex: 1, minWidth: 0, height: 110, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1px solid var(--border-glass)', borderRadius: 16, cursor: 'pointer', color: 'var(--text-primary)' }}
+            onClick={() => window.location.href = 'mailto:hello@trycleanzo.com'}
           >
             <Mail size={24} style={{ color: 'var(--text-secondary)' }} />
             <span style={{ fontWeight: 600, fontSize: 13 }}>Email</span>
+            <span style={{ fontSize: 10, color: 'var(--text-secondary)', wordBreak: 'break-all', textAlign: 'center', padding: '0 4px' }}>hello@trycleanzo.com</span>
           </button>
         </div>
 

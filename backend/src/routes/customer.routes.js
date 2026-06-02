@@ -24,6 +24,9 @@ router.get('/subscriptions/:id', cacheMiddleware(300, true), ctrl.getSubscriptio
 router.post('/subscriptions', ctrl.createSubscription);
 router.post('/subscriptions/:id/skip', ctrl.skipService);
 router.post('/subscriptions/:id/extend', ctrl.extendSubscription);
+router.post('/subscriptions/:id/upgrade', ctrl.upgradeSubscription);
+
+router.post('/coupons/validate', ctrl.validateCouponCode);
 
 router.get('/payment-history', ctrl.getPaymentHistory);
 router.get('/payment-history/:paymentId', ctrl.getPaymentDetails);

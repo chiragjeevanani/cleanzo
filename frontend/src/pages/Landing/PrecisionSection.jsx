@@ -14,7 +14,7 @@ export default function PrecisionSection() {
             </div>
             <div className="precision-feature-text">
               <h3>Microfiber Technology</h3>
-              <p>We use water-efficient, microfiber-based cleaning methods to protect your car's finish while conserving resources. Strictly no pressure washing or foam washing.</p>
+              <p>We use water-efficient, microfiber-based cleaning methods to protect your car's finish while conserving resources. Strictly no pressure cleaning or foam cleaning.</p>
             </div>
           </div>
 

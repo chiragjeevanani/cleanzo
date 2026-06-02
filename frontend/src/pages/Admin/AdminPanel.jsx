@@ -2,7 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut, User, MapPin, ShoppingCart, Car, LifeBuoy, CalendarDays, FileClock, Layers } from 'lucide-react'
+import { LayoutDashboard, Users, UserCog, Package, CreditCard, TrendingUp, FileText, Settings, Sun, Moon, Bell, Search, Menu, X, LogOut, User, MapPin, ShoppingCart, Car, LifeBuoy, CalendarDays, FileClock, Layers, Percent, Ticket } from 'lucide-react'
 import PageLoader from '../../components/PageLoader'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import apiClient from '../../services/apiClient'
@@ -14,6 +14,8 @@ const AdminUserDetails  = lazy(() => import('./AdminUserDetails'))
 const AdminCleaners     = lazy(() => import('./AdminCleaners'))
 const AdminCleanerDetails= lazy(() => import('./AdminCleanerDetails'))
 const AdminPackages     = lazy(() => import('./AdminPackages'))
+const AdminDiscounts    = lazy(() => import('./AdminDiscounts'))
+const AdminCoupons      = lazy(() => import('./AdminCoupons'))
 const AdminSubscriptions= lazy(() => import('./AdminSubscriptions'))
 const AdminRevenue      = lazy(() => import('./AdminRevenue'))
 const AdminCMS          = lazy(() => import('./AdminCMS'))
@@ -44,6 +46,8 @@ const navItems = [
   { path: '/admin/vehicle-categories', icon: MapPin, label: 'Vehicle Types (Inactive)', inactive: true },
   { path: '/admin/brands', icon: Car, label: 'Brands & Models' },
   { path: '/admin/packages', icon: Package, label: 'Packages' },
+  { path: '/admin/discounts', icon: Percent, label: 'Discounts' },
+  { path: '/admin/coupons', icon: Ticket, label: 'Coupons' },
   { path: '/admin/marketplace', icon: ShoppingCart, label: 'Marketplace', end: true },
   { path: '/admin/marketplace/categories', icon: Layers, label: 'Marketplace Categories' },
   { path: '/admin/subscriptions', icon: CreditCard, label: 'Subscriptions' },
@@ -264,6 +268,8 @@ export default function AdminPanel() {
             <Route path="leads" element={<AdminLeads />} />
             <Route path="grievances" element={<AdminGrievances />} />
             <Route path="packages" element={<AdminPackages />} />
+            <Route path="discounts" element={<AdminDiscounts />} />
+            <Route path="coupons" element={<AdminCoupons />} />
             <Route path="subscriptions" element={<AdminSubscriptions />} />
             <Route path="revenue" element={<AdminRevenue />} />
             <Route path="cms" element={<AdminCMS />} />

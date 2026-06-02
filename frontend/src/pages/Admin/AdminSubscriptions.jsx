@@ -63,8 +63,8 @@ export default function AdminSubscriptions() {
           { label: 'Time Slot', key: (s) => s.slot || 'N/A' },
           { label: 'Start Date', key: (s) => s.startDate ? new Date(s.startDate).toLocaleDateString() : 'N/A' },
           { label: 'End Date', key: (s) => s.endDate ? new Date(s.endDate).toLocaleDateString() : 'N/A' },
-          { label: 'Completed Washes', key: (s) => s.completedDays || 0 },
-          { label: 'Skipped Washes', key: (s) => s.skippedDays || 0 },
+          { label: 'Completed Cleans', key: (s) => s.completedDays || 0 },
+          { label: 'Skipped Cleans', key: (s) => s.skippedDays || 0 },
           { label: 'Total Days', key: (s) => s.totalDays || 30 },
           { label: 'Amount Paid', key: (s) => s.amountPaid || s.amount || 0 },
           { label: 'Status', key: (s) => getDisplayStatus(s) }

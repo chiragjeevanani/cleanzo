@@ -209,7 +209,7 @@ export default function CustomerHome() {
               </div>
 
               <div>
-                <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: '0.05em' }}>NEXT WASH</div>
+                <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: '0.05em' }}>NEXT CLEAN</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Calendar size={14} className="text-secondary" />
                   <span style={{ fontSize: 13, fontWeight: 700 }}>

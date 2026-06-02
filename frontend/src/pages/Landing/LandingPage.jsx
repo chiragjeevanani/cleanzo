@@ -4,7 +4,6 @@ import Navbar from './Navbar'
 import { useTheme } from '../../context/ThemeContext'
 import HeroSection from './HeroSection'
 import PrecisionSection from './PrecisionSection'
-import ServicesSection from './ServicesSection'
 import PricingSection from './PricingSection'
 import ProcessSection from './ProcessSection'
 import TestimonialsSection from './TestimonialsSection'
@@ -69,7 +68,6 @@ export default function LandingPage() {
       <main ref={mainRef} className="landing-main">
         <HeroSection bgImageUrl={HERO_IMAGE_URL} heroReady={!loading} />
         <PrecisionSection />
-        <ServicesSection />
         <PricingSection />
         <ProcessSection />
         <TestimonialsSection />

@@ -34,7 +34,6 @@ export default function Footer() {
           <div className="footer-links-group">
             <h4 className="text-label" style={{ marginBottom: 24, color: 'var(--primary-blue)' }}>QUICK LINKS</h4>
             <Link to="/terms" className="footer-link">TERMS OF SERVICE</Link>
-            <Link to="/warranty" className="footer-link">WARRANTY</Link>
           </div>
 
           <div className="footer-links-group">

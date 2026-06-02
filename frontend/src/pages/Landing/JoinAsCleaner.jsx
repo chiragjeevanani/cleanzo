@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  User, Phone, Mail, MapPin, Camera, FileText, 
+import {
+  User, Phone, Mail, MapPin, Camera, FileText,
   ChevronRight, ChevronLeft, CheckCircle2, Shield,
-  ArrowRight, Briefcase, Star, Info, X, RotateCcw
+  ArrowRight, Briefcase, Star, Info, X, RotateCcw, Sun, Moon
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 import { optimizeImage } from '../../utils/imageOptimizer';
+import { getAppLogo } from '../../utils/helpers';
+import { useTheme } from '../../context/ThemeContext';
 
 const JoinAsCleaner = () => {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -168,16 +171,23 @@ const JoinAsCleaner = () => {
   if (success) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <button
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+          style={{ position: 'fixed', top: 20, right: 20, zIndex: 10, width: 44, height: 44, borderRadius: 14, border: '1px solid var(--border-glass)', background: 'var(--bg-glass)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+        >
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
         <div className="glass" style={{ maxWidth: 500, width: '100%', padding: '48px 32px', borderRadius: 40, textAlign: 'center', border: '1px solid var(--border-glass)' }}>
           <div style={{ width: 80, height: 80, background: 'rgba(101,199,55,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 32px' }}>
             <CheckCircle2 size={40} color="#65C737" />
           </div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(24px, 5vw, 32px)', fontWeight: 900, marginBottom: 16 }}>Application Received!</h1>
           <p className="text-secondary" style={{ fontSize: 16, lineHeight: 1.6, marginBottom: 40 }}>
-            Our operations team will review your documents and contact you within <strong>48 hours</strong>.
+            Our operations team will review your documents and contact you within <strong>48 hours</strong>. Once approved, log in from the Crew portal.
           </p>
-          <button onClick={() => navigate('/')} className="btn-primary" style={{ width: '100%', padding: 18, borderRadius: 16, fontSize: 16 }}>
-            Back to Website
+          <button onClick={() => navigate('/login?role=crew')} className="btn-primary" style={{ width: '100%', padding: 18, borderRadius: 16, fontSize: 16 }}>
+            Go to Crew Login
           </button>
         </div>
       </div>
@@ -265,20 +275,30 @@ const JoinAsCleaner = () => {
           padding: 16px 20px;
           border-radius: 16px;
           border: 1px solid var(--border-glass);
-          background: rgba(255,255,255,0.02);
+          background: var(--bg-glass);
           color: var(--text-primary);
           font-weight: 500;
           font-size: 15px;
           outline: none;
           transition: all 0.3s;
         }
+        .input-group input::placeholder, .input-group textarea::placeholder { color: var(--text-tertiary); }
         .input-group input:focus, .input-group textarea:focus {
           border-color: var(--accent-lime);
-          background: rgba(255,255,255,0.05);
+          background: var(--bg-glass-hover);
           box-shadow: 0 0 0 4px rgba(101,199,55,0.1);
         }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
+
+      {/* Theme toggle */}
+      <button
+        onClick={toggleTheme}
+        aria-label="Toggle theme"
+        style={{ position: 'fixed', top: 20, right: 20, zIndex: 10, width: 44, height: 44, borderRadius: 14, border: '1px solid var(--border-glass)', background: 'var(--bg-glass)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(10px)' }}
+      >
+        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
 
       {/* Visual Background Elements */}
       <div style={{ position: 'fixed', top: '-10%', right: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(101,199,55,0.08) 0%, transparent 70%)', filter: 'blur(100px)', zIndex: 0 }} />
@@ -289,9 +309,7 @@ const JoinAsCleaner = () => {
         {/* Left Side: Branding & Info */}
         <div className="branding-section">
           <div className="brand-logo-wrapper" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Shield size={24} color="#000" />
-            </div>
+            <img src={getAppLogo(theme)} alt="Cleanzo" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'contain' }} />
             <span style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em' }}>Cleanzo <span style={{ color: 'var(--accent-lime)' }}>Crew</span></span>
           </div>
 
@@ -306,7 +324,7 @@ const JoinAsCleaner = () => {
               { icon: Shield, title: 'Trust & Safety', desc: 'Secure verification process and insured work environments.' }
             ].map((item, i) => (
               <div key={i} className="benefit-item" style={{ display: 'flex', gap: 16 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <item.icon size={22} color="var(--accent-lime)" />
                 </div>
                 <div>
@@ -317,7 +335,7 @@ const JoinAsCleaner = () => {
             ))}
           </div>
 
-          <div className="glass" style={{ padding: 24, borderRadius: 24, border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.02)' }}>
+          <div className="glass" style={{ padding: 24, borderRadius: 24, border: '1px solid var(--border-glass)', background: 'var(--bg-glass)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, justifyContent: 'inherit' }}>
               <Info size={18} color="var(--accent-lime)" />
               <span style={{ fontWeight: 700, fontSize: 14 }}>ONBOARDING PROCESS</span>
@@ -345,7 +363,7 @@ const JoinAsCleaner = () => {
                   <span style={{ fontSize: 18, fontWeight: 900 }}>{Math.round((step/3)*100)}%</span>
                 </div>
               </div>
-              <div style={{ height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ height: 6, background: 'var(--bg-glass)', borderRadius: 10, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${(step/3)*100}%`, background: 'var(--accent-lime)', transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 0 20px rgba(101,199,55,0.4)' }} />
               </div>
             </div>
@@ -361,33 +379,33 @@ const JoinAsCleaner = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
                 <div className="input-grid-2">
                   <div className="input-group">
-                    <label>FULL NAME</label>
+                    <label>FULL NAME <span style={{ color: 'var(--error)' }}>*</span></label>
                     <input name="name" value={formData.name} onChange={handleChange} placeholder="John Doe" />
                   </div>
                   <div className="input-group">
-                    <label>MOBILE NUMBER</label>
+                    <label>MOBILE NUMBER <span style={{ color: 'var(--error)' }}>*</span></label>
                     <input name="phone" value={formData.phone} onChange={handleChange} placeholder="10-digit number" />
                   </div>
                 </div>
 
                 <div className="input-grid-2">
                   <div className="input-group">
-                    <label>AGE</label>
+                    <label>AGE <span style={{ color: 'var(--error)' }}>*</span></label>
                     <input name="age" type="number" value={formData.age} onChange={handleChange} placeholder="25" />
                   </div>
                   <div className="input-group">
-                    <label>FATHER'S NAME</label>
+                    <label>FATHER'S NAME <span style={{ color: 'var(--error)' }}>*</span></label>
                     <input name="fatherName" value={formData.fatherName} onChange={handleChange} placeholder="Legal Name" />
                   </div>
                 </div>
 
                 <div className="input-group">
-                  <label>CURRENT ADDRESS (IN GURUGRAM)</label>
+                  <label>CURRENT ADDRESS <span style={{ color: 'var(--error)' }}>*</span></label>
                   <textarea name="currentAddress" value={formData.currentAddress} onChange={handleChange} placeholder="Flat no, Building, Area..." rows={3} style={{ resize: 'none' }} />
                 </div>
 
                 <div className="input-group">
-                  <label>PERMANENT ADDRESS</label>
+                  <label>PERMANENT ADDRESS <span style={{ color: 'var(--error)' }}>*</span></label>
                   <textarea name="permanentAddress" value={formData.permanentAddress} onChange={handleChange} placeholder="As per Aadhaar card..." rows={3} style={{ resize: 'none' }} />
                 </div>
               </div>
@@ -399,8 +417,8 @@ const JoinAsCleaner = () => {
                 
                 {/* Live Photo Section */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <label style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>1. LIVE SELFIE CAPTURE</label>
-                  <div style={{ position: 'relative', aspectRatio: '16/10', borderRadius: 32, overflow: 'hidden', border: '2px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)' }}>
+                  <label style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>1. LIVE SELFIE CAPTURE <span style={{ color: 'var(--error)' }}>*</span></label>
+                  <div style={{ position: 'relative', aspectRatio: '16/10', borderRadius: 32, overflow: 'hidden', border: '2px solid var(--border-glass)', background: 'var(--bg-glass)' }}>
                     {showCamera ? (
                       <div style={{ width: '100%', height: '100%' }}>
                         <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
@@ -434,14 +452,14 @@ const JoinAsCleaner = () => {
                     { id: 'panPhoto', label: '3. PAN CARD', icon: CreditCard }
                   ].map(doc => (
                     <div key={doc.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <label style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)' }}>{doc.label}</label>
-                      <label style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 24, border: '2px dashed var(--border-glass)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                      <label style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)' }}>{doc.label} <span style={{ color: 'var(--error)' }}>*</span></label>
+                      <label style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 24, border: '2px dashed var(--border-glass)', background: 'var(--bg-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
                         <input type="file" name={doc.id} onChange={handleFileChange} style={{ display: 'none' }} />
                         {previews[doc.id] ? (
                           <img src={previews[doc.id]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                           <div style={{ textAlign: 'center' }}>
-                            <doc.icon size={28} color="rgba(255,255,255,0.2)" style={{ marginBottom: 8 }} />
+                            <doc.icon size={28} color="var(--text-tertiary)" style={{ marginBottom: 8 }} />
                             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>UPLOAD</span>
                           </div>
                         )}
@@ -464,11 +482,11 @@ const JoinAsCleaner = () => {
 
                 <div className="input-grid-2">
                   <div className="input-group">
-                    <label>REFERENCE NAME</label>
+                    <label>REFERENCE NAME <span style={{ color: 'var(--error)' }}>*</span></label>
                     <input name="referenceName" value={formData.referenceName} onChange={handleChange} placeholder="Full Name" />
                   </div>
                   <div className="input-group">
-                    <label>REFERENCE PHONE</label>
+                    <label>REFERENCE PHONE <span style={{ color: 'var(--error)' }}>*</span></label>
                     <input name="referencePhone" value={formData.referencePhone} onChange={handleChange} placeholder="Mobile Number" />
                   </div>
                 </div>
@@ -482,7 +500,7 @@ const JoinAsCleaner = () => {
             {/* Actions */}
             <div style={{ display: 'flex', gap: 16, marginTop: 48 }}>
               {step > 1 && (
-                <button onClick={() => setStep(step - 1)} style={{ flex: 1, padding: 18, borderRadius: 16, border: '1px solid var(--border-glass)', background: 'transparent', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+                <button onClick={() => setStep(step - 1)} style={{ flex: 1, padding: 18, borderRadius: 16, border: '1px solid var(--border-glass)', background: 'transparent', color: 'var(--text-primary)', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
                   Back
                 </button>
               )}

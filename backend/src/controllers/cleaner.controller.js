@@ -196,8 +196,8 @@ export const updateTaskStatus = asyncHandler(async (req, res) => {
       const customerDoc = await Customer.findById(task.customer).select('fcmTokens');
       if (customerDoc?.fcmTokens?.length) {
         sendPushNotification(customerDoc.fcmTokens, {
-          title: '✅ Car Wash Complete!',
-          body: `${cleanerName} has finished washing your car.`,
+          title: '✅ Car Clean Complete!',
+          body: `${cleanerName} has finished cleaning your car.`,
           data: { type: 'task_completed', link: NOTIFICATION_LINKS.task_completed },
         }).catch(() => {});
       }

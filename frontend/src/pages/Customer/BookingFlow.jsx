@@ -5,9 +5,14 @@ import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { useTheme } from '../../context/ThemeContext'
+import { getPackagePricing } from '../../utils/pricing'
+import { sortPackagesByTier } from '../../utils/helpers'
 
 // ─── Step labels ──────────────────────────────────────────────────────────────
 const STEPS = ['Plan', 'Slot', 'Pay']
+
+// sessionStorage key — lets a page refresh stay on the current wizard step
+const WIZARD_KEY = 'cleanzo_booking_wizard'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const isVehicleEligibleForPackage = (vehicle, pkg) => {
@@ -93,7 +98,7 @@ export default function BookingFlow() {
   const initialError     = queryParams.get('error')
 
   const {
-    vehicles, packages, societies, subscriptions: activeSubscriptions, settings,
+    vehicles, packages, societies, subscriptions: activeSubscriptions, settings, discounts,
     loading: dataLoading, refreshAll,
   } = useCustomerData()
 
@@ -114,10 +119,21 @@ export default function BookingFlow() {
     return settings.trialPrice || 30
   }
 
+  // Restore a saved wizard snapshot on plain refresh (but NOT during a Razorpay return).
+  const restoreAppliedRef = useRef(false)
+  const restoredRef = useRef(undefined)
+  if (restoredRef.current === undefined) {
+    restoredRef.current = initialStatus
+      ? null
+      : (() => { try { return JSON.parse(sessionStorage.getItem(WIZARD_KEY) || 'null') } catch { return null } })()
+  }
+  const restored = restoredRef.current
+
   // Step index: 0=Plan, 1=Slot, 2=Pay, 3=Success, 4=Failed
   const [step, setStep] = useState(() => {
     if (initialStatus === 'success' || initialStatus === 'payment_return') return 3
     if (initialStatus === 'failed') return 4
+    if (restored && (restored.step === 1 || restored.step === 2)) return restored.step
     return 0
   })
   const [countdown, setCountdown] = useState(5)
@@ -135,6 +151,12 @@ export default function BookingFlow() {
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing]       = useState(false)
   const [paymentError, setPaymentError]   = useState('')
+
+  // Coupon state
+  const [couponInput, setCouponInput]   = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState(null) // { code, discountAmount }
+  const [couponError, setCouponError]   = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
 
   // Countdown on success/failure screens
   useEffect(() => {
@@ -204,12 +226,18 @@ export default function BookingFlow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
-  // Auto-select default society + vehicle on data load
+  // Auto-select default society + vehicle on data load (restored snapshot takes priority)
   useEffect(() => {
     if (dataLoading.vehicles || dataLoading.packages || dataLoading.societies) return
-    if (societies.length > 0 && !selectedSociety) setSelectedSociety(societies[0])
+    if (societies.length > 0 && !selectedSociety) {
+      const rs = restored?.societyId ? societies.find(s => s._id === restored.societyId) : null
+      setSelectedSociety(rs || societies[0])
+    }
     if (vehicles.length > 0 && !selectedVehicle) {
-      if (initialVehicleId) {
+      const rv = restored?.vehicleId ? vehicles.find(v => v._id === restored.vehicleId) : null
+      if (rv) {
+        setSelectedVehicle(rv)
+      } else if (initialVehicleId) {
         const v = vehicles.find(v => v._id === initialVehicleId)
         setSelectedVehicle(v || vehicles[0])
       } else if (initialPackageId) {
@@ -219,11 +247,54 @@ export default function BookingFlow() {
         setSelectedVehicle(vehicles[0])
       }
     }
-    if (initialPackageId && packages.length > 0 && !selectedPkg) {
-      const pkg = packages.find(p => p._id === initialPackageId)
-      if (pkg) setSelectedPkg(pkg)
+    if (!selectedPkg) {
+      if (restored?.isTrial) {
+        setSelectedPkg({ isTrial: true, name: '1-Day Trial', price: trialPrice, _id: null })
+      } else if (restored?.packageId) {
+        const pkg = packages.find(p => p._id === restored.packageId)
+        if (pkg) setSelectedPkg(pkg)
+      } else if (initialPackageId && packages.length > 0) {
+        const pkg = packages.find(p => p._id === initialPackageId)
+        if (pkg) setSelectedPkg(pkg)
+      }
+    }
+    // One-time restore of scalar fields (slot is restored once the society is set, below)
+    if (restored && !restoreAppliedRef.current) {
+      restoreAppliedRef.current = true
+      if (restored.selectedTrialDate) setSelectedTrialDate(restored.selectedTrialDate)
+      if (restored.specialInstructions) setSpecialInstructions(restored.specialInstructions)
+      if (restored.couponCode) setCouponInput(restored.couponCode)
     }
   }, [dataLoading, societies, packages, vehicles, initialPackageId, initialVehicleId])
+
+  // Restore the selected slot from the snapshot once the society (with its slots) is loaded
+  useEffect(() => {
+    if (!restored?.slotId || selectedSlot || !selectedSociety) return
+    const sl = selectedSociety.slots?.find(s => s.slotId === restored.slotId)
+    if (sl) setSelectedSlot(sl)
+  }, [selectedSociety, selectedSlot])
+
+  // Persist the wizard so a page refresh stays on the same step (Slot/Pay) with selections intact
+  useEffect(() => {
+    if ((step === 1 || step === 2) && selectedVehicle && selectedSociety) {
+      try {
+        sessionStorage.setItem(WIZARD_KEY, JSON.stringify({
+          step,
+          vehicleId: selectedVehicle?._id || null,
+          packageId: selectedPkg?.isTrial ? null : (selectedPkg?._id || null),
+          isTrial: !!selectedPkg?.isTrial,
+          societyId: selectedSociety?._id || null,
+          slotId: selectedSlot?.slotId || null,
+          selectedTrialDate,
+          specialInstructions,
+          couponCode: appliedCoupon?.code || null,
+        }))
+      } catch {}
+    } else if (step === 0 || step >= 3) {
+      // Plan step / success / failure — clear so a later refresh doesn't resurrect a stale step
+      try { sessionStorage.removeItem(WIZARD_KEY) } catch {}
+    }
+  }, [step, selectedVehicle, selectedPkg, selectedSociety, selectedSlot, selectedTrialDate, specialInstructions, appliedCoupon])
 
   // Load Razorpay script
   useEffect(() => {
@@ -241,7 +312,14 @@ export default function BookingFlow() {
   // ── Pricing ────────────────────────────────────────────────────────────────
   const trialPrice = getDynamicTrialPrice()
   const prioritySlotFee = settings.prioritySlotFee || 99
-  const basePrice = selectedPkg ? (selectedPkg.isTrial ? trialPrice : selectedPkg.price) : 0
+  const listPrice = selectedPkg ? (selectedPkg.isTrial ? trialPrice : selectedPkg.price) : 0
+
+  // Package discount (individual override or global) — never applies to trials
+  const pkgPricing = (selectedPkg && !selectedPkg.isTrial)
+    ? getPackagePricing(selectedPkg, selectedVehicle, discounts)
+    : null
+  const packageDiscount = pkgPricing?.hasDiscount ? (pkgPricing.originalPrice - pkgPricing.effectivePrice) : 0
+  const basePrice = pkgPricing?.hasDiscount ? pkgPricing.effectivePrice : listPrice
 
   const isSelectedSlotUnavailable = selectedSlot
     ? (selectedSlot.status === 'Closed' || selectedSlot.status === 'Blocked' || selectedSlot.currentCount >= selectedSlot.maxVehicles)
@@ -251,7 +329,44 @@ export default function BookingFlow() {
   const subtotal        = basePrice + priorityFee
   const hasReferralDiscount = user?.referralDiscount?.isActive && !selectedPkg?.isTrial
   const discountAmount  = hasReferralDiscount ? Math.round(subtotal * (user.referralDiscount.percentage / 100)) : 0
-  const finalAmount     = subtotal - discountAmount
+  const amountBeforeCoupon = subtotal - discountAmount
+  const couponDiscount  = appliedCoupon ? Math.min(appliedCoupon.discountAmount, amountBeforeCoupon) : 0
+  const finalAmount     = amountBeforeCoupon - couponDiscount
+
+  // Clear any applied coupon when the chosen plan/vehicle changes (it may no longer be valid)
+  useEffect(() => {
+    setAppliedCoupon(null)
+    setCouponInput('')
+    setCouponError('')
+  }, [selectedPkg?._id, selectedVehicle?._id])
+
+  const applyCoupon = async () => {
+    if (!couponInput.trim() || !selectedPkg || selectedPkg.isTrial) return
+    setCouponLoading(true)
+    setCouponError('')
+    try {
+      const res = await apiClient.post('/customer/coupons/validate', {
+        code: couponInput.trim(),
+        type: 'first_purchase', // server reclassifies first_purchase vs renewal
+        packageId: selectedPkg._id,
+        vehicleId: selectedVehicle?._id,
+        societyId: selectedSociety?._id,
+        baseAmount: amountBeforeCoupon,
+      })
+      setAppliedCoupon({ code: res.code, discountAmount: res.discountAmount })
+    } catch (err) {
+      setAppliedCoupon(null)
+      setCouponError(err?.message || 'Invalid coupon code')
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponInput('')
+    setCouponError('')
+  }
 
   // ── Payment handler ────────────────────────────────────────────────────────
   const handlePayment = async () => {
@@ -270,6 +385,7 @@ export default function BookingFlow() {
       isPremiumOverride: activeOverride,
       overrideReason: activeOverride ? overrideReason : undefined,
       startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
+      couponCode: appliedCoupon?.code || undefined,
     }))
 
     try {
@@ -287,6 +403,7 @@ export default function BookingFlow() {
         startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
         isPremiumOverride: activeOverride,
         overrideReason: activeOverride ? overrideReason : undefined,
+        couponCode: appliedCoupon?.code || undefined,
         frontendOrigin: window.location.origin,
       })
 
@@ -325,6 +442,7 @@ export default function BookingFlow() {
               startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
               isPremiumOverride: activeOverride,
               overrideReason: activeOverride ? overrideReason : undefined,
+              couponCode: appliedCoupon?.code || undefined,
             })
             localStorage.removeItem('cleanzo_pending_booking')
             setProcessing(false)
@@ -401,9 +519,11 @@ export default function BookingFlow() {
   const eligibleVehicles = selectedPkg
     ? vehicles.filter(v => isVehicleEligibleForPackage(v, selectedPkg))
     : vehicles
-  const eligiblePackages = vehicles.length > 0 && selectedVehicle
-    ? packages.filter(p => isVehicleEligibleForPackage(selectedVehicle, p))
-    : packages
+  const eligiblePackages = sortPackagesByTier(
+    vehicles.length > 0 && selectedVehicle
+      ? packages.filter(p => isVehicleEligibleForPackage(selectedVehicle, p))
+      : packages
+  )
 
   return (
     <div className="app-shell animate-fade-in" style={{ paddingBottom: 120 }}>
@@ -565,6 +685,7 @@ export default function BookingFlow() {
 
                   {eligiblePackages.map((p, i) => {
                     const isChosen = selectedPkg?._id === p._id
+                    const pPricing = getPackagePricing(p, selectedVehicle, discounts)
                     return (
                       <button
                         key={p._id}
@@ -591,8 +712,13 @@ export default function BookingFlow() {
                           </div>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 16 }}>
-                          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>₹{p.price}</div>
-                          <div style={{ fontSize: 9, color: 'var(--text-tertiary)', fontWeight: 700 }}>PER MONTH</div>
+                          {pPricing.hasDiscount && (
+                            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textDecoration: 'line-through' }}>₹{pPricing.originalPrice}</div>
+                          )}
+                          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>₹{pPricing.effectivePrice}</div>
+                          <div style={{ fontSize: 9, color: pPricing.hasDiscount ? 'var(--success)' : 'var(--text-tertiary)', fontWeight: 700 }}>
+                            {pPricing.hasDiscount ? `${pPricing.percent}% OFF` : 'PER MONTH'}
+                          </div>
                           {isChosen && <Check size={16} color="var(--text-accent)" strokeWidth={3} style={{ marginTop: 6 }} />}
                         </div>
                       </button>
@@ -805,10 +931,15 @@ export default function BookingFlow() {
 
                 {/* Slot row */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
+                  <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', marginBottom: 4, letterSpacing: '0.06em' }}>LOCATION</div>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{selectedSociety?.name}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                    {selectedSociety?.address && (
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+                        {selectedSociety.address}{selectedSociety.city ? `, ${selectedSociety.city}` : ''}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
                       <Clock size={12} /> {selectedSlot?.timeWindow}
                     </div>
                   </div>
@@ -831,8 +962,14 @@ export default function BookingFlow() {
                 <div className="flex flex-col gap-8">
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Base Price</span>
-                    <span style={{ fontWeight: 700 }}>₹{basePrice}</span>
+                    <span style={{ fontWeight: 700 }}>₹{listPrice}</span>
                   </div>
+                  {packageDiscount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--success)' }}>
+                      <span>Discount{pkgPricing?.percent ? ` (${pkgPricing.percent}%)` : ''}</span>
+                      <span style={{ fontWeight: 700 }}>−₹{packageDiscount}</span>
+                    </div>
+                  )}
                   {priorityFee > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#FF9500' }}>
                       <span>Priority Override Fee</span>
@@ -845,6 +982,12 @@ export default function BookingFlow() {
                       <span style={{ fontWeight: 700 }}>−₹{discountAmount}</span>
                     </div>
                   )}
+                  {couponDiscount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--success)' }}>
+                      <span>Coupon ({appliedCoupon.code})</span>
+                      <span style={{ fontWeight: 700 }}>−₹{couponDiscount}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="divider" />
@@ -855,6 +998,46 @@ export default function BookingFlow() {
                 </div>
               </div>
             </div>
+
+            {/* Coupon */}
+            {!selectedPkg?.isTrial && (
+              <div className="flex flex-col gap-10">
+                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', paddingLeft: 4, letterSpacing: '0.06em' }}>
+                  HAVE A COUPON?
+                </label>
+                {appliedCoupon ? (
+                  <div className="glass" style={{ padding: '14px 18px', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(50,215,75,0.3)', background: 'rgba(50,215,75,0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Check size={16} color="var(--success)" strokeWidth={3} />
+                      <span style={{ fontWeight: 800, letterSpacing: '0.05em' }}>{appliedCoupon.code}</span>
+                      <span className="text-success text-body-sm" style={{ color: 'var(--success)' }}>−₹{couponDiscount} applied</span>
+                    </div>
+                    <button onClick={removeCoupon} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Remove</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <input
+                      value={couponInput}
+                      onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponError('') }}
+                      placeholder="Enter coupon code"
+                      className="glass"
+                      style={{ flex: 1, padding: '14px 18px', borderRadius: 16, fontSize: 15, border: '1px solid var(--divider)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}
+                    />
+                    <button
+                      disabled={!couponInput.trim() || couponLoading}
+                      onClick={applyCoupon}
+                      className="btn btn-primary"
+                      style={{ borderRadius: 16, padding: '0 24px', fontWeight: 800 }}
+                    >
+                      {couponLoading ? '…' : 'Apply'}
+                    </button>
+                  </div>
+                )}
+                {couponError && (
+                  <span style={{ fontSize: 12, color: 'var(--error)', paddingLeft: 4 }}>{couponError}</span>
+                )}
+              </div>
+            )}
 
             {/* Special instructions */}
             <div className="flex flex-col gap-10">

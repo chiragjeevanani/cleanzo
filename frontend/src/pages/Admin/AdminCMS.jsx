@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { FileText, Shield, HelpCircle, Save, Plus, Trash2, CheckCircle, RefreshCw, Star, MapPin, Image, Eye, Loader2, Globe, ExternalLink, X, Send, Package } from 'lucide-react'
+import { FileText, HelpCircle, Save, Plus, Trash2, CheckCircle, RefreshCw, Star, MapPin, Image, Eye, Loader2, Globe, ExternalLink, X, Send, Package } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
 import FaqsManager from './FaqsManager'
 import TestimonialsManager from './TestimonialsManager'
@@ -23,42 +23,6 @@ export default function AdminCMS() {
     ]
   })
 
-  // --- Warranty State ---
-  const [warrantyData, setWarrantyData] = useState({
-    heroTitle: 'Premium Warranty Policy',
-    heroDescription: 'Engineered for elite endurance. Every premium detail and daily maintenance plan is backed by our high-performance execution guarantee.',
-    sections: [
-      {
-        id: 1,
-        title: '1. Detail & Coating Warranty',
-        content: 'All professional restorations and advanced exterior ceramic protections applied by our specialists are covered for material integrity and craftsmanship:',
-        bullets: [
-          'Coatings Longevity: High-performance coatings are guaranteed to maintain high-hydrophobicity and gloss rating for up to 3 years.',
-          'Zero Flaking Policy: Coverage against premature sealant degradation, hazing, or product micro-flaking under normal environmental conditions.',
-          'Finish Guard: Absolute guarantee against detailing-induced marring, swirl marks, or paint damage during correction treatments.'
-        ]
-      },
-      {
-        id: 2,
-        title: '2. Subscription Service Guarantee',
-        content: 'For our daily doorstep cleaning plan subscribers, we ensure absolute consistency:',
-        bullets: [
-          'Weather Protection: Standard suspension due to weather (e.g. intense downpours) guarantees subscription extension. All missed sessions are automatically rolled back into your schedule.',
-          'Execution Review: If you notice an oversight in our cleaning execution, report it in the Cleanzo mobile app within 12 hours for prompt rectifications or service credits.',
-          'Staff Availability: Backed by standby detailing hubs to ensure replacement crews are mobilized seamlessly.'
-        ]
-      },
-      {
-        id: 3,
-        title: '3. Claims & Resolution Process',
-        content: 'Need validation or want to initiate a warranty review? Submit a claim through the support hub inside your Client Login Portal, upload photos of the affected section, and our inspection crew will review the telemetry within 24 hours. Alternatively, reach our support team directly at support@cleanzo.net.',
-        bullets: []
-      }
-    ]
-  })
-
-
-
   // --- Trusted Societies State ---
   const [societiesData, setSocietiesData] = useState({ heading: 'TRUSTED BY RESIDENTS OF', items: [] })
   const [loadingSocieties, setLoadingSocieties] = useState(false)
@@ -79,13 +43,6 @@ export default function AdminCMS() {
     if (cachedTerms) {
       try { setTermsData(JSON.parse(cachedTerms)) } catch (e) { console.error(e) }
     }
-
-    const cachedWarranty = localStorage.getItem('cleanzo_cms_warranty')
-    if (cachedWarranty) {
-      try { setWarrantyData(JSON.parse(cachedWarranty)) } catch (e) { console.error(e) }
-    }
-
-
 
 
   }, [])
@@ -199,14 +156,6 @@ export default function AdminCMS() {
     showToast('Terms of Service saved and updated!', 'success')
   }
 
-  const saveWarranty = () => {
-    localStorage.setItem('cleanzo_cms_warranty', JSON.stringify(warrantyData))
-    showToast('Warranty policy saved and updated!', 'success')
-  }
-
-
-
-
 
   return (
     <div style={{ paddingBottom: 80 }}>
@@ -222,7 +171,6 @@ export default function AdminCMS() {
       <div className="flex gap-8" style={{ marginBottom: 28, borderBottom: '1px solid var(--divider)', paddingBottom: 0 }}>
         {[
           { id: 'terms', icon: FileText, label: 'Terms of Service' },
-          { id: 'warranty', icon: Shield, label: 'Warranty Policy' },
           { id: 'societies', icon: MapPin, label: 'Trusted Societies' },
           { id: 'banners', icon: Image, label: 'Banners' },
           { id: 'landingPlans', icon: Package, label: 'Landing Page Plans' },
@@ -335,135 +283,6 @@ export default function AdminCMS() {
           </div>
         )}
 
-        {/* --- 2. WARRANTY POLICY --- */}
-        {activeTab === 'warranty' && (
-          <div>
-            <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Manage Warranty Policy</h3>
-              <button onClick={saveWarranty} className="btn btn-primary btn-sm flex items-center gap-8">
-                <Save size={14} /> Save Warranty
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-24">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Hero Title</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={warrantyData.heroTitle}
-                    onChange={e => setWarrantyData({ ...warrantyData, heroTitle: e.target.value })}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Hero Description</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={warrantyData.heroDescription}
-                    onChange={e => setWarrantyData({ ...warrantyData, heroDescription: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="divider" style={{ margin: '12px 0' }} />
-
-              <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600 }}>Coverage Categories</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                {warrantyData.sections.map((section, idx) => (
-                  <div key={section.id} className="glass" style={{ padding: 20, borderRadius: 'var(--radius-sm)', position: 'relative' }}>
-                    <button
-                      onClick={() => {
-                        const filtered = warrantyData.sections.filter(s => s.id !== section.id)
-                        setWarrantyData({ ...warrantyData, sections: filtered })
-                      }}
-                      style={{ position: 'absolute', top: 16, right: 16, color: 'var(--error)', cursor: 'pointer' }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <input
-                        type="text"
-                        className="input-field"
-                        style={{ fontWeight: 600, fontSize: 14, border: 'none', background: 'rgba(255,255,255,0.02)' }}
-                        value={section.title}
-                        onChange={e => {
-                          const updated = [...warrantyData.sections]
-                          updated[idx].title = e.target.value
-                          setWarrantyData({ ...warrantyData, sections: updated })
-                        }}
-                      />
-                      <textarea
-                        className="input-field"
-                        rows={3}
-                        style={{ fontSize: 13, resize: 'vertical' }}
-                        value={section.content}
-                        onChange={e => {
-                          const updated = [...warrantyData.sections]
-                          updated[idx].content = e.target.value
-                          setWarrantyData({ ...warrantyData, sections: updated })
-                        }}
-                      />
-
-                      {/* Bullets Sub-management */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 12 }}>
-                        <span className="text-label" style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>Bullet Guidelines</span>
-                        {section.bullets.map((bullet, bulletIdx) => (
-                          <div key={bulletIdx} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input
-                              type="text"
-                              className="input-field"
-                              style={{ fontSize: 12, padding: '8px 12px' }}
-                              value={bullet}
-                              onChange={e => {
-                                const updated = [...warrantyData.sections]
-                                updated[idx].bullets[bulletIdx] = e.target.value
-                                setWarrantyData({ ...warrantyData, sections: updated })
-                              }}
-                            />
-                            <button
-                              onClick={() => {
-                                const updated = [...warrantyData.sections]
-                                updated[idx].bullets.splice(bulletIdx, 1)
-                                setWarrantyData({ ...warrantyData, sections: updated })
-                              }}
-                              style={{ color: 'var(--error)', padding: 4 }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          onClick={() => {
-                            const updated = [...warrantyData.sections]
-                            updated[idx].bullets.push('New guideline criteria description...')
-                            setWarrantyData({ ...warrantyData, sections: updated })
-                          }}
-                          className="btn btn-glass btn-sm"
-                          style={{ alignSelf: 'flex-start', padding: '6px 12px', fontSize: 11 }}
-                        >
-                          + Add Guideline Bullet
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                <button
-                  onClick={() => {
-                    const newSection = { id: Date.now(), title: `${warrantyData.sections.length + 1}. New Warranty Clause`, content: 'Enter contents...', bullets: [] }
-                    setWarrantyData({ ...warrantyData, sections: [...warrantyData.sections, newSection] })
-                  }}
-                  className="btn btn-glass btn-sm"
-                  style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6 }}
-                >
-                  <Plus size={14} /> Add Category
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
 
 

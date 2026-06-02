@@ -800,7 +800,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Card 3: Wash Skip Ratio */}
+            {/* Card 3: Clean Skip Ratio */}
             <div className="glass animate-fade-in" style={{ padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 160 }}>
               <div>
                 <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
@@ -812,11 +812,11 @@ export default function AdminDashboard() {
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 800, letterSpacing: '-0.03em', color: '#EF4444' }}>
                   {subFlowData.skipRatio}%
                 </div>
-                <div className="text-body-sm text-secondary" style={{ marginTop: 4 }}>Wash Skip Ratio</div>
+                <div className="text-body-sm text-secondary" style={{ marginTop: 4 }}>Clean Skip Ratio</div>
               </div>
             </div>
 
-            {/* Card 4: Avg Completed Washes */}
+            {/* Card 4: Avg Completed Cleans */}
             <div className="glass animate-fade-in" style={{ padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 160 }}>
               <div>
                 <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
@@ -828,7 +828,7 @@ export default function AdminDashboard() {
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 800, letterSpacing: '-0.03em', color: '#007AFF' }}>
                   {subFlowData.averageMetrics?.avgCompleted || 0} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-secondary)' }}>days</span>
                 </div>
-                <div className="text-body-sm text-secondary" style={{ marginTop: 4 }}>Average Wash Count</div>
+                <div className="text-body-sm text-secondary" style={{ marginTop: 4 }}>Average Clean Count</div>
               </div>
             </div>
           </div>
@@ -943,7 +943,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Wash Day Utilization Stacked Bar */}
+          {/* Clean Day Utilization Stacked Bar */}
           <div className="glass" style={{ padding: 24 }}>
             <div style={{ marginBottom: 20 }}>
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, display: 'block' }}>Fulfillment stacked Day-Utilization</span>
@@ -1008,28 +1008,28 @@ export default function AdminDashboard() {
               <div style={{ padding: 16, borderRadius: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--accent-lime)', marginBottom: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-lime)' }} />
-                  Completed Washes
+                  Completed Cleans
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>{subFlowData.averageMetrics?.avgCompleted || 0} days</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Washes completed successfully according to schedule.</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Cleans completed successfully according to schedule.</div>
               </div>
 
               <div style={{ padding: 16, borderRadius: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#EF4444', marginBottom: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444' }} />
-                  Skipped Washes
+                  Skipped Cleans
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>{subFlowData.averageMetrics?.avgSkipped || 0} days</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Washes skipped by customer request during active cycle.</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Cleans skipped by customer request during active cycle.</div>
               </div>
 
               <div style={{ padding: 16, borderRadius: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#007AFF', marginBottom: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#007AFF' }} />
-                  Credited Washes
+                  Credited Cleans
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>{subFlowData.averageMetrics?.avgCredited || 0} days</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Washes credited back due to weather or service reschedules.</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Cleans credited back due to weather or service reschedules.</div>
               </div>
             </div>
 

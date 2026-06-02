@@ -65,7 +65,10 @@ export default function CustomerAuth() {
     else navigate('/customer', { replace: true })
   }, [user, authLoading, navigate])
 
-  const [role, setRole] = useState('customer')   // customer | crew
+  const [role, setRole] = useState(() => (
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('role') === 'crew'
+      ? 'crew' : 'customer'
+  ))   // customer | crew
   const [mode, setMode] = useState('login')       // login | signup
   const [step, setStep] = useState('form')        // form | otp | success | lead
   const [signupStep, setSignupStep] = useState(1) // 1: First Name, 2: Last Name, 3: Phone, 4: OTP, 5: Post-OTP
