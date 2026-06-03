@@ -129,6 +129,35 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 });
 
 /**
+ * POST /api/payment/pay-to-cleaner
+ * Body: { amount, type }
+ *
+ * Offline "Pay to Cleaner" checkout used while the live Razorpay flow is
+ * disabled (FEATURES.RAZORPAY_ENABLED = false on the client). The customer
+ * agrees to pay the cleaner in cash, so we record a payment up-front and
+ * hand back a paymentId that the subscription / upgrade / extension endpoints
+ * consume exactly like a Razorpay paymentId. No money moves online.
+ */
+export const createPayToCleanerPayment = asyncHandler(async (req, res) => {
+  const { amount, type } = req.body;
+
+  const id = `ptc_${req.user._id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  await Payment.create({
+    customer:  req.user._id,
+    orderId:   id,
+    paymentId: id,
+    signature: 'pay_to_cleaner',
+    amount:    amount != null ? Math.round(Number(amount) * 100) : 0,
+    status:    'verified',
+    method:    'Pay to Cleaner',
+    type:      type === 'extension' ? 'extension' : 'purchase',
+  });
+
+  res.json({ success: true, paymentId: id, method: 'pay_to_cleaner' });
+});
+
+/**
  * GET /api/payment/key
  * Returns the Razorpay key_id for frontend
  */

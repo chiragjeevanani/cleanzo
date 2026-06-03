@@ -7,6 +7,8 @@ import { useCustomerData } from '../../context/CustomerDataContext'
 import { useTheme } from '../../context/ThemeContext'
 import { getPackagePricing } from '../../utils/pricing'
 import { sortPackagesByTier } from '../../utils/helpers'
+import { FEATURES } from '../../config/features'
+import PayToCleanerModal from '../../components/PayToCleanerModal'
 
 // ─── Step labels ──────────────────────────────────────────────────────────────
 const STEPS = ['Plan', 'Slot', 'Pay']
@@ -150,6 +152,7 @@ export default function BookingFlow() {
 
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing]       = useState(false)
+  const [payToCleaner, setPayToCleaner]   = useState(null) // Pay-to-Cleaner checkout state (when Razorpay is off)
   const [paymentError, setPaymentError]   = useState('')
 
   // Coupon state
@@ -374,6 +377,83 @@ export default function BookingFlow() {
     setProcessing(true)
     setPaymentError('')
 
+    // Activate the subscription once a paymentId exists (Razorpay-verified or
+    // a Pay-to-Cleaner record). Shared by both checkout paths.
+    const activateBooking = async (paymentId) => {
+      try {
+        await apiClient.post('/customer/subscriptions', {
+          vehicleId: selectedVehicle._id,
+          packageId: selectedPkg._id || null,
+          isTrial: selectedPkg.isTrial || false,
+          societyId: selectedSociety._id,
+          slotId: selectedSlot.slotId,
+          specialInstructions,
+          paymentId,
+          startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
+          isPremiumOverride: activeOverride,
+          overrideReason: activeOverride ? overrideReason : undefined,
+          couponCode: appliedCoupon?.code || undefined,
+        })
+        localStorage.removeItem('cleanzo_pending_booking')
+        setProcessing(false)
+        refreshAll()
+        setStep(3)
+      } catch (e) {
+        localStorage.removeItem('cleanzo_pending_booking')
+        setProcessing(false)
+        setPaymentError(e.message || 'Could not activate your subscription.')
+        setStep(4)
+      }
+    }
+
+    const failBooking = (msg) => {
+      localStorage.removeItem('cleanzo_pending_booking')
+      setProcessing(false)
+      setPaymentError(msg)
+      setStep(4)
+    }
+
+    // ─── PAY TO CLEANER (active while Razorpay is flagged off) ──────────────
+    // The customer pays the cleaner in cash; we record the payment and
+    // activate the subscription immediately. To restore the Razorpay flow,
+    // set FEATURES.RAZORPAY_ENABLED = true (see config/features.js).
+    if (!FEATURES.RAZORPAY_ENABLED) {
+      setProcessing(false) // hide the global overlay while the user confirms
+      setPayToCleaner({
+        amount: finalAmount,
+        description: `${selectedPkg.name} for ${selectedVehicle.model}`,
+        onConfirm: async () => {
+          setPayToCleaner(null)
+          setProcessing(true)
+          try {
+            const res = await apiClient.post('/payment/pay-to-cleaner', { amount: finalAmount, type: 'purchase' })
+            await activateBooking(res.paymentId)
+          } catch (e) {
+            failBooking(e.message || 'Could not start the booking. Please try again.')
+          }
+        },
+        onDismiss: () => { setPayToCleaner(null); setProcessing(false) },
+      })
+      return
+    }
+
+    // ─── RAZORPAY FLOW (verify, then activate) ──────────────────────────────
+    const completeBooking = async (response) => {
+      try {
+        await apiClient.post('/payment/verify', {
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+        })
+        await activateBooking(response.razorpay_payment_id)
+      } catch (e) {
+        localStorage.removeItem('cleanzo_pending_booking')
+        setProcessing(false)
+        setPaymentError(e.message || 'Payment verification failed.')
+        setStep(4)
+      }
+    }
+
     // Save booking context so the Razorpay redirect-back (Vercel function) can complete it
     localStorage.setItem('cleanzo_pending_booking', JSON.stringify({
       vehicleId: selectedVehicle._id,
@@ -424,37 +504,7 @@ export default function BookingFlow() {
           redirect: true,
           callback_url: `${apiBase}/payment/callback?frontendOrigin=${encodeURIComponent(window.location.origin)}`,
         } : {}),
-        handler: async function (response) {
-          try {
-            await apiClient.post('/payment/verify', {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            })
-            await apiClient.post('/customer/subscriptions', {
-              vehicleId: selectedVehicle._id,
-              packageId: selectedPkg._id || null,
-              isTrial: selectedPkg.isTrial || false,
-              societyId: selectedSociety._id,
-              slotId: selectedSlot.slotId,
-              specialInstructions,
-              paymentId: response.razorpay_payment_id,
-              startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
-              isPremiumOverride: activeOverride,
-              overrideReason: activeOverride ? overrideReason : undefined,
-              couponCode: appliedCoupon?.code || undefined,
-            })
-            localStorage.removeItem('cleanzo_pending_booking')
-            setProcessing(false)
-            refreshAll()
-            setStep(3)
-          } catch (e) {
-            localStorage.removeItem('cleanzo_pending_booking')
-            setProcessing(false)
-            setPaymentError(e.message || 'Payment verification failed.')
-            setStep(4)
-          }
-        },
+        handler: completeBooking,
         prefill: {
           name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',
           contact: (() => {
@@ -469,18 +519,10 @@ export default function BookingFlow() {
       }
 
       const rzp = new window.Razorpay(options)
-      rzp.on('payment.failed', (r) => {
-        localStorage.removeItem('cleanzo_pending_booking')
-        setProcessing(false)
-        setPaymentError(`Payment failed: ${r.error.description}`)
-        setStep(4)
-      })
+      rzp.on('payment.failed', (r) => failBooking(`Payment failed: ${r.error.description}`))
       rzp.open()
     } catch (err) {
-      localStorage.removeItem('cleanzo_pending_booking')
-      setProcessing(false)
-      setPaymentError(err.message || 'Failed to initiate payment. Please try again.')
-      setStep(4)
+      failBooking(err.message || 'Failed to initiate payment. Please try again.')
     }
   }
 
@@ -527,6 +569,16 @@ export default function BookingFlow() {
 
   return (
     <div className="app-shell animate-fade-in" style={{ paddingBottom: 120 }}>
+      {/* Pay-to-Cleaner checkout (used while Razorpay is flagged off) */}
+      {payToCleaner && (
+        <PayToCleanerModal
+          amount={payToCleaner.amount}
+          description={payToCleaner.description}
+          onConfirm={payToCleaner.onConfirm}
+          onDismiss={payToCleaner.onDismiss}
+        />
+      )}
+
       {/* ── Processing overlay ────────────────────────────────────────────── */}
       {processing && (
         <div style={{
@@ -1072,7 +1124,9 @@ export default function BookingFlow() {
                 <ShieldCheck size={22} color="var(--success)" />
               </div>
               <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                Secured by Razorpay. Your payment is encrypted and 100% safe.
+                {FEATURES.RAZORPAY_ENABLED
+                  ? 'Secured by Razorpay. Your payment is encrypted and 100% safe.'
+                  : 'Pay the cleaner in cash at the time of service. No online payment required.'}
               </span>
             </div>
 
@@ -1085,12 +1139,12 @@ export default function BookingFlow() {
             <div className="flex gap-14">
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 18, padding: 18 }} onClick={() => setStep(1)}>Back</button>
               <button
-                disabled={processing || !razorpayReady}
+                disabled={processing || (FEATURES.RAZORPAY_ENABLED && !razorpayReady)}
                 className="btn btn-primary"
                 style={{ flex: 2, borderRadius: 22, fontWeight: 800, fontSize: 18, padding: 20, boxShadow: '0 0 24px rgba(var(--bg-accent-rgb),0.25)' }}
                 onClick={handlePayment}
               >
-                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${finalAmount}`}
+                {processing ? 'Processing…' : (FEATURES.RAZORPAY_ENABLED && !razorpayReady) ? 'Loading…' : FEATURES.RAZORPAY_ENABLED ? `Pay ₹${finalAmount}` : `Pay ₹${finalAmount} to Cleaner`}
               </button>
             </div>
           </div>
