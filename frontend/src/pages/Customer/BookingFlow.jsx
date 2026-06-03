@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Check, Car, ShieldCheck, Clock, X, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Check, Car, ShieldCheck, Clock, X, ChevronRight, MapPin } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
@@ -903,7 +903,7 @@ export default function BookingFlow() {
             STEP 2 — Purchase Overview
         ══════════════════════════════════════════════════════════════════ */}
         {step === 2 && (
-          <div className="flex flex-col gap-28 animate-fade-in-up">
+          <div className="flex flex-col gap-32 animate-fade-in-up">
             <div>
               <h3 className="text-headline-sm" style={{ marginBottom: 4 }}>Booking Summary</h3>
               <p className="text-secondary text-body-sm">Review before payment</p>
@@ -934,9 +934,22 @@ export default function BookingFlow() {
                   <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', marginBottom: 4, letterSpacing: '0.06em' }}>LOCATION</div>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{selectedSociety?.name}</div>
+                    {(selectedVehicle?.flatNumber || selectedVehicle?.blockTower) && (
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+                        {[
+                          selectedVehicle?.flatNumber ? `Flat ${selectedVehicle.flatNumber}` : null,
+                          selectedVehicle?.blockTower || null,
+                        ].filter(Boolean).join(', ')}
+                      </div>
+                    )}
                     {selectedSociety?.address && (
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
                         {selectedSociety.address}{selectedSociety.city ? `, ${selectedSociety.city}` : ''}
+                      </div>
+                    )}
+                    {(selectedVehicle?.slotPillar || selectedVehicle?.parking) && (
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, lineHeight: 1.4 }}>
+                        <MapPin size={12} /> Parking: {selectedVehicle?.slotPillar || selectedVehicle?.parking}
                       </div>
                     )}
                     <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
