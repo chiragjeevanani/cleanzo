@@ -38,6 +38,7 @@ import PartnerSociety from '../models/PartnerSociety.js';
 import SocietyCommission from '../models/SocietyCommission.js';
 import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.service.js';
 import Admin from '../models/Admin.js';
+import RefreshToken from '../models/RefreshToken.js';
 
 
 
@@ -76,6 +77,38 @@ export const removeFcmToken = asyncHandler(async (req, res) => {
   if (!token) throw new ApiError(400, 'FCM token is required');
   await Customer.findByIdAndUpdate(req.user._id, { $pull: { fcmTokens: token } });
   res.json({ success: true, message: 'FCM token removed' });
+});
+
+// ─── ACCOUNT DELETION (App Store / Play Store requirement) ───────────
+// Soft-deletes the customer account: the account is suspended (deactivated)
+// and signed out everywhere, but its data is retained. A suspended account
+// is blocked from logging back in until an admin restores it. Gated on the
+// client behind the ACCOUNT_DELETION feature flag.
+export const deleteAccount = asyncHandler(async (req, res) => {
+  const customerId = req.user._id;
+
+  const customer = await Customer.findById(customerId);
+  if (!customer) throw new ApiError(404, 'Account not found');
+
+  // Suspend the account instead of removing data.
+  customer.isActive = false;
+  customer.suspendedAt = new Date();
+  customer.suspensionReason = 'self_requested';
+  customer.fcmTokens = []; // stop push notifications to this account
+  await customer.save({ validateModifiedOnly: true });
+
+  // End the current session everywhere by revoking refresh tokens.
+  await RefreshToken.deleteMany({ user: customerId, role: 'customer' });
+
+  await clearCache(`cache:${customerId}:*`);
+
+  // Best-effort audit trail (logActivity swallows its own errors).
+  await logActivity({
+    type: 'user_deleted',
+    message: `Customer ${customer.firstName} ${customer.lastName} (${customer.phone}) deleted (suspended) their own account`,
+  });
+
+  res.json({ success: true, message: 'Your account has been deactivated' });
 });
 
 

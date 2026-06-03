@@ -2,12 +2,28 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import { MapPin, Star, Award, Sun, Moon, LogOut, Loader2 } from 'lucide-react'
+import { useToast } from '../../context/ToastContext'
+import { MapPin, Star, Award, Sun, Moon, LogOut, Loader2, Trash2, AlertTriangle, X } from 'lucide-react'
+import { FEATURES } from '../../config/features'
 
 export default function CleanerProfile() {
   const { theme, toggleTheme } = useTheme()
-  const { user, logout } = useAuth()
+  const { user, logout, deleteAccount } = useAuth()
+  const { showToast } = useToast()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true)
+    try {
+      await deleteAccount()
+    } catch (err) {
+      showToast(err.message || 'Failed to delete account. Please try again.', 'error')
+      setIsDeleting(false)
+      setShowDeleteModal(false)
+    }
+  }
 
   const getRatingColor = (rating) => {
     if (rating === undefined || rating === null || isNaN(rating) || rating <= 0) return 'var(--text-secondary)'
@@ -91,11 +107,11 @@ export default function CleanerProfile() {
         </button>
       </div>
 
-      <button 
-        onClick={handleLogout} 
+      <button
+        onClick={handleLogout}
         disabled={isLoggingOut}
-        className="btn btn-ghost w-full" 
-        style={{ color: 'var(--error)', borderColor: 'rgba(255,69,58,0.2)', marginBottom: 100, background: isLoggingOut ? 'rgba(255,69,58,0.05)' : 'transparent', height: 52 }}
+        className="btn btn-ghost w-full"
+        style={{ color: 'var(--error)', borderColor: 'rgba(255,69,58,0.2)', marginBottom: FEATURES.ACCOUNT_DELETION ? 12 : 100, background: isLoggingOut ? 'rgba(255,69,58,0.05)' : 'transparent', height: 52 }}
       >
         {isLoggingOut ? (
           <><Loader2 size={16} className="animate-spin" /> <span>Logging out...</span></>
@@ -103,6 +119,64 @@ export default function CleanerProfile() {
           <><LogOut size={16} /> <span>Sign Out</span></>
         )}
       </button>
+
+      {/* Delete Account — App Store / Play Store requirement (feature-flagged) */}
+      {FEATURES.ACCOUNT_DELETION && (
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          className="btn btn-ghost w-full"
+          style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-glass)', marginBottom: 100, background: 'transparent', height: 48, fontSize: 14 }}
+        >
+          <Trash2 size={15} /> <span>Delete Account</span>
+        </button>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-overlay" onClick={() => !isDeleting && setShowDeleteModal(false)}>
+          <div className="modal-content" style={{ padding: 24, borderRadius: 24, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
+              <div className="flex items-center gap-12">
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,69,58,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <AlertTriangle size={20} style={{ color: 'var(--error)' }} />
+                </div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800 }}>Delete Account?</h3>
+              </div>
+              {!isDeleting && (
+                <button onClick={() => setShowDeleteModal(false)} className="btn-icon glass" style={{ width: 32, height: 32, borderRadius: 10 }}>
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            <p className="text-body-sm text-secondary" style={{ marginBottom: 20, lineHeight: 1.5 }}>
+              This will <strong style={{ color: 'var(--text-primary)' }}>deactivate your account</strong> and sign you out immediately. To work with Cleanzo again you'll need to contact support to restore your account.
+            </p>
+
+            <div className="flex flex-col gap-8">
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+                className="btn w-full"
+                style={{ background: 'var(--error)', color: '#fff', height: 48, fontWeight: 700 }}
+              >
+                {isDeleting ? (
+                  <><Loader2 size={16} className="animate-spin" /> <span>Deleting...</span></>
+                ) : (
+                  <><Trash2 size={16} /> <span>Yes, Delete My Account</span></>
+                )}
+              </button>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="btn btn-ghost w-full"
+                style={{ height: 48 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -13,6 +13,8 @@ router.use(customerApiLimiter);
 
 router.get('/profile', cacheMiddleware(300, true), ctrl.getProfile);
 router.put('/profile', ctrl.updateProfile);
+// Account deletion — App Store / Play Store requirement
+router.delete('/account', ctrl.deleteAccount);
 
 router.get('/vehicles', cacheMiddleware(300, true), ctrl.getVehicles);
 router.post('/vehicles', upload.array('photos', 5), ctrl.addVehicle);

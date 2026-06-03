@@ -38,6 +38,10 @@ const customerSchema = new Schema({
   }],
   fcmTokens:  { type: [String], default: [] },
   isActive:   { type: Boolean, default: true },
+  // Set when the user self-deletes their account from the app (soft delete).
+  // A suspended account cannot log in until an admin restores it.
+  suspendedAt:      { type: Date, default: null },
+  suspensionReason: { type: String, default: null },
   lastLogin:  { type: Date },
 }, { timestamps: true });
 

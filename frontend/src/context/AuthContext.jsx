@@ -156,8 +156,21 @@ export const AuthProvider = ({ children }) => {
 
   const updateUser = (updates) => setUser(prev => ({ ...prev, ...updates }));
 
+  // Permanently delete the signed-in account (App Store / Play Store
+  // requirement). Routes by role, then clears local session like logout.
+  const deleteAccount = async () => {
+    const role = user?.role || localStorage.getItem('userRole');
+    const endpoint = role === 'cleaner' ? '/cleaner/account' : '/customer/account';
+    await apiClient.delete(endpoint);
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userRole');
+    setUser(null);
+    window.location.href = '/login';
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, completeCustomerSignup, adminLogin, logout, updateUser, logoUrls, setLogoUrls }}>
+    <AuthContext.Provider value={{ user, loading, login, completeCustomerSignup, adminLogin, logout, deleteAccount, updateUser, logoUrls, setLogoUrls }}>
       {children}
     </AuthContext.Provider>
   );

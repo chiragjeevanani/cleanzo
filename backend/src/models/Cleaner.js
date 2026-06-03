@@ -16,6 +16,10 @@ const cleanerSchema = new Schema({
   totalCompleted:  { type: Number, default: 0 },
   isAvailable:     { type: Boolean, default: true },
   isActive:        { type: Boolean, default: true },
+  // Set when the crew member self-deletes their account from the app (soft delete).
+  // A suspended account cannot log in until an admin restores it.
+  suspendedAt:      { type: Date, default: null },
+  suspensionReason: { type: String, default: null },
   dailyRate:       { type: Number, default: null },
   joiningDate:     { type: Date, default: Date.now },
   fcmTokens:       { type: [String], default: [] },

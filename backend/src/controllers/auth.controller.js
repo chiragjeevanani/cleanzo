@@ -131,6 +131,16 @@ export const handleSendOtp = asyncHandler(async (req, res) => {
     });
   }
 
+  // Block accounts that have been suspended (e.g. self-deleted from the app)
+  // before sending an OTP — they must contact support to be restored.
+  if (mode === 'login' && user && user.isActive === false) {
+    return res.status(403).json({
+      success: false,
+      type: 'ACCOUNT_SUSPENDED',
+      message: 'Your account has been suspended. Please contact support to restore access.'
+    });
+  }
+
   const result = await sendOtp(phone, targetRole);
   if (!result.success) {
     return res.status(400).json({
@@ -168,6 +178,9 @@ export const handleVerifyOtp = asyncHandler(async (req, res) => {
 
   if (targetRole === 'customer') {
     user = await Customer.findOne({ phone: normalized });
+    if (user && user.isActive === false) {
+      throw new ApiError(403, 'Your account has been suspended. Please contact support to restore access.');
+    }
     if (!user) {
       // New signup — all fields required
       if (!firstName || !lastName || !email || !city) {
@@ -212,6 +225,9 @@ export const handleVerifyOtp = asyncHandler(async (req, res) => {
 
   } else if (targetRole === 'cleaner') {
     user = await Cleaner.findOne({ phone: normalized });
+    if (user && user.isActive === false) {
+      throw new ApiError(403, 'Your account has been suspended. Please contact support to restore access.');
+    }
     if (!user) {
       if (!firstName || !city) {
         throw new ApiError(400, 'First name and city are required for new crew members');

@@ -13,6 +13,8 @@ router.use(cleanerApiLimiter);
 router.get('/profile', ctrl.getProfile);
 router.put('/profile', ctrl.updateProfile);
 router.put('/availability', ctrl.toggleAvailability);
+// Account deletion — App Store / Play Store requirement
+router.delete('/account', ctrl.deleteAccount);
 
 router.post('/fcm-token', ctrl.saveFcmToken);
 router.delete('/fcm-token', ctrl.removeFcmToken);

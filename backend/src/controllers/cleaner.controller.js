@@ -12,6 +12,8 @@ import Customer from '../models/Customer.js';
 import Admin from '../models/Admin.js';
 import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.service.js';
 import LeaveRequest from '../models/LeaveRequest.js';
+import RefreshToken from '../models/RefreshToken.js';
+import { logActivity } from './admin.controller.js';
 
 
 // ─── PROFILE ─────────────────────────────────────
@@ -44,6 +46,37 @@ export const removeFcmToken = asyncHandler(async (req, res) => {
   if (!token) throw new ApiError(400, 'FCM token is required');
   await Cleaner.findByIdAndUpdate(req.user._id, { $pull: { fcmTokens: token } });
   res.json({ success: true, message: 'FCM token removed' });
+});
+
+// ─── ACCOUNT DELETION (App Store / Play Store requirement) ───────────
+// Soft-deletes the cleaner (crew) account: the account is suspended
+// (deactivated) and signed out everywhere, but its data is retained. A
+// suspended account is blocked from logging back in until an admin restores
+// it. Gated on the client behind the ACCOUNT_DELETION feature flag.
+export const deleteAccount = asyncHandler(async (req, res) => {
+  const cleanerId = req.user._id;
+
+  const cleaner = await Cleaner.findById(cleanerId);
+  if (!cleaner) throw new ApiError(404, 'Account not found');
+
+  // Suspend the account instead of removing data.
+  cleaner.isActive = false;
+  cleaner.isAvailable = false; // drop out of the assignable pool
+  cleaner.suspendedAt = new Date();
+  cleaner.suspensionReason = 'self_requested';
+  cleaner.fcmTokens = []; // stop push notifications to this account
+  await cleaner.save({ validateModifiedOnly: true });
+
+  // End the current session everywhere by revoking refresh tokens.
+  await RefreshToken.deleteMany({ user: cleanerId, role: 'cleaner' });
+
+  // Best-effort audit trail (logActivity swallows its own errors).
+  await logActivity({
+    type: 'cleaner_deleted',
+    message: `Cleaner ${cleaner.name} (${cleaner.phone}) deleted (suspended) their own account`,
+  });
+
+  res.json({ success: true, message: 'Your account has been deactivated' });
 });
 
 

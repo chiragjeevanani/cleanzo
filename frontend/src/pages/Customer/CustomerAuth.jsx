@@ -1,13 +1,43 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { 
+import {
   Phone, User, ShieldCheck, CheckCircle2, MapPin, Building2,
-  Mail, Tag, ChevronDown
+  Mail, Tag, ChevronDown, Ban, PhoneCall
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getAppLogo, validateName, validatePhone, validateEmail, validatePincode, cleanPhoneNumber } from '../../utils/helpers'
 import { useTheme } from '../../context/ThemeContext'
 import apiClient from '../../services/apiClient'
+import { SUPPORT_CONTACT } from '../../config/support'
+
+// ─── Account Suspended Dialog ────────────────────
+// Shown when a suspended (self-deleted) account tries to log back in.
+function AccountSuspendedDialog({ message, onClose }) {
+  return (
+    <div className="modal-overlay" style={{ zIndex: 1000 }}>
+      <div className="modal-content glass animate-scale-in" style={{ maxWidth: 380, padding: 32, textAlign: 'center' }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,69,58,0.12)', color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+          <Ban size={32} />
+        </div>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 12 }}>Account Suspended</h3>
+        <p className="text-secondary" style={{ fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>
+          {message || 'Your account has been suspended.'} Please contact our team to restore your access.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <a href={`tel:${SUPPORT_CONTACT.phone}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', borderRadius: 12, border: 'none', background: 'var(--accent-lime)', color: '#000', fontWeight: 700, textDecoration: 'none' }}>
+            <PhoneCall size={16} /> Call {SUPPORT_CONTACT.phone}
+          </a>
+          <a href={`mailto:${SUPPORT_CONTACT.email}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', borderRadius: 12, border: '1px solid var(--border-glass)', background: 'transparent', color: 'var(--text-primary)', fontWeight: 600, textDecoration: 'none' }}>
+            <Mail size={16} /> {SUPPORT_CONTACT.email}
+          </a>
+          <button onClick={onClose} style={{ padding: '10px 0', borderRadius: 12, border: 'none', background: 'transparent', color: 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer' }}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ─── Auth Confirm Dialog ─────────────────────────
 function AuthConfirmDialog({ config, onClose }) {
@@ -137,6 +167,7 @@ export default function CustomerAuth() {
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [suspendedMsg, setSuspendedMsg] = useState(null)
 
   const set = (field) => (e) => {
     setErrorMsg('')
@@ -208,8 +239,11 @@ export default function CustomerAuth() {
         setSignupStep(4)
       }
     } catch (err) {
-      if (err.type === 'USER_NOT_FOUND') {
-        setConfirmDialog({ 
+      const errType = err.data?.type || err.type
+      if (errType === 'ACCOUNT_SUSPENDED') {
+        setSuspendedMsg(err.data?.message || err.message)
+      } else if (errType === 'USER_NOT_FOUND') {
+        setConfirmDialog({
           type: 'not_found', 
           message: err.message, 
           action: () => { 
@@ -218,9 +252,9 @@ export default function CustomerAuth() {
             setConfirmDialog(null); 
           } 
         })
-      } else if (err.type === 'USER_ALREADY_EXISTS') {
-        setConfirmDialog({ 
-          type: 'already_exists', 
+      } else if (errType === 'USER_ALREADY_EXISTS') {
+        setConfirmDialog({
+          type: 'already_exists',
           message: err.message, 
           action: () => { 
             setMode('login'); 
@@ -499,6 +533,7 @@ export default function CustomerAuth() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden' }}>
       {confirmDialog && <AuthConfirmDialog config={confirmDialog} onClose={() => setConfirmDialog(null)} />}
+      {suspendedMsg && <AccountSuspendedDialog message={suspendedMsg} onClose={() => setSuspendedMsg(null)} />}
 
       {/* Background blobs */}
       <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(var(--accent-lime-rgb), 0.12) 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
