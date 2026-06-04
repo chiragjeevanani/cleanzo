@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Bell, ChevronRight, Calendar, SkipForward, Clock, Car, Check, User } from 'lucide-react'
+import { Bell, ChevronRight, Calendar, SkipForward, Clock, Car, Check, User, ShoppingBag, CreditCard } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
@@ -17,9 +17,9 @@ const formatSlot = (slotStr) => {
 
 export default function CustomerHome() {
   const { user } = useAuth()
-  const { 
-    subscriptions, history, notifications, banners, 
-    loading: dataLoading 
+  const {
+    subscriptions, history, orders, notifications, banners,
+    loading: dataLoading
   } = useCustomerData()
 
   const today = new Date();
@@ -36,7 +36,39 @@ export default function CustomerHome() {
   const remainingDays = activeSub ? Math.max(0, activeSub.totalDays - (activeSub.completedDays || 0) - (activeSub.skippedDays || 0)) : 0
   const hasRemainingDays = remainingDays > 0
   const unreadCount = (notifications || []).filter(n => !n.read).length
-  const recentHistory = (history || []).slice(0, 3)
+
+  // Unified recent activity: services + subscription purchases + marketplace orders, newest first
+  const recentActivity = [
+    ...(history || []).map(s => ({
+      id: `task-${s._id}`,
+      kind: 'service',
+      time: s.date,
+      title: s.packageName || 'Cleaning Service',
+      subtitle: `${s.date ? new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''}${(s.scheduledTime || s.completedTime) ? ` • ${s.scheduledTime || s.completedTime}` : ''}`,
+      status: s.status,
+    })),
+    ...(subscriptions || []).map(sub => ({
+      id: `sub-${sub._id}`,
+      kind: 'purchase',
+      time: sub.createdAt,
+      title: sub.isTrial ? 'Free Trial Started' : `${sub.package?.name || 'Subscription'} Purchased`,
+      subtitle: `${sub.createdAt ? new Date(sub.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''}${(!sub.isTrial && sub.amount) ? ` • ₹${sub.amount}` : ''}`,
+      status: sub.status,
+    })),
+    ...(orders || []).map(o => ({
+      id: `order-${o._id}`,
+      kind: 'order',
+      time: o.createdAt,
+      title: o.items?.[0]?.product?.name
+        ? `${o.items[0].product.name}${o.items.length > 1 ? ` +${o.items.length - 1} more` : ''}`
+        : `Order ${o.orderId || ''}`,
+      subtitle: `${o.createdAt ? new Date(o.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''}${o.totalAmount ? ` • ₹${o.totalAmount}` : ''}`,
+      status: o.status,
+    })),
+  ]
+    .filter(a => a.time)
+    .sort((a, b) => new Date(b.time) - new Date(a.time))
+    .slice(0, 5)
 
 
   const hour = new Date().getHours()
@@ -313,33 +345,41 @@ export default function CustomerHome() {
 
         <div className="animate-fade-in-up delay-2" style={{ marginBottom: 40 }}>
           <div className="flex justify-between items-center" style={{ marginBottom: 16, padding: '0 8px' }}>
-            <span className="text-label" style={{ color: 'var(--text-tertiary)' }}>Recent Service</span>
+            <span className="text-label" style={{ color: 'var(--text-tertiary)' }}>Recent Activity</span>
             <Link to="/customer/history" className="text-body-sm font-bold" style={{ color: 'var(--primary-blue)' }}>View All</Link>
           </div>
           <div className="flex flex-col gap-10">
-            {recentHistory.length === 0 ? (
+            {recentActivity.length === 0 ? (
               <div className="glass text-center text-secondary text-body-sm py-32" style={{ borderRadius: 24 }}>
-                No recent service history yet.
+                No recent activity yet.
               </div>
             ) : (
-              recentHistory.map(s => (
-                <div key={s._id} className="glass" style={{ padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 24 }}>
-                  <div className="flex items-center gap-14">
-                    <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.03)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Check size={20} color={s.status === 'completed' ? 'var(--success)' : 'var(--text-tertiary)'} />
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{s.packageName || 'Cleaning Service'}</div>
-                      <div className="text-body-sm text-secondary font-medium">
-                        {new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} <span style={{ opacity: 0.3 }}>•</span> {s.scheduledTime || s.completedTime || ''}
+              recentActivity.map(a => {
+                const Icon = a.kind === 'order' ? ShoppingBag : a.kind === 'purchase' ? CreditCard : Check
+                const status = (a.status || '').toString()
+                const positive = ['completed', 'active', 'delivered'].includes(status.toLowerCase())
+                const negative = ['cancelled', 'expired', 'failed'].includes(status.toLowerCase())
+                const chipClass = positive ? 'chip-success' : negative ? 'chip-error' : 'chip-ghost'
+                const iconColor = positive ? 'var(--success)' : 'var(--text-tertiary)'
+                return (
+                  <div key={a.id} className="glass" style={{ padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 24 }}>
+                    <div className="flex items-center gap-14">
+                      <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.03)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon size={20} color={iconColor} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{a.title}</div>
+                        <div className="text-body-sm text-secondary font-medium">{a.subtitle}</div>
                       </div>
                     </div>
+                    {status && (
+                      <span className={`chip ${chipClass}`} style={{ borderRadius: 8, fontSize: 9 }}>
+                        {status.toUpperCase()}
+                      </span>
+                    )}
                   </div>
-                  <span className={`chip ${s.status === 'completed' ? 'chip-success' : s.status === 'skipped' ? 'chip-ghost' : 'chip-error'}`} style={{ borderRadius: 8, fontSize: 9 }}>
-                    {s.status.toUpperCase()}
-                  </span>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>

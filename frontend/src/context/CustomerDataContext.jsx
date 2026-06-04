@@ -14,6 +14,7 @@ export const CustomerDataProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [banners, setBanners] = useState([]);
   const [history, setHistory] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [marketplaceCategories, setMarketplaceCategories] = useState([]);
   const [settings, setSettings] = useState({});
@@ -28,6 +29,7 @@ export const CustomerDataProvider = ({ children }) => {
     notifications: false,
     banners: false,
     history: false,
+    orders: false,
     products: false,
     marketplaceCategories: false,
     settings: false,
@@ -43,6 +45,7 @@ export const CustomerDataProvider = ({ children }) => {
     notifications: false,
     banners: false,
     history: false,
+    orders: false,
     products: false,
     marketplaceCategories: false,
     settings: false,
@@ -65,6 +68,7 @@ export const CustomerDataProvider = ({ children }) => {
       if (key === 'notifications') data = res.notifications || [];
       if (key === 'banners') data = res.banners || [];
       if (key === 'history') data = res.tasks || [];
+      if (key === 'orders') data = res.orders || [];
       if (key === 'products') data = res.products || [];
       if (key === 'marketplaceCategories') data = res.categories || [];
       
@@ -85,6 +89,7 @@ export const CustomerDataProvider = ({ children }) => {
   const refreshNotifications = useCallback((force = true) => fetchData('notifications', '/customer/notifications', setNotifications, force), [fetchData]);
   const refreshBanners = useCallback((force = true) => fetchData('banners', '/public/banners', setBanners, force), [fetchData]);
   const refreshHistory = useCallback((force = true) => fetchData('history', '/customer/history', setHistory, force), [fetchData]);
+  const refreshOrders = useCallback((force = true) => fetchData('orders', '/customer/marketplace/orders', setOrders, force), [fetchData]);
   const refreshProducts = useCallback((force = true) => fetchData('products', '/public/products', setProducts, force), [fetchData]);
   const refreshMarketplaceCategories = useCallback((force = true) => fetchData('marketplaceCategories', '/public/marketplace/categories', setMarketplaceCategories, force), [fetchData]);
   const refreshSettings = useCallback((force = true) => fetchData('settings', '/public/settings', (data) => setSettings(data || {}), force), [fetchData]);
@@ -99,11 +104,12 @@ export const CustomerDataProvider = ({ children }) => {
     refreshNotifications(true);
     refreshBanners(true);
     refreshHistory(true);
+    refreshOrders(true);
     refreshProducts(true);
     refreshMarketplaceCategories(true);
     refreshSettings(true);
     refreshDiscounts(true);
-  }, [refreshVehicles, refreshCategories, refreshPackages, refreshSocieties, refreshSubscriptions, refreshNotifications, refreshBanners, refreshHistory, refreshProducts, refreshMarketplaceCategories, refreshSettings, refreshDiscounts]);
+  }, [refreshVehicles, refreshCategories, refreshPackages, refreshSocieties, refreshSubscriptions, refreshNotifications, refreshBanners, refreshHistory, refreshOrders, refreshProducts, refreshMarketplaceCategories, refreshSettings, refreshDiscounts]);
 
   // Initial load
   useEffect(() => {
@@ -115,6 +121,7 @@ export const CustomerDataProvider = ({ children }) => {
     fetchData('notifications', '/customer/notifications', setNotifications);
     fetchData('banners', '/public/banners', setBanners);
     fetchData('history', '/customer/history', setHistory);
+    fetchData('orders', '/customer/marketplace/orders', setOrders);
     fetchData('products', '/public/products', setProducts);
     fetchData('marketplaceCategories', '/public/marketplace/categories', setMarketplaceCategories);
     fetchData('settings', '/public/settings', (data) => setSettings(data || {}));
@@ -123,10 +130,10 @@ export const CustomerDataProvider = ({ children }) => {
 
   return (
     <CustomerDataContext.Provider value={{
-      vehicles, categories, packages, societies, subscriptions, notifications, banners, history, products, marketplaceCategories, settings, discounts,
+      vehicles, categories, packages, societies, subscriptions, notifications, banners, history, orders, products, marketplaceCategories, settings, discounts,
       loading,
       refreshVehicles, refreshCategories, refreshPackages, refreshSocieties, refreshSubscriptions,
-      refreshNotifications, refreshBanners, refreshHistory, refreshProducts, refreshMarketplaceCategories, refreshSettings, refreshDiscounts, refreshAll
+      refreshNotifications, refreshBanners, refreshHistory, refreshOrders, refreshProducts, refreshMarketplaceCategories, refreshSettings, refreshDiscounts, refreshAll
     }}>
       {children}
     </CustomerDataContext.Provider>
