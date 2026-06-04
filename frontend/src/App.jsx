@@ -91,7 +91,7 @@ export default function App() {
               <Route path="/login" element={<CustomerAuth />} />
               <Route path="/terms" element={<LegalTerms />} />
               <Route path="/privacy" element={<LegalPrivacy />} />
-              <Route path="/help" element={<HelpSupport />} />
+              <Route path="/support" element={<HelpSupport />} />
               <Route path="/join-crew" element={<JoinAsCleaner />} />
               <Route path="/" element={<LandingPage />} />
               <Route path="/admin/login" element={<AdminLogin />} />

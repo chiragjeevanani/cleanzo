@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { FileText, HelpCircle, Save, Plus, Trash2, CheckCircle, RefreshCw, Star, MapPin, Image, Eye, Loader2, Globe, ExternalLink, X, Send, Package } from 'lucide-react'
+import { FileText, HelpCircle, Save, Plus, Trash2, CheckCircle, RefreshCw, Star, MapPin, Image, Eye, Loader2, Globe, ExternalLink, X, Send, Package, Shield, Headphones, MessageCircle, PhoneCall, Mail } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
 import FaqsManager from './FaqsManager'
 import TestimonialsManager from './TestimonialsManager'
@@ -23,6 +23,26 @@ export default function AdminCMS() {
     ]
   })
 
+  // --- Privacy Policy State ---
+  const [privacyData, setPrivacyData] = useState({
+    lastUpdated: 'October 2023',
+    sections: [
+      { id: 1, title: '1. Information Collection', content: 'We collect personal information that you provide to us, including your name, email address, phone number, vehicle details (make, model, color, and license plate), and service addresses. We also collect payment information through our secure third-party payment processors.' },
+      { id: 2, title: '2. Usage of Data', content: 'Your data is used primarily to facilitate the car cleaning services you request. This includes dispatching executives, processing payments, providing service updates via push notifications or SMS, and improving our internal logistics and customer support experiences.' },
+      { id: 3, title: '3. Location & GPS Tracking', content: 'Cleanzo requires access to your location data to ensure our service executives can locate your vehicle accurately in parking lots or residential complexes. This data is only accessed when a service is scheduled or active and is never sold to third parties.' },
+      { id: 4, title: '4. Data Sharing & Third Parties', content: 'We do not sell your personal data. We share information only with trusted partners necessary for service delivery, such as payment gateways and map service providers. We may also disclose information if required by law or to protect our rights and safety.' },
+      { id: 5, title: '5. Your Rights & Choices', content: 'You have the right to access, correct, or delete your personal information through the account settings in the app. You can also opt-out of marketing communications at any time, though you will still receive essential service-related notifications.' }
+    ]
+  })
+
+  // --- Support Contact State ---
+  const [supportData, setSupportData] = useState({
+    whatsapp: '919555860362',
+    phone: '+919555860362',
+    email: 'hello@trycleanzo.com',
+    address: 'Flat no 1603, Tower C1, Redicon Vedantam, noida, IN'
+  })
+
   // --- Trusted Societies State ---
   const [societiesData, setSocietiesData] = useState({ heading: 'TRUSTED BY RESIDENTS OF', items: [] })
   const [loadingSocieties, setLoadingSocieties] = useState(false)
@@ -44,7 +64,15 @@ export default function AdminCMS() {
       try { setTermsData(JSON.parse(cachedTerms)) } catch (e) { console.error(e) }
     }
 
+    const cachedPrivacy = localStorage.getItem('cleanzo_cms_privacy')
+    if (cachedPrivacy) {
+      try { setPrivacyData(JSON.parse(cachedPrivacy)) } catch (e) { console.error(e) }
+    }
 
+    const cachedSupport = localStorage.getItem('cleanzo_cms_support')
+    if (cachedSupport) {
+      try { setSupportData(JSON.parse(cachedSupport)) } catch (e) { console.error(e) }
+    }
   }, [])
 
   // Dynamic Banners Fetch
@@ -156,6 +184,16 @@ export default function AdminCMS() {
     showToast('Terms of Service saved and updated!', 'success')
   }
 
+  const savePrivacy = () => {
+    localStorage.setItem('cleanzo_cms_privacy', JSON.stringify(privacyData))
+    showToast('Privacy Policy saved and updated!', 'success')
+  }
+
+  const saveSupport = () => {
+    localStorage.setItem('cleanzo_cms_support', JSON.stringify(supportData))
+    showToast('Support contact details saved and updated!', 'success')
+  }
+
 
   return (
     <div style={{ paddingBottom: 80 }}>
@@ -171,6 +209,8 @@ export default function AdminCMS() {
       <div className="flex gap-8" style={{ marginBottom: 28, borderBottom: '1px solid var(--divider)', paddingBottom: 0 }}>
         {[
           { id: 'terms', icon: FileText, label: 'Terms of Service' },
+          { id: 'privacy', icon: Shield, label: 'Privacy Policy' },
+          { id: 'support', icon: Headphones, label: 'Support' },
           { id: 'societies', icon: MapPin, label: 'Trusted Societies' },
           { id: 'banners', icon: Image, label: 'Banners' },
           { id: 'landingPlans', icon: Package, label: 'Landing Page Plans' },
@@ -287,6 +327,163 @@ export default function AdminCMS() {
 
 
 
+
+        {/* --- 2. PRIVACY POLICY --- */}
+        {activeTab === 'privacy' && (
+          <div>
+            <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Manage Privacy Policy</h3>
+                <p className="text-secondary" style={{ fontSize: 13, marginTop: 4 }}>
+                  Content shown on the public Privacy Policy page linked in the website footer.
+                </p>
+              </div>
+              <button onClick={savePrivacy} className="btn btn-primary btn-sm flex items-center gap-8">
+                <Save size={14} /> Save Privacy Policy
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-24">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 300 }}>
+                <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Last Updated Date</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={privacyData.lastUpdated}
+                  onChange={e => setPrivacyData({ ...privacyData, lastUpdated: e.target.value })}
+                />
+              </div>
+
+              <div className="divider" style={{ margin: '12px 0' }} />
+
+              <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600 }}>Sections</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {privacyData.sections.map((section, idx) => (
+                  <div key={section.id} className="glass" style={{ padding: 20, borderRadius: 'var(--radius-sm)', position: 'relative' }}>
+                    <button
+                      onClick={() => {
+                        const filtered = privacyData.sections.filter(s => s.id !== section.id)
+                        setPrivacyData({ ...privacyData, sections: filtered })
+                      }}
+                      style={{ position: 'absolute', top: 16, right: 16, color: 'var(--error)', cursor: 'pointer' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <input
+                        type="text"
+                        className="input-field"
+                        style={{ fontWeight: 600, fontSize: 14, border: 'none', background: 'rgba(255,255,255,0.02)' }}
+                        value={section.title}
+                        onChange={e => {
+                          const updated = [...privacyData.sections]
+                          updated[idx].title = e.target.value
+                          setPrivacyData({ ...privacyData, sections: updated })
+                        }}
+                      />
+                      <textarea
+                        className="input-field"
+                        rows={3}
+                        style={{ fontSize: 13, resize: 'vertical' }}
+                        value={section.content}
+                        onChange={e => {
+                          const updated = [...privacyData.sections]
+                          updated[idx].content = e.target.value
+                          setPrivacyData({ ...privacyData, sections: updated })
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  onClick={() => {
+                    const newSection = { id: Date.now(), title: `${privacyData.sections.length + 1}. New Privacy Clause`, content: 'Enter the contents here...' }
+                    setPrivacyData({ ...privacyData, sections: [...privacyData.sections, newSection] })
+                  }}
+                  className="btn btn-glass btn-sm"
+                  style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Plus size={14} /> Add New Clause
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- 3. SUPPORT --- */}
+        {activeTab === 'support' && (
+          <div>
+            <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Manage Support Contacts</h3>
+                <p className="text-secondary" style={{ fontSize: 13, marginTop: 4 }}>
+                  Contact channels shown on the public Support page linked in the website footer.
+                </p>
+              </div>
+              <button onClick={saveSupport} className="btn btn-primary btn-sm flex items-center gap-8">
+                <Save size={14} /> Save Support
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-24" style={{ maxWidth: 480 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label className="text-label flex items-center gap-8" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                  <MessageCircle size={14} /> WhatsApp Number
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. 919555860362"
+                  value={supportData.whatsapp}
+                  onChange={e => setSupportData({ ...supportData, whatsapp: e.target.value })}
+                />
+                <span className="text-tertiary" style={{ fontSize: 11 }}>Include country code (no +). Used for the wa.me chat link.</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label className="text-label flex items-center gap-8" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                  <PhoneCall size={14} /> Call Number
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. +919555860362"
+                  value={supportData.phone}
+                  onChange={e => setSupportData({ ...supportData, phone: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label className="text-label flex items-center gap-8" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                  <Mail size={14} /> Support Email
+                </label>
+                <input
+                  type="email"
+                  className="input-field"
+                  placeholder="e.g. hello@trycleanzo.com"
+                  value={supportData.email}
+                  onChange={e => setSupportData({ ...supportData, email: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label className="text-label flex items-center gap-8" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                  <MapPin size={14} /> Address
+                </label>
+                <textarea
+                  className="input-field"
+                  rows={2}
+                  style={{ resize: 'vertical' }}
+                  placeholder="e.g. Flat no 1603, Tower C1, Redicon Vedantam, noida, IN"
+                  value={supportData.address}
+                  onChange={e => setSupportData({ ...supportData, address: e.target.value })}
+                />
+                <span className="text-tertiary" style={{ fontSize: 11 }}>Shown as plain text on the Support page.</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* --- 4. TRUSTED SOCIETIES --- */}
         {activeTab === 'societies' && (
