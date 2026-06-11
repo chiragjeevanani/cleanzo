@@ -8,7 +8,6 @@ import { useTheme } from '../../context/ThemeContext'
 import { getPackagePricing } from '../../utils/pricing'
 import { sortPackagesByTier } from '../../utils/helpers'
 import { FEATURES } from '../../config/features'
-import PayToCleanerModal from '../../components/PayToCleanerModal'
 
 // ─── Step labels ──────────────────────────────────────────────────────────────
 const STEPS = ['Plan', 'Slot', 'Pay']
@@ -152,7 +151,6 @@ export default function BookingFlow() {
 
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing]       = useState(false)
-  const [payToCleaner, setPayToCleaner]   = useState(null) // Pay-to-Cleaner checkout state (when Razorpay is off)
   const [paymentError, setPaymentError]   = useState('')
 
   // Coupon state
@@ -413,30 +411,6 @@ export default function BookingFlow() {
       setStep(4)
     }
 
-    // ─── PAY TO CLEANER (active while Razorpay is flagged off) ──────────────
-    // The customer pays the cleaner in cash; we record the payment and
-    // activate the subscription immediately. To restore the Razorpay flow,
-    // set FEATURES.RAZORPAY_ENABLED = true (see config/features.js).
-    if (!FEATURES.RAZORPAY_ENABLED) {
-      setProcessing(false) // hide the global overlay while the user confirms
-      setPayToCleaner({
-        amount: finalAmount,
-        description: `${selectedPkg.name} for ${selectedVehicle.model}`,
-        onConfirm: async () => {
-          setPayToCleaner(null)
-          setProcessing(true)
-          try {
-            const res = await apiClient.post('/payment/pay-to-cleaner', { amount: finalAmount, type: 'purchase' })
-            await activateBooking(res.paymentId)
-          } catch (e) {
-            failBooking(e.message || 'Could not start the booking. Please try again.')
-          }
-        },
-        onDismiss: () => { setPayToCleaner(null); setProcessing(false) },
-      })
-      return
-    }
-
     // ─── RAZORPAY FLOW (verify, then activate) ──────────────────────────────
     const completeBooking = async (response) => {
       try {
@@ -569,15 +543,6 @@ export default function BookingFlow() {
 
   return (
     <div className="app-shell animate-fade-in" style={{ paddingBottom: 120 }}>
-      {/* Pay-to-Cleaner checkout (used while Razorpay is flagged off) */}
-      {payToCleaner && (
-        <PayToCleanerModal
-          amount={payToCleaner.amount}
-          description={payToCleaner.description}
-          onConfirm={payToCleaner.onConfirm}
-          onDismiss={payToCleaner.onDismiss}
-        />
-      )}
 
       {/* ── Processing overlay ────────────────────────────────────────────── */}
       {processing && (
@@ -1124,9 +1089,7 @@ export default function BookingFlow() {
                 <ShieldCheck size={22} color="var(--success)" />
               </div>
               <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                {FEATURES.RAZORPAY_ENABLED
-                  ? 'Secured by Razorpay. Your payment is encrypted and 100% safe.'
-                  : 'Pay the cleaner in cash at the time of service. No online payment required.'}
+                Secured by Razorpay. Your payment is encrypted and 100% safe.
               </span>
             </div>
 
@@ -1139,12 +1102,12 @@ export default function BookingFlow() {
             <div className="flex gap-14">
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 18, padding: 18 }} onClick={() => setStep(1)}>Back</button>
               <button
-                disabled={processing || (FEATURES.RAZORPAY_ENABLED && !razorpayReady)}
+                disabled={processing || !razorpayReady}
                 className="btn btn-primary"
                 style={{ flex: 2, borderRadius: 22, fontWeight: 800, fontSize: 18, padding: 20, boxShadow: '0 0 24px rgba(var(--bg-accent-rgb),0.25)' }}
                 onClick={handlePayment}
               >
-                {processing ? 'Processing…' : (FEATURES.RAZORPAY_ENABLED && !razorpayReady) ? 'Loading…' : FEATURES.RAZORPAY_ENABLED ? `Pay ₹${finalAmount}` : `Pay ₹${finalAmount} to Cleaner`}
+                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${finalAmount}`}
               </button>
             </div>
           </div>

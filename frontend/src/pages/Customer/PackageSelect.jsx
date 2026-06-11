@@ -7,7 +7,6 @@ import { useCustomerData } from '../../context/CustomerDataContext'
 import { getPackagePricing } from '../../utils/pricing'
 import { sortPackagesByTier, tierRank } from '../../utils/helpers'
 import { FEATURES } from '../../config/features'
-import PayToCleanerModal from '../../components/PayToCleanerModal'
 
 export default function PackageSelect() {
   const { packages, subscriptions, vehicles, discounts, loading: dataLoading, refreshAll } = useCustomerData()
@@ -57,7 +56,6 @@ export default function PackageSelect() {
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState('')
-  const [payToCleaner, setPayToCleaner] = useState(null) // Pay-to-Cleaner checkout state (when Razorpay is off)
 
   // Clear any applied coupon / upgrade selection when the selected vehicle changes
   useEffect(() => {
@@ -189,27 +187,6 @@ export default function PackageSelect() {
       setExtensionStep(4)
     }
 
-    // ─── PAY TO CLEANER (active while Razorpay is flagged off) ──────────────
-    if (!FEATURES.RAZORPAY_ENABLED) {
-      setProcessing(false)
-      setPayToCleaner({
-        amount,
-        description: `Plan Extension for ${activeSubForVehicle.vehicle?.model || 'your vehicle'}`,
-        onConfirm: async () => {
-          setPayToCleaner(null)
-          setProcessing(true)
-          try {
-            const res = await apiClient.post('/payment/pay-to-cleaner', { amount, type: 'extension' })
-            await activateExtension(res.paymentId)
-          } catch (e) {
-            failExtension(e.message || 'Could not start the extension. Please try again.')
-          }
-        },
-        onDismiss: () => { setPayToCleaner(null); setProcessing(false) },
-      })
-      return
-    }
-
     // ─── RAZORPAY FLOW (verify, then extend) ────────────────────────────────
     const completeExtension = async (response) => {
       try {
@@ -319,27 +296,6 @@ export default function PackageSelect() {
       setPaymentError(msg)
     }
 
-    // ─── PAY TO CLEANER (active while Razorpay is flagged off) ──────────────
-    if (!FEATURES.RAZORPAY_ENABLED) {
-      setProcessing(false)
-      setPayToCleaner({
-        amount,
-        description: `Upgrade to ${targetPkg.name} for ${activeSubForVehicle.vehicle?.model || 'your vehicle'}`,
-        onConfirm: async () => {
-          setPayToCleaner(null)
-          setProcessing(true)
-          try {
-            const res = await apiClient.post('/payment/pay-to-cleaner', { amount, type: 'purchase' })
-            await activateUpgrade(res.paymentId)
-          } catch (e) {
-            failUpgrade(e.message || 'Could not start the upgrade. Please try again.')
-          }
-        },
-        onDismiss: () => { setPayToCleaner(null); setProcessing(false) },
-      })
-      return
-    }
-
     // ─── RAZORPAY FLOW (verify, then upgrade) ───────────────────────────────
     const completeUpgrade = async (response) => {
       try {
@@ -413,15 +369,7 @@ export default function PackageSelect() {
     }
   }, [vehicles, selectedVehicleId])
 
-  // Pay-to-Cleaner checkout (used while Razorpay is flagged off) — rendered in each view below.
-  const payToCleanerModal = payToCleaner && (
-    <PayToCleanerModal
-      amount={payToCleaner.amount}
-      description={payToCleaner.description}
-      onConfirm={payToCleaner.onConfirm}
-      onDismiss={payToCleaner.onDismiss}
-    />
-  )
+
 
   // Success/failure screens don't need any data — skip the loading skeleton
   if (loading && extensionStep < 3) return (
@@ -488,7 +436,6 @@ export default function PackageSelect() {
 
     return (
       <div style={{ padding: '0 20px', paddingBottom: 100 }}>
-        {payToCleanerModal}
         {processing && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,10,10,0.85)', backdropFilter: 'blur(20px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 24, textAlign: 'center' }} className="animate-fade-in">
             <div style={{ width: 64, height: 64, borderRadius: '50%', border: '4px solid rgba(var(--bg-accent-rgb),0.1)', borderTop: '4px solid var(--bg-accent)', animation: 'spin 1s linear infinite' }} />
@@ -567,10 +514,10 @@ export default function PackageSelect() {
                   <button
                     className="btn btn-primary w-full"
                     style={{ padding: 16, borderRadius: 16, fontWeight: 800 }}
-                    disabled={processing || (FEATURES.RAZORPAY_ENABLED && !razorpayReady)}
+                    disabled={processing || !razorpayReady}
                     onClick={() => handleUpgradePayment(pkg)}
                   >
-                    {processing ? 'Processing…' : (FEATURES.RAZORPAY_ENABLED && !razorpayReady) ? 'Loading…' : FEATURES.RAZORPAY_ENABLED ? `Upgrade for ₹${pricing.effectivePrice}` : `Upgrade · Pay ₹${pricing.effectivePrice} to Cleaner`}
+                    {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Upgrade for ₹${pricing.effectivePrice}`}
                   </button>
                 </div>
               )
@@ -584,7 +531,6 @@ export default function PackageSelect() {
   if (extensionStep > 0) {
     return (
       <div className="animate-fade-in" style={{ padding: '0 20px', paddingBottom: 100 }}>
-        {payToCleanerModal}
         {processing && (
           <div style={{
             position: 'fixed',
@@ -782,9 +728,7 @@ export default function PackageSelect() {
                 <Check size={20} color="var(--success)" strokeWidth={3} />
               </div>
               <span className="text-body-sm text-secondary font-medium leading-relaxed">
-                {FEATURES.RAZORPAY_ENABLED
-                  ? 'Secured payment via Razorpay. Your transaction is encrypted & 100% safe.'
-                  : 'Pay the cleaner in cash at the time of service. No online payment required.'}
+                Secured payment via Razorpay. Your transaction is encrypted & 100% safe.
               </span>
             </div>
 
@@ -797,12 +741,12 @@ export default function PackageSelect() {
             <div className="flex gap-16" style={{ marginTop: 8 }}>
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 20, padding: 18 }} onClick={() => setExtensionStep(1)}>Back</button>
               <button 
-                disabled={processing || (FEATURES.RAZORPAY_ENABLED && !razorpayReady)}
+                disabled={processing || !razorpayReady}
                 className="btn btn-primary" 
                 style={{ flex: 2, borderRadius: 20, fontWeight: 800, fontSize: 18, padding: 18, boxShadow: '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' }} 
                 onClick={handleExtensionPayment}
               >
-                {processing ? 'Processing…' : (FEATURES.RAZORPAY_ENABLED && !razorpayReady) ? 'Loading…' : FEATURES.RAZORPAY_ENABLED ? `Pay ₹${extensionAmount}` : `Pay ₹${extensionAmount} to Cleaner`}
+                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${extensionAmount}`}
               </button>
             </div>
           </div>
@@ -892,7 +836,6 @@ export default function PackageSelect() {
 
   return (
     <div style={{ padding: '0 20px' }}>
-      {payToCleanerModal}
       {processing && (
         <div style={{
           position: 'fixed',

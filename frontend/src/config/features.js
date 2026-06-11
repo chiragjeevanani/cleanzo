@@ -22,22 +22,8 @@
 // An env override wins when present; otherwise default to enabled.
 const envFlag = import.meta.env?.VITE_ENABLE_ACCOUNT_DELETION;
 
-// ─────────────────────────────────────────────────────────────────────
-// RAZORPAY_ENABLED
-// ─────────────────────────────────────────────────────────────────────
-// The App Store build cannot ship the live Razorpay flow, so it is turned
-// OFF for now. While disabled, checkout uses the "Pay to Cleaner" option
-// (the customer pays the cleaner in cash and the subscription is activated
-// immediately). The entire Razorpay flow is preserved behind this flag —
-// nothing is deleted.
-//
-// To restore the real Razorpay flow after the app is published, set
-// RAZORPAY_ENABLED to `true` (or VITE_ENABLE_RAZORPAY=true in the env).
-const razorpayFlag = import.meta.env?.VITE_ENABLE_RAZORPAY;
-
 export const FEATURES = {
   ACCOUNT_DELETION: envFlag === undefined ? true : envFlag !== 'false',
-  RAZORPAY_ENABLED: razorpayFlag === undefined ? false : razorpayFlag === 'true',
 };
 
 export default FEATURES;
