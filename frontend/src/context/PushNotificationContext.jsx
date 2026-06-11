@@ -20,6 +20,17 @@ import {
   removeFcmTokenFromServer,
 } from '../services/pushNotification.service.js';
 
+const playNotificationSound = () => {
+  try {
+    const audio = new Audio('/notification.mp3');
+    audio.play().catch((err) => {
+      console.warn('[Push] Browser blocked audio autoplay:', err.message);
+    });
+  } catch (err) {
+    console.error('[Push] Failed to play notification sound:', err);
+  }
+};
+
 const PushNotificationContext = createContext(null);
 
 export function PushNotificationProvider({ children }) {
@@ -34,6 +45,40 @@ export function PushNotificationProvider({ children }) {
   const cleanupDeepLink   = useRef(null);
 
   const currentUser = auth?.user || societyAuth?.societyUser;
+
+  // ─── Browser FCM Capability Diagnostics ─────────────────────────────────
+  useEffect(() => {
+    const runDiagnostics = () => {
+      const isSecure = window.isSecureContext;
+      const hasSW = 'serviceWorker' in navigator;
+      const hasNotification = 'Notification' in window;
+      const perm = hasNotification ? Notification.permission : 'unsupported';
+
+      const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+      const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
+      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+
+      const isApiOk = apiKey && apiKey !== 'your_firebase_api_key_here' && apiKey.trim() !== '';
+      const isSenderOk = messagingSenderId && messagingSenderId !== 'your_messaging_sender_id_here' && messagingSenderId.trim() !== '';
+      const isVapidOk = vapidKey && vapidKey !== 'your_vapid_key_here' && vapidKey.trim() !== '';
+
+      console.log('%c🔍 [FCM Diagnostic Checklist]', 'color: #38bdf8; font-weight: bold; font-size: 13px;');
+      console.table({
+        'Secure Context (HTTPS/localhost)': { Value: isSecure ? '✅ Yes' : '❌ No (FCM BLOCKED BY BROWSER)' },
+        'Service Worker Support': { Value: hasSW ? '✅ Yes' : '❌ No (PWA/SW not supported)' },
+        'Notification API Support': { Value: hasNotification ? '✅ Yes' : '❌ No (Unsupported browser)' },
+        'Notification Permission State': { Value: perm },
+        'Vite Firebase API Key Configured': { Value: isApiOk ? '✅ Yes' : '❌ No (Placeholder or Empty)' },
+        'Vite Firebase Sender ID Configured': { Value: isSenderOk ? '✅ Yes' : '❌ No (Placeholder or Empty)' },
+        'Vite Firebase VAPID Key Configured': { Value: isVapidOk ? '✅ Yes' : '❌ No (Placeholder or Empty)' },
+      });
+
+      if (!isSecure) {
+        console.warn('%c⚠️ WARNING: You are not in a secure context! Browsers will block push notifications unless accessed via HTTPS or localhost.', 'color: #fbbf24; font-weight: bold;');
+      }
+    };
+    runDiagnostics();
+  }, []);
 
   // ─── Auto-initialize when user logs in ──────────────────────────────────
   useEffect(() => {
@@ -52,16 +97,17 @@ export function PushNotificationProvider({ children }) {
           setIsEnabled(true);
           initializedRef.current = true;
 
-          // ── Foreground notifications → show as in-app toast ──
-          cleanupForeground.current = setupForegroundHandler(({ title, body, data }) => {
-            const hasLink = data?.link && data.link !== '/';
-            showToast(
-              `🔔 ${title}: ${body}`,
-              'info',
-              5000,
-              hasLink ? () => navigate(data.link) : null
-            );
-          });
+           // ── Foreground notifications → show as in-app toast ──
+           cleanupForeground.current = setupForegroundHandler(({ title, body, data }) => {
+             const hasLink = data?.link && data.link !== '/';
+             playNotificationSound();
+             showToast(
+               `🔔 ${title}: ${body}`,
+               'info',
+               5000,
+               hasLink ? () => navigate(data.link) : null
+             );
+           });
 
           // ── Background deep-links (from SW postMessage) ──
           cleanupDeepLink.current = setupDeepLinkHandler(navigate);

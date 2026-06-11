@@ -75,17 +75,22 @@ export async function sendPushNotification(tokens, payload) {
       },
     },
     android: {
+      priority: 'high',
       notification: {
         icon: 'ic_notification',
         color: '#65C737',
         click_action: 'FLUTTER_NOTIFICATION_CLICK',
+        sound: process.env.FCM_NOTIFICATION_SOUND || 'default',
+        notificationPriority: 'PRIORITY_HIGH',
+        defaultVibrateTimings: true,
+        ...(process.env.FCM_ANDROID_CHANNEL_ID ? { channelId: process.env.FCM_ANDROID_CHANNEL_ID } : {}),
       },
     },
     apns: {
       payload: {
         aps: {
           badge: 1,
-          sound: 'default',
+          sound: process.env.FCM_NOTIFICATION_SOUND || 'default',
         },
       },
     },
