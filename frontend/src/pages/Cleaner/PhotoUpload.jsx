@@ -53,17 +53,22 @@ export default function PhotoUpload() {
       </div>
 
       <div className="glass" style={{ padding: 40, textAlign: 'center', marginBottom: 20, borderStyle: 'dashed' }}>
-        <input 
-          type="file" 
-          accept="image/*" 
-          ref={fileInputRef} 
-          onChange={handleFileChange} 
-          style={{ display: 'none' }} 
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
         />
         {preview ? (
           <div style={{ marginBottom: 16 }}>
             <img src={preview} alt="Preview" style={{ width: '100%', borderRadius: 12, objectFit: 'cover' }} />
-            <button className="btn btn-ghost btn-sm mt-4" onClick={() => { setFile(null); setPreview(null); }}>
+            <button
+              className="btn btn-sm mt-12"
+              onClick={() => { setFile(null); setPreview(null); }}
+              style={{ background: 'rgba(255,69,58,0.12)', color: 'var(--error)', border: '1px solid rgba(255,69,58,0.3)' }}
+            >
               Remove Photo
             </button>
           </div>

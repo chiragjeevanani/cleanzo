@@ -66,9 +66,9 @@ function SlotCard({ slot: s, selected, onSelect, prioritySlotFee }) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Clock size={16} style={{ color: accentColor }} />
-          <span style={{ fontWeight: 700 }}>{s.timeWindow}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Clock size={16} style={{ color: accentColor, flexShrink: 0 }} />
+          <span style={{ fontWeight: 700, lineHeight: 1 }}>{s.timeWindow}</span>
         </div>
         <span style={{
           fontSize: 9, fontWeight: 800, letterSpacing: '0.05em',
@@ -818,7 +818,7 @@ export default function BookingFlow() {
 
                       {/* Trial date picker inline */}
                       {selectedPkg?.isTrial && (
-                        <div className="animate-slide-up flex flex-col gap-10" style={{ marginTop: 4 }}>
+                        <div className="animate-slide-up flex flex-col gap-10" style={{ marginTop: 20 }}>
                           <p className="text-label" style={{ color: 'var(--text-tertiary)', fontSize: 10, paddingLeft: 4, fontWeight: 700, letterSpacing: '0.06em' }}>
                             CHOOSE TRIAL DATE
                           </p>
@@ -937,7 +937,7 @@ export default function BookingFlow() {
               </>
             )}
 
-            <div className="flex gap-12 mt-4">
+            <div className="flex gap-12 mt-24">
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 16 }} onClick={() => setStep(0)}>Back</button>
               <button
                 disabled={!selectedSlot || (activeOverride && !overrideReason.trim())}
@@ -1004,8 +1004,8 @@ export default function BookingFlow() {
                         <MapPin size={12} /> Parking: {selectedVehicle?.slotPillar || selectedVehicle?.parking}
                       </div>
                     )}
-                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
-                      <Clock size={12} /> {selectedSlot?.timeWindow}
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                      <Clock size={12} style={{ flexShrink: 0 }} /> {selectedSlot?.timeWindow}
                     </div>
                   </div>
                   {selectedPkg?.isTrial && selectedTrialDate && (

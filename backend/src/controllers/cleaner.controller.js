@@ -320,19 +320,28 @@ export const submitKyc = asyncHandler(async (req, res) => {
     uploadBufferToCloudinary(req.files.pan[0].buffer, kycFolder)
   ]);
 
+  // City is the cleaner's working city — it drives the city-boundary used by
+  // society/subscription assignment, so capture (and require) it at KYC time.
+  const { city, currentAddress } = req.body;
+  if (!city || !city.trim()) {
+    throw new ApiError(400, 'Please select your city for KYC');
+  }
+
   const cleaner = await Cleaner.findByIdAndUpdate(
     req.user._id,
     {
       avatar: livePhotoUrl,          // Live photo also becomes profile picture
       kycStatus: 'pending',
       kycRejectionNote: null,
+      city: city.trim(),
+      ...(currentAddress ? { currentAddress: currentAddress.trim() } : {}),
       'kyc.livePhoto':    livePhotoUrl,
       'kyc.aadhaarPhoto': aadhaarUrl,
       'kyc.panPhoto':     panUrl,
       'kyc.submittedAt':  new Date(),
     },
-    { returnDocument: 'after' }
-  ).select('kycStatus kyc avatar name');
+    { returnDocument: 'after', runValidators: true }
+  ).select('kycStatus kyc avatar name city');
 
   // ── Push Notification to Admin: KYC submitted ──
   try {

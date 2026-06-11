@@ -21,6 +21,9 @@ router.post('/users', ctrl.createUser);
 router.get('/users/:id', ctrl.getUserById);
 router.put('/users/:id', ctrl.updateUser);
 router.delete('/users/:id', ctrl.deleteUser);
+// Admin acting on behalf of a user
+router.post('/users/:id/vehicles', upload.array('photos', 5), ctrl.createUserVehicle);
+router.post('/users/:id/subscriptions', ctrl.createUserSubscription);
 
 router.get('/cleaners', ctrl.getCleaners);
 router.post('/cleaners', ctrl.addCleaner);
@@ -55,6 +58,7 @@ router.delete('/coupons/:id', ctrl.deleteCoupon);
 
 router.get('/subscriptions', ctrl.getAllSubscriptions);
 router.put('/subscriptions/:subscriptionId/assign-cleaner', ctrl.assignCleanerToSubscription);
+router.put('/subscriptions/:subscriptionId/cancel', ctrl.cancelSubscription);
 
 router.get('/revenue', ctrl.getRevenue);
 

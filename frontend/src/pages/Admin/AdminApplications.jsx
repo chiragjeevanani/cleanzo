@@ -14,10 +14,22 @@ export default function AdminApplications() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  // Society assignment is required to approve an existing cleaner's KYC.
+  const [societies, setSocieties] = useState([]);
+  const [selectedSocietyId, setSelectedSocietyId] = useState('');
 
   useEffect(() => {
     fetchApplications();
+    apiClient.get('/admin/societies')
+      .then(res => setSocieties((res.societies || []).filter(s => s.isActive)))
+      .catch(() => {});
   }, []);
+
+  // Societies in the same city as the applicant (the hard city boundary).
+  const sameCity = (a, b) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+  const citySocieties = selectedApp
+    ? societies.filter(s => sameCity(s.city, selectedApp.city))
+    : [];
 
   const fetchApplications = async () => {
     try {
@@ -41,17 +53,20 @@ export default function AdminApplications() {
 
     try {
       setProcessing(true);
-      const res = await apiClient.put(endpoint, { 
-        status, 
-        rejectionNote: reason || rejectionReason 
+      const res = await apiClient.put(endpoint, {
+        status,
+        rejectionNote: reason || rejectionReason,
+        // Only the KYC path consumes societyId; harmless for applications.
+        ...(status === 'approved' && app.isExistingCleaner ? { societyId: selectedSocietyId } : {}),
       });
-      
+
       if (res.success) {
-        setApplications(prev => prev.map(item => 
+        setApplications(prev => prev.map(item =>
           item._id === id ? { ...item, status, rejectionNote: reason || rejectionReason } : item
         ));
         setIsRejecting(false);
         setRejectionReason('');
+        setSelectedSocietyId('');
         setShowModal(false);
       }
     } catch (err) {
@@ -160,12 +175,21 @@ export default function AdminApplications() {
                 </td>
                 <td>
                   <div className="flex justify-end gap-8">
-                    <button className="btn-icon btn-glass" onClick={() => { setSelectedApp(app); setIsRejecting(false); setShowModal(true); }}>
+                    <button className="btn-icon btn-glass" onClick={() => { setSelectedApp(app); setIsRejecting(false); setSelectedSocietyId(''); setShowModal(true); }}>
                       <Eye size={16} />
                     </button>
                     {app.status === 'pending' && (
                       <>
-                        <button className="btn-icon btn-glass" style={{ color: 'var(--accent-lime)' }} onClick={() => handleStatusUpdate(app, 'approved')}>
+                        <button
+                          className="btn-icon btn-glass"
+                          style={{ color: 'var(--accent-lime)' }}
+                          title={app.isExistingCleaner ? 'Assign a society to approve' : 'Approve'}
+                          onClick={() => {
+                            // KYC approval needs a same-city society → open the modal.
+                            if (app.isExistingCleaner) { setSelectedApp(app); setIsRejecting(false); setSelectedSocietyId(''); setShowModal(true); }
+                            else handleStatusUpdate(app, 'approved');
+                          }}
+                        >
                           <Check size={16} />
                         </button>
                         <button className="btn-icon btn-glass text-error" onClick={() => { setSelectedApp(app); setIsRejecting(true); setShowModal(true); }}>
@@ -326,11 +350,40 @@ export default function AdminApplications() {
                 </div>
               </div>
             ) : selectedApp.status === 'pending' ? (
-              <div className="flex justify-end gap-16 pt-32 border-t border-divider">
-                <button className="btn btn-outline text-error" onClick={() => setIsRejecting(true)}>Reject Candidate</button>
-                <button className="btn btn-primary" disabled={processing} onClick={() => handleStatusUpdate(selectedApp, 'approved')}>
-                  {processing ? 'Processing...' : selectedApp.isExistingCleaner ? 'Approve KYC' : 'Approve & Create Account'}
-                </button>
+              <div className="pt-32 border-t border-divider">
+                {selectedApp.isExistingCleaner && (
+                  <div style={{ marginBottom: 20 }}>
+                    <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
+                      ASSIGN SOCIETY (in {selectedApp.city}) *
+                    </label>
+                    <select
+                      className="input-field"
+                      value={selectedSocietyId}
+                      onChange={e => setSelectedSocietyId(e.target.value)}
+                      style={{ width: '100%' }}
+                    >
+                      <option value="">Select a society…</option>
+                      {citySocieties.map(s => (
+                        <option key={s._id} value={s._id}>{s.name} — {s.area || s.city}</option>
+                      ))}
+                    </select>
+                    {citySocieties.length === 0 && (
+                      <p style={{ fontSize: 12, color: '#F59E0B', marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <AlertCircle size={14} /> No active society exists in {selectedApp.city}. Create one before approving.
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div className="flex justify-end gap-16">
+                  <button className="btn btn-outline text-error" onClick={() => setIsRejecting(true)}>Reject Candidate</button>
+                  <button
+                    className="btn btn-primary"
+                    disabled={processing || (selectedApp.isExistingCleaner && !selectedSocietyId)}
+                    onClick={() => handleStatusUpdate(selectedApp, 'approved')}
+                  >
+                    {processing ? 'Processing...' : selectedApp.isExistingCleaner ? 'Approve KYC' : 'Approve & Create Account'}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex justify-between items-center pt-32 border-t border-divider">

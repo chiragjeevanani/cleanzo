@@ -87,7 +87,7 @@ export default function Marketplace() {
   if (orderStatus === 'success') {
     return (
       <div className="app-shell flex flex-col items-center justify-center p-40 text-center animate-fade-in">
-        <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'rgba(223, 255, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+        <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'rgba(var(--bg-accent-rgb), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
           <CheckCircle size={60} color="var(--accent-lime)" />
         </div>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, marginBottom: 12 }}>Order Placed!</h2>
@@ -101,7 +101,7 @@ export default function Marketplace() {
   return (
     <div className="app-shell animate-fade-in">
       {/* Header */}
-      <div className="app-header" style={{ padding: '24px var(--margin-side)', background: 'transparent' }}>
+      <div className="app-header" style={{ padding: '24px var(--margin-side)', background: 'var(--bg-primary)' }}>
         <div>
           <div className="text-body-sm text-secondary font-medium">Cleanzo Store</div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', marginTop: 2 }}>Marketplace</h1>

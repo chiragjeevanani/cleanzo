@@ -162,12 +162,17 @@ export default function HeroSection({ bgImageUrl, heroReady }) {
               <form onSubmit={handleCheck} className="search-group">
                 <div style={{ position: 'relative', flex: 1 }}>
                   {searchMode === 'name' ? <Search size={18} className="search-icon" /> : <MapPin size={18} className="search-icon" />}
-                    <input 
-                      type="text" 
-                      placeholder={searchMode === 'name' ? "Enter your society name..." : "Enter your 6-digit pincode..."} 
+                    <input
+                      type="text"
+                      inputMode={searchMode === 'pincode' ? 'numeric' : 'text'}
+                      maxLength={searchMode === 'pincode' ? 6 : undefined}
+                      placeholder={searchMode === 'name' ? "Enter your society name..." : "Enter your 6-digit pincode..."}
                       className="society-input"
                       value={query}
-                      onChange={(e) => { setQuery(e.target.value); setShowStatus(null); setShowSuggestions(true); }}
+                      onChange={(e) => {
+                        const val = searchMode === 'pincode' ? e.target.value.replace(/\D/g, '').slice(0, 6) : e.target.value;
+                        setQuery(val); setShowStatus(null); setShowSuggestions(true);
+                      }}
                       onFocus={() => setShowSuggestions(true)}
                     />
                     {showSuggestions && suggestions.length > 0 && (

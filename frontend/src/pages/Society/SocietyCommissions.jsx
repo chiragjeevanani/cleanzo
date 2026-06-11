@@ -34,6 +34,18 @@ export default function SocietyCommissions() {
   const [ifscCode, setIfscCode] = useState('')
   const [upiId, setUpiId] = useState('')
 
+  // Close the payout modal and clear any unsaved form input (bug 67).
+  const closeWithdrawModal = () => {
+    setShowWithdrawModal(false)
+    setWithdrawAmount('')
+    setPayoutMethod('bank')
+    setAccountName('')
+    setAccountNumber('')
+    setBankName('')
+    setIfscCode('')
+    setUpiId('')
+  }
+
   const fetchData = async () => {
     try {
       setLoading(true)
@@ -181,7 +193,7 @@ export default function SocietyCommissions() {
         <div className="glass premium-gradient" style={{ padding: 24, display: 'flex', gap: 16, alignItems: 'center' }}>
           <div style={{
             width: 48, height: 48, borderRadius: 12,
-            background: 'rgba(223, 255, 0, 0.1)', color: 'var(--accent-lime)',
+            background: 'rgba(var(--bg-accent-rgb), 0.1)', color: 'var(--accent-lime)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
           }}>
             <DollarSign size={24} />
@@ -376,13 +388,13 @@ export default function SocietyCommissions() {
 
       {/* WITHDRAW MODAL */}
       {showWithdrawModal && (
-        <div className="modal-overlay" onClick={() => setShowWithdrawModal(false)}>
+        <div className="modal-overlay" onClick={closeWithdrawModal}>
           <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>
                 Request Payout
               </h3>
-              <button className="btn-icon btn-glass" onClick={() => setShowWithdrawModal(false)}>&times;</button>
+              <button className="btn-icon btn-glass" onClick={closeWithdrawModal}>&times;</button>
             </div>
 
             <form onSubmit={handleWithdrawSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -463,7 +475,7 @@ export default function SocietyCommissions() {
                       placeholder="Account holder name"
                       className="input-field"
                       value={accountName}
-                      onChange={e => setAccountName(e.target.value)}
+                      onChange={e => setAccountName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
                     />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -474,8 +486,10 @@ export default function SocietyCommissions() {
                         required={payoutMethod === 'bank'}
                         placeholder="Account number"
                         className="input-field"
+                        inputMode="numeric"
+                        maxLength={18}
                         value={accountNumber}
-                        onChange={e => setAccountNumber(e.target.value)}
+                        onChange={e => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 18))}
                       />
                     </div>
                     <div>
@@ -485,8 +499,9 @@ export default function SocietyCommissions() {
                         required={payoutMethod === 'bank'}
                         placeholder="IFSC code"
                         className="input-field"
+                        maxLength={11}
                         value={ifscCode}
-                        onChange={e => setIfscCode(e.target.value)}
+                        onChange={e => setIfscCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))}
                       />
                     </div>
                   </div>
@@ -498,7 +513,7 @@ export default function SocietyCommissions() {
                       placeholder="Bank name"
                       className="input-field"
                       value={bankName}
-                      onChange={e => setBankName(e.target.value)}
+                      onChange={e => setBankName(e.target.value.replace(/[^a-zA-Z\s&.]/g, ''))}
                     />
                   </div>
                 </div>
@@ -518,11 +533,11 @@ export default function SocietyCommissions() {
               )}
 
               <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-                <button 
-                  type="button" 
-                  className="btn btn-glass" 
-                  style={{ flex: 1 }} 
-                  onClick={() => setShowWithdrawModal(false)}
+                <button
+                  type="button"
+                  className="btn btn-glass"
+                  style={{ flex: 1 }}
+                  onClick={closeWithdrawModal}
                 >
                   Cancel
                 </button>

@@ -139,7 +139,7 @@ export default function TaskDetail() {
                   <>
                     <img src={photoUrl} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} />
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: 10, padding: '4px 0', fontWeight: 600 }}>{label.toUpperCase()}</div>
-                    <div style={{ position: 'absolute', top: 8, right: 8, background: 'var(--success)', borderRadius: '50%', padding: 4 }}>
+                    <div style={{ position: 'absolute', top: 8, right: 8, background: 'var(--success)', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <CheckCircle2 size={12} color="white" />
                     </div>
                   </>

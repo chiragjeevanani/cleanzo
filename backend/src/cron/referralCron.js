@@ -7,8 +7,10 @@ import Notification from '../models/Notification.js';
 import Society from '../models/Society.js';
 import LeaveRequest from '../models/LeaveRequest.js';
 import Admin from '../models/Admin.js';
+import Activity from '../models/Activity.js';
 import { getISTMidnight } from '../utils/dateHelper.js';
 import { sendPushNotification } from '../services/fcm.service.js';
+import { buildCityCleanerPool } from '../services/assignment.service.js';
 
 // ─── Job 1: Expire referral discounts (midnight) ──────────────────────────────
 export const expireReferralDiscounts = async () => {
@@ -78,7 +80,7 @@ export const createDailyTasks = async () => {
     const activeSubs = await Subscription.find({ status: 'Active' })
       .populate('package', 'name')
       .populate('assignedCleaner', '_id isActive isAvailable')
-      .populate('society', 'slots cleaners'); // cleaners needed for auto-assignment
+      .populate('society', 'slots cleaners city name'); // city needed for the city boundary
 
     if (activeSubs.length === 0) {
       console.log('[CRON] No active subscriptions — skipping task creation');
@@ -173,6 +175,10 @@ export const createDailyTasks = async () => {
 
     console.log(`[CRON][AUTO-ASSIGN] Unassigned pending tasks today: ${allUnassignedTasks.length}`);
 
+    // Tasks left unassigned because no cleaner exists in the society's city.
+    // Hoisted here so the admin-alert block below can report per-city gaps.
+    const gapByCity = new Map(); // city → unassigned task count
+
     if (allUnassignedTasks.length > 0) {
       // Map subscriptionId → full subscription object for society lookup
       const subMap = new Map(activeSubs.map(s => [s._id.toString(), s]));
@@ -181,91 +187,84 @@ export const createDailyTasks = async () => {
       // to avoid string-to-ObjectId casting issues in Mongoose 8.x queries.
       // Subscriptions without a society go into the '__no_society__' bucket.
       const NO_SOCIETY_KEY = '__no_society__';
-      const bySociety = new Map(); // societyId string → { societyObjId, tasks[] }
+      const bySociety = new Map(); // societyId string → { societyObjId, city, name, tasks[] }
       for (const task of allUnassignedTasks) {
         const sub = subMap.get(task.subscription.toString());
         const society = sub?.society;
         if (!society?._id) {
           if (!bySociety.has(NO_SOCIETY_KEY)) {
-            bySociety.set(NO_SOCIETY_KEY, { societyObjId: null, tasks: [] });
+            bySociety.set(NO_SOCIETY_KEY, { societyObjId: null, city: null, name: null, tasks: [] });
           }
           bySociety.get(NO_SOCIETY_KEY).tasks.push(task);
           continue;
         }
         const societyId = society._id.toString();
         if (!bySociety.has(societyId)) {
-          bySociety.set(societyId, { societyObjId: society._id, tasks: [] });
+          bySociety.set(societyId, { societyObjId: society._id, city: society.city, name: society.name, tasks: [] });
         }
         bySociety.get(societyId).tasks.push(task);
       }
 
       console.log(`[CRON][AUTO-ASSIGN] Grouped into ${bySociety.size} bucket(s)${bySociety.has(NO_SOCIETY_KEY) ? ` (incl. ${bySociety.get(NO_SOCIETY_KEY).tasks.length} task(s) with no society)` : ''}`);
 
-      // Pre-fetch global fallback pool once (used for no-society + empty-candidate societies)
-      const globalEligible = await Cleaner.find({
-        isActive: true,
-        isAvailable: true,
-      }).select('_id name').lean();
-      const globalNotOnLeave = globalEligible.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
-      console.log(`[CRON][AUTO-ASSIGN] Global fallback pool: ${globalEligible.length} eligible, ${globalNotOnLeave.length} not on leave`);
+      // City-scoped pool cache — one query per distinct city (HARD city boundary:
+      // a cleaner is only ever assigned to a society in the SAME city).
+      const cityPools = new Map(); // lowercased city → Array<{_id,name,city}>
+      const getCityPool = async (city) => {
+        if (!city) return [];
+        const key = city.trim().toLowerCase();
+        if (!cityPools.has(key)) {
+          cityPools.set(key, await buildCityCleanerPool(city, cleanersOnLeaveToday));
+        }
+        return cityPools.get(key);
+      };
 
       let autoAssignedCount = 0;
 
-      for (const [societyId, { societyObjId, tasks }] of bySociety) {
+      for (const [societyId, { societyObjId, city, name, tasks }] of bySociety) {
         const isNoSociety = societyId === NO_SOCIETY_KEY;
-        const label = isNoSociety ? 'NO_SOCIETY' : societyId;
+        const label = isNoSociety ? 'NO_SOCIETY' : `${name || societyId} (${city || 'no city'})`;
         console.log(`[CRON][AUTO-ASSIGN] Bucket ${label}: ${tasks.length} task(s) need a cleaner`);
+
+        // Legacy subscriptions without a society have no derivable city — we
+        // cannot honour the city boundary, so leave them for manual assignment.
+        if (isNoSociety) {
+          console.warn(`[CRON][AUTO-ASSIGN] Bucket ${label}: no society/city — leaving ${tasks.length} task(s) unassigned`);
+          continue;
+        }
+
+        // Full pool of cleaners in this society's city (the hard boundary).
+        const cityPool = await getCityPool(city);
 
         let notOnLeave;
 
-        if (isNoSociety) {
-          // No society → use global fallback pool directly
-          console.log(`[CRON][AUTO-ASSIGN] Bucket ${label}: using global fallback pool`);
-          notOnLeave = [...globalNotOnLeave]; // clone so sort doesn't affect other buckets
-        } else {
-          // ── Source 1: cleaners from active subscriptions in this society ─────
-          const fromSubs = await Subscription.distinct('assignedCleaner', {
-            society: societyObjId,
-            status: 'Active',
-            assignedCleaner: { $exists: true, $ne: null },
-          });
+        // ── Source 1: cleaners from active subscriptions in this society ─────
+        const fromSubs = await Subscription.distinct('assignedCleaner', {
+          society: societyObjId,
+          status: 'Active',
+          assignedCleaner: { $exists: true, $ne: null },
+        });
 
-          // ── Source 2: society.cleaners[] admin-managed list ──────────────────
-          const societyDoc = await Society.findById(societyObjId).select('cleaners').lean();
-          const fromSocietyList = (societyDoc?.cleaners || []).map(c => c.toString());
+        // ── Source 2: society.cleaners[] admin-managed list ──────────────────
+        const societyDoc = await Society.findById(societyObjId).select('cleaners').lean();
+        const fromSocietyList = (societyDoc?.cleaners || []).map(c => c.toString());
 
-          const candidateIds = [...new Set([
-            ...fromSubs.map(id => id.toString()),
-            ...fromSocietyList,
-          ])];
+        const candidateIds = new Set([
+          ...fromSubs.map(id => id.toString()),
+          ...fromSocietyList,
+        ]);
 
-          console.log(`[CRON][AUTO-ASSIGN] Society ${label}: ${candidateIds.length} candidate(s) — fromSubs=${fromSubs.length}, fromSocietyList=${fromSocietyList.length}`);
+        // Prefer the society's own cleaners, but ONLY those inside the city pool
+        // (a cleaner who moved cities must not slip through via a stale list).
+        const preferred = cityPool.filter(c => candidateIds.has(c._id.toString()));
+        console.log(`[CRON][AUTO-ASSIGN] Society ${label}: cityPool=${cityPool.length}, preferred=${preferred.length}`);
 
-          if (candidateIds.length === 0) {
-            // Fall back to global pool instead of skipping
-            console.warn(`[CRON][AUTO-ASSIGN] Society ${label}: no society-specific cleaners found — falling back to global pool`);
-            notOnLeave = [...globalNotOnLeave];
-          } else {
-            // Filter: active, available, not on approved leave today
-            const eligible = await Cleaner.find({
-              _id: { $in: candidateIds },
-              isActive: true,
-              isAvailable: true,
-            }).select('_id name').lean();
-
-            notOnLeave = eligible.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
-            console.log(`[CRON][AUTO-ASSIGN] Society ${label}: eligible=${eligible.length}, notOnLeave=${notOnLeave.length}`);
-
-            if (notOnLeave.length === 0) {
-              // Society-specific cleaners all unavailable → fall back to global pool
-              console.warn(`[CRON][AUTO-ASSIGN] Society ${label}: no available society cleaners — falling back to global pool`);
-              notOnLeave = [...globalNotOnLeave];
-            }
-          }
-        }
+        // Fall back to the WHOLE city pool (never a cross-city global pool).
+        notOnLeave = preferred.length > 0 ? [...preferred] : [...cityPool];
 
         if (notOnLeave.length === 0) {
-          console.warn(`[CRON][AUTO-ASSIGN] Bucket ${label}: NO cleaners available at all (even global pool empty) — skipping`);
+          console.warn(`[CRON][AUTO-ASSIGN] Bucket ${label}: no cleaner in city "${city}" — leaving ${tasks.length} task(s) unassigned`);
+          if (city) gapByCity.set(city, (gapByCity.get(city) || 0) + tasks.length);
           continue;
         }
 
@@ -323,20 +322,39 @@ export const createDailyTasks = async () => {
       status: 'pending',
     });
     if (unassignedCount > 0) {
+      // Per-city breakdown of the city-boundary gaps (no cleaner in that city).
+      const gapCities = [...gapByCity.entries()];
+      const cityBreakdown = gapCities.length
+        ? ` No cleaner available in: ${gapCities.map(([c, n]) => `${c} (${n})`).join(', ')}.`
+        : '';
+
       try {
         const admins = await Admin.find({ fcmTokens: { $exists: true, $ne: [] } }).select('fcmTokens');
         const adminTokens = admins.flatMap(a => a.fcmTokens || []);
         if (adminTokens.length) {
           await sendPushNotification(adminTokens, {
             title: '⚠️ Unassigned Tasks Today',
-            body: `${unassignedCount} subscription${unassignedCount > 1 ? 's have' : ' has'} no cleaner assigned for today. Please assign cleaners.`,
+            body: `${unassignedCount} subscription${unassignedCount > 1 ? 's have' : ' has'} no cleaner assigned for today.${cityBreakdown} Please assign cleaners.`,
             data: { type: 'unassigned_tasks', link: '/admin/subscriptions' },
           });
         }
       } catch (alertErr) {
         console.error('[CRON] Failed to send unassigned tasks alert:', alertErr.message);
       }
-      console.warn(`[CRON] ⚠️  ${unassignedCount} task(s) created without a cleaner`);
+
+      // Flag city-coverage gaps in the activity feed so admins can hire/assign.
+      if (gapCities.length) {
+        try {
+          await Activity.create({
+            type: 'system',
+            message: `Cleaner coverage gap — unassigned tasks by city: ${gapCities.map(([c, n]) => `${c} (${n})`).join(', ')}`,
+            metadata: { gapByCity: Object.fromEntries(gapCities), total: unassignedCount },
+          });
+        } catch (logErr) {
+          console.error('[CRON] Failed to log coverage gap activity:', logErr.message);
+        }
+      }
+      console.warn(`[CRON] ⚠️  ${unassignedCount} task(s) created without a cleaner.${cityBreakdown}`);
     }
   } catch (err) {
     console.error('[CRON] Task creation error:', err.message);
@@ -384,7 +402,14 @@ export const sendReminders = async () => {
     if (expiringSubs.length > 0) {
       // Dedup: skip customers who already received this reminder today so that a
       // server restart or manual re-run does not flood them with duplicates.
-      const todayStart = getISTMidnight();
+      //
+      // `createdAt` is a real UTC instant, but getISTMidnight() returns the IST
+      // calendar date as a UTC-midnight marker (shifted +5:30 from the real start
+      // of the IST day). Comparing the two directly misses notifications created
+      // between 00:00–05:30 IST. Convert the marker back to the real IST-day
+      // window so the comparison is instant-vs-instant.
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      const todayStart = new Date(getISTMidnight().getTime() - IST_OFFSET_MS);
       const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
       const alreadyRemindedIds = await Notification.distinct('recipient', {
         type: 'subscription',

@@ -286,7 +286,7 @@ export default function AdminAttendance() {
                 setShowFilters(false)
               }}
               className="btn-glass"
-              style={{ width: '100%', padding: '10px 0', borderRadius: 10, fontWeight: 700, fontSize: 13 }}
+              style={{ padding: '10px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}
             >
               Clear Filters
             </button>

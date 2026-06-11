@@ -132,13 +132,32 @@ describe('ADMIN-2..3 | Cleaner application approval', () => {
 
 // ─── KYC REVIEW ──────────────────────────────────────────────────────────────
 describe('ADMIN-4..5 | Cleaner KYC review', () => {
-  it('ADMIN-5: approves KYC and clears rejection note', async () => {
+  it('ADMIN-5: approves KYC with a same-city society and links the cleaner', async () => {
     const { token } = await createAdmin();
-    const { cleaner } = await createCleaner({ kycStatus: 'pending' });
+    const { cleaner } = await createCleaner({ kycStatus: 'pending', city: 'Mumbai' });
+    const society = await createSociety({ city: 'Mumbai' });
 
-    const res = await api.put(`/api/admin/cleaner-kyc/${cleaner._id}`).set(authHeader(token)).send({ status: 'approved' });
+    const res = await api.put(`/api/admin/cleaner-kyc/${cleaner._id}`).set(authHeader(token)).send({ status: 'approved', societyId: society._id });
     expect(res.status).toBe(200);
     expect(res.body.cleaner.kycStatus).toBe('approved');
+
+    const updatedSociety = await Society.findById(society._id);
+    expect(updatedSociety.cleaners.map(c => c.toString())).toContain(cleaner._id.toString());
+  });
+
+  it('ADMIN-5: approving KYC without a society returns 400', async () => {
+    const { token } = await createAdmin();
+    const { cleaner } = await createCleaner({ kycStatus: 'pending' });
+    const res = await api.put(`/api/admin/cleaner-kyc/${cleaner._id}`).set(authHeader(token)).send({ status: 'approved' });
+    expect(res.status).toBe(400);
+  });
+
+  it('ADMIN-5: approving KYC with a different-city society returns 400 (city boundary)', async () => {
+    const { token } = await createAdmin();
+    const { cleaner } = await createCleaner({ kycStatus: 'pending', city: 'Noida' });
+    const society = await createSociety({ city: 'Pune' });
+    const res = await api.put(`/api/admin/cleaner-kyc/${cleaner._id}`).set(authHeader(token)).send({ status: 'approved', societyId: society._id });
+    expect(res.status).toBe(400);
   });
 
   it('ADMIN-4: rejects KYC without note returns 400', async () => {
@@ -398,6 +417,36 @@ describe('ADMIN | Subscriptions and Revenue', () => {
     expect(res.body.summary.length).toBe(3);
     expect(Array.isArray(res.body.chartData)).toBe(true);
     expect(Array.isArray(res.body.topCustomers)).toBe(true);
+  });
+
+  it('POST /maintenance/assign-all-cleaners with societyIds only assigns scoped societies', async () => {
+    const { token } = await createAdmin();
+    await createCleaner({ city: 'Mumbai' });
+    await createCleaner({ city: 'Mumbai' });
+    const societyA = await createSociety({ city: 'Mumbai', name: 'Society A' });
+    const societyB = await createSociety({ city: 'Mumbai', name: 'Society B' });
+    const { customer } = await createCustomer();
+    const { createVehicle } = await import('./helpers.js');
+    const vehicle = await createVehicle(customer._id);
+
+    const yesterday = new Date(Date.now() - 86400000);
+    const base = {
+      customer: customer._id, vehicle: vehicle._id, isTrial: false,
+      slot: '06_07_AM', startDate: yesterday, endDate: new Date(Date.now() + 30 * 86400000),
+      totalDays: 30, remainingDays: 30, amount: 399, status: 'Active', assignedCleaner: null,
+    };
+    const subA = await Subscription.create({ ...base, society: societyA._id });
+    const subB = await Subscription.create({ ...base, society: societyB._id });
+
+    const res = await api.post('/api/admin/maintenance/assign-all-cleaners')
+      .set(authHeader(token))
+      .send({ societyIds: [societyA._id] });
+    expect(res.status).toBe(200);
+
+    const updatedA = await Subscription.findById(subA._id);
+    const updatedB = await Subscription.findById(subB._id);
+    expect(updatedA.assignedCleaner).not.toBeNull();   // scoped society assigned
+    expect(updatedB.assignedCleaner).toBeNull();        // out-of-scope society untouched
   });
 });
 

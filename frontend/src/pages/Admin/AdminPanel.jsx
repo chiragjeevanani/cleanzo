@@ -219,7 +219,7 @@ export default function AdminPanel() {
       {/* Main */}
       <div className="admin-main" style={{ marginLeft: isMobile ? 0 : (sidebarOpen ? 240 : 0), transition: 'margin-left var(--transition)' }}>
         {/* Top bar */}
-        <div className="flex justify-between items-center" style={{ marginBottom: 32 }}>
+        <div className="flex justify-between items-center" style={{ marginBottom: 32, position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-primary)', paddingTop: 12, paddingBottom: 12 }}>
           <div className="flex items-center gap-16">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="btn-icon btn-glass">
               {sidebarOpen ? <X size={20} /> : <Menu size={20} />}

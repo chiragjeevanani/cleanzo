@@ -349,6 +349,11 @@ export default function AdminSocieties() {
       return
     }
 
+    if ((formData.slots || []).some(s => s.timeWindow?.trim() && (!Number(s.maxVehicles) || Number(s.maxVehicles) < 1))) {
+      showToast('Slot capacity (Max Vehicles) must be at least 1.', 'error')
+      return
+    }
+
     setSaving(true)
     try {
       const cleanedTowers = (formData.towers || []).map(t => ({
@@ -794,10 +799,7 @@ export default function AdminSocieties() {
                   ).map(c => (
                     <tr key={c._id}>
                       <td style={{ fontWeight: 600 }}>
-                        <div className="flex items-center gap-10">
-                          <div className="icon-circle-sm" style={{ background: 'var(--bg-elevated)' }}><Globe size={14} /></div>
-                          {c.name}
-                        </div>
+                        {c.name}
                       </td>
                       <td>{c.state}</td>
                       <td>{c.launchDate ? new Date(c.launchDate).toLocaleDateString() : 'N/A'}</td>
@@ -896,10 +898,7 @@ export default function AdminSocieties() {
                   ) : filteredSocieties.map(s => (
                     <tr key={s._id}>
                       <td style={{ fontWeight: 600 }}>
-                        <div className="flex items-center gap-10">
-                          <div className="icon-circle-sm" style={{ background: 'var(--bg-elevated)' }}><Building2 size={14} /></div>
-                          {s.name}
-                        </div>
+                        {s.name}
                       </td>
                       <td>
                         <div className="flex flex-col">
@@ -1244,14 +1243,15 @@ export default function AdminSocieties() {
                                onChange={e => handleSlotChange(idx, 'timeWindow', e.target.value)} 
                                placeholder="Time Window (e.g. 05:00 AM - 06:00 AM)" 
                             />
-                            <input 
-                               required 
-                               type="number" 
-                               className="input-field" 
-                               style={{ flex: 0.8, minWidth: 80 }} 
-                               value={slot.maxVehicles} 
-                               onChange={e => handleSlotChange(idx, 'maxVehicles', Number(e.target.value))} 
-                               placeholder="Max Vehicles" 
+                            <input
+                               required
+                               type="number"
+                               min="1"
+                               className="input-field"
+                               style={{ flex: 0.8, minWidth: 80 }}
+                               value={slot.maxVehicles}
+                               onChange={e => handleSlotChange(idx, 'maxVehicles', Number(e.target.value))}
+                               placeholder="Max Vehicles"
                                title="Max Vehicles capacity"
                             />
                             <select 
@@ -1301,7 +1301,7 @@ export default function AdminSocieties() {
 
                 <div className="span-2 pt-16 flex justify-end gap-12" style={{ borderTop: '1px solid var(--divider)', marginTop: 16, display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                    <button type="button" className="btn btn-glass" style={{ padding: '10px 24px', borderRadius: 12, fontSize: 14, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowModal(false)}>Cancel</button>
-                   <button disabled={saving} type="submit" className="btn btn-primary" style={{ padding: '10px 24px', borderRadius: 12, fontSize: 14, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent-lime)', color: '#000', fontWeight: 600 }}>{saving ? 'Saving...' : 'Save Society'}</button>
+                   <button disabled={saving} type="submit" className="btn btn-primary" style={{ padding: '10px 24px', borderRadius: 12, fontSize: 14, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-accent)', color: 'var(--text-on-accent)', fontWeight: 600 }}>{saving ? 'Saving...' : 'Save Society'}</button>
                 </div>
              </form>
           </div>

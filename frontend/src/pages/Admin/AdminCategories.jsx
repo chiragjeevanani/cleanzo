@@ -260,13 +260,14 @@ export default function AdminCategories() {
               <div className="grid-2 gap-20">
                 <div className="flex flex-col gap-8">
                   <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>SORT ORDER</label>
-                  <input 
-                    type="number" 
-                    className="input-field" 
+                  <input
+                    type="number"
+                    min="0"
+                    className="input-field"
                     style={{ background: 'var(--bg-glass)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
-                    value={formData.sortOrder} 
-                    onChange={e => setFormData({ ...formData, sortOrder: e.target.value })} 
-                    placeholder="0" 
+                    value={formData.sortOrder}
+                    onChange={e => setFormData({ ...formData, sortOrder: Math.max(0, parseInt(e.target.value) || 0) })}
+                    placeholder="0"
                   />
                 </div>
 

@@ -1,7 +1,7 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Calendar, SkipForward, Clock, TrendingUp } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Calendar, SkipForward, Clock, TrendingUp, XCircle, PhoneCall, Mail, X } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 
@@ -12,6 +12,14 @@ export default function SubscriptionDetail() {
   const [subscription, setSubscription] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showCancel, setShowCancel] = useState(false)
+  const [support] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cleanzo_cms_support')
+      if (cached) return JSON.parse(cached)
+    } catch (e) { /* ignore */ }
+    return { whatsapp: '919555860362', phone: '+919555860362', email: 'hello@trycleanzo.com' }
+  })
 
   useEffect(() => {
     const fetchSub = async () => {
@@ -141,8 +149,63 @@ export default function SubscriptionDetail() {
             <Link to={`/customer/packages?vehicleId=${subscription.vehicle?._id}&upgrade=true`} className="btn glass w-full" style={{ border: '1px dashed var(--border-glass)' }}>
               Upgrade Plan
             </Link>
+            <button
+              className="btn btn-ghost w-full"
+              style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              onClick={() => setShowCancel(true)}
+            >
+              <XCircle size={16} /> Cancel Plan
+            </button>
           </div>
         </>
+      )}
+
+      {/* Cancel Plan — contact customer care modal */}
+      {showCancel && (
+        <div
+          onClick={() => setShowCancel(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="glass animate-fade-in-up"
+            style={{ maxWidth: 360, width: '100%', borderRadius: 24, padding: 28, position: 'relative' }}
+          >
+            <button
+              onClick={() => setShowCancel(false)}
+              style={{ position: 'absolute', top: 16, right: 16, background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0 }}
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
+
+            <div style={{ width: 56, height: 56, borderRadius: 18, background: 'rgba(255,85,85,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <PhoneCall size={26} color="#ff5555" />
+            </div>
+
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Cancel Subscription</h3>
+            <p className="text-secondary text-body-sm" style={{ lineHeight: 1.6, marginBottom: 24 }}>
+              To cancel your plan, please contact our customer care team. Reach out using the details below and our team will help you with the cancellation.
+            </p>
+
+            <div className="flex flex-col gap-12">
+              <a
+                href={`tel:${(support.phone || '').replace(/\s/g, '')}`}
+                className="btn btn-primary w-full"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                <PhoneCall size={18} /> Call {support.phone}
+              </a>
+              <a
+                href={`mailto:${support.email}`}
+                className="btn glass w-full"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1px solid var(--border-glass)' }}
+              >
+                <Mail size={18} /> Email {support.email}
+              </a>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

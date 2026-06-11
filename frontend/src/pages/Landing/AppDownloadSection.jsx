@@ -24,13 +24,13 @@ export default function AppDownloadSection() {
                   <div style={{ fontSize: 16, fontWeight: 700 }}>App Store</div>
                 </div>
               </Link>
-              <Link to="/" className="app-badge">
+              <a href="https://play.google.com/store/apps/details?id=com.company.cleanzo" target="_blank" rel="noopener noreferrer" className="app-badge">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3.18 23.54c-.36-.17-.63-.48-.72-.87L13.4 12 2.46 1.33c.09-.39.36-.7.72-.87l12.35 11.54-12.35 11.54zm.96.46l10.55-9.85L17.54 17l-13.04 7.25c-.13.02-.25.02-.36-.25zm0-24l13.4 7.25-2.85 2.85L4.14 0c.11-.03.22-.03.36.0h-.36zM21.56 13.13L18.46 11.5l3.1-1.63c.59.34.94.96.94 1.63 0 .67-.35 1.29-.94 1.63z"/></svg>
                 <div>
                   <div style={{ fontSize: 10, opacity: 0.6 }}>Get it on</div>
                   <div style={{ fontSize: 16, fontWeight: 700 }}>Google Play</div>
                 </div>
-              </Link>
+              </a>
             </div>
           </div>
 

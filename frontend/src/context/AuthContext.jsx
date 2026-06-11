@@ -156,6 +156,16 @@ export const AuthProvider = ({ children }) => {
 
   const updateUser = (updates) => setUser(prev => ({ ...prev, ...updates }));
 
+  // Re-fetch the current user from the server (e.g. to pick up an area the admin
+  // assigned, or refreshed stats). Returns the updated user or null.
+  const refreshUser = async () => {
+    try {
+      const res = await apiClient.get('/auth/me');
+      if (res?.user) { setUser(res.user); return res.user; }
+    } catch { /* keep existing user on failure */ }
+    return null;
+  };
+
   // Permanently delete the signed-in account (App Store / Play Store
   // requirement). Routes by role, then clears local session like logout.
   const deleteAccount = async () => {
@@ -170,7 +180,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, completeCustomerSignup, adminLogin, logout, deleteAccount, updateUser, logoUrls, setLogoUrls }}>
+    <AuthContext.Provider value={{ user, loading, login, completeCustomerSignup, adminLogin, logout, deleteAccount, updateUser, refreshUser, logoUrls, setLogoUrls }}>
       {children}
     </AuthContext.Provider>
   );

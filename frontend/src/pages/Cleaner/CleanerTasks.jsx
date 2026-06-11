@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Clock, ChevronRight } from 'lucide-react'
+import { ArrowLeft, MapPin, Clock, ChevronRight, RefreshCw } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 
 const statusColors = { pending: 'var(--warning)', 'in-progress': 'var(--primary-blue)', completed: 'var(--success)' }
@@ -12,21 +12,25 @@ export default function CleanerTasks() {
   const [filter, setFilter] = useState('all')
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const res = await apiClient.get('/cleaner/tasks')
-        setTasks(res.tasks || [])
-      } catch (err) {
-        setError('Failed to load tasks.')
-      } finally {
-        setLoading(false)
-      }
+  const fetchTasks = async () => {
+    try {
+      const res = await apiClient.get('/cleaner/tasks')
+      setTasks(res.tasks || [])
+      setError('')
+    } catch (err) {
+      setError('Failed to load tasks.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-    fetchTasks()
-  }, [])
+  }
+
+  useEffect(() => { fetchTasks() }, [])
+
+  const handleRefresh = () => { setRefreshing(true); fetchTasks() }
 
   const filtered = filter === 'all' ? tasks : tasks.filter(t => t.status === filter)
 
@@ -68,7 +72,9 @@ export default function CleanerTasks() {
       <div className="app-header" style={{ padding: '16px 0' }}>
         <button onClick={() => navigate(-1)}  className="flex items-center gap-8" style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}><ArrowLeft size={20} /></button>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Today's Tasks</span>
-        <div style={{ width: 20 }} />
+        <button onClick={handleRefresh} aria-label="Refresh tasks" disabled={refreshing} style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: refreshing ? 'default' : 'pointer', display: 'flex' }}>
+          <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       {/* Filter tabs */}

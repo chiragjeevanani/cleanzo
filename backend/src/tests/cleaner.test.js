@@ -113,12 +113,24 @@ describe('CLEAN-6..7 | KYC submission', () => {
     const res = await api
       .post('/api/cleaner/kyc')
       .set(authHeader(token))
+      .field('city', 'Mumbai')
       .attach('live_photo', fakeJpeg, { filename: 'face.jpg', contentType: 'image/jpeg' })
       .attach('aadhaar', fakeJpeg, { filename: 'aadhaar.jpg', contentType: 'image/jpeg' })
       .attach('pan', fakeJpeg, { filename: 'pan.jpg', contentType: 'image/jpeg' });
 
     expect(res.status).toBe(200);
     expect(res.body.kycStatus).toBe('pending');
+  });
+
+  it('CLEAN-6b: KYC submission without a city returns 400', async () => {
+    const { token } = await createCleaner();
+    const res = await api
+      .post('/api/cleaner/kyc')
+      .set(authHeader(token))
+      .attach('live_photo', fakeJpeg, { filename: 'face.jpg', contentType: 'image/jpeg' })
+      .attach('aadhaar', fakeJpeg, { filename: 'aadhaar.jpg', contentType: 'image/jpeg' })
+      .attach('pan', fakeJpeg, { filename: 'pan.jpg', contentType: 'image/jpeg' });
+    expect(res.status).toBe(400);
   });
 
   it('CLEAN-7: missing one KYC document returns 400', async () => {

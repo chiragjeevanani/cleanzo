@@ -989,11 +989,19 @@ export const updateAddress = asyncHandler(async (req, res) => {
 });
 
 export const deleteAddress = asyncHandler(async (req, res) => {
-  const customer = await Customer.findById(req.user._id);
-  const index = customer.addresses.findIndex(a => a._id.toString() === req.params.id);
-  if (index === -1) throw new ApiError(404, 'Address not found');
-  customer.addresses.splice(index, 1);
-  await customer.save({ validateModifiedOnly: true });
+  // $pull is a silent no-op for an unknown id, so confirm the address exists
+  // first and return 404 otherwise (instead of a misleading success).
+  const owns = await Customer.exists({ _id: req.user._id, 'addresses._id': req.params.id });
+  if (!owns) throw new ApiError(404, 'Address not found');
+
+  // Atomic $pull avoids a full-document save (which could fail validation on
+  // unrelated existing fields and surface as "Failed to delete address"). (bug 73)
+  const customer = await Customer.findByIdAndUpdate(
+    req.user._id,
+    { $pull: { addresses: { _id: req.params.id } } },
+    { new: true }
+  );
+  if (!customer) throw new ApiError(404, 'Customer not found');
   res.json({ success: true, addresses: customer.addresses });
 });
 

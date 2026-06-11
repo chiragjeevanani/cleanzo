@@ -81,7 +81,7 @@ export default function AdminNotifications() {
   }
 
   const typeColor = (type) => ({
-    system: 'chip-ghost',
+    system: 'chip-blue',
     promo: 'chip-lime',
     reminder: 'chip-success',
     alert: 'chip-error',

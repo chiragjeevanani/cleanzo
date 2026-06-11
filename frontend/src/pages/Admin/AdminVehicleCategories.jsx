@@ -130,11 +130,12 @@ export default function AdminVehicleCategories() {
             </div>
             <div>
               <label className="text-label text-secondary block mb-6">Sort Order</label>
-              <input 
+              <input
                 type="number"
-                className="input-field" 
-                value={form.sortOrder} 
-                onChange={e => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })}
+                min="0"
+                className="input-field"
+                value={form.sortOrder}
+                onChange={e => setForm({ ...form, sortOrder: Math.max(0, parseInt(e.target.value) || 0) })}
               />
             </div>
             <div className="flex gap-12 mt-8">

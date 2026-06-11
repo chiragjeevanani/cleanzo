@@ -3,16 +3,24 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
-import { MapPin, Star, Award, Sun, Moon, LogOut, Loader2, Trash2, AlertTriangle, X } from 'lucide-react'
+import { MapPin, Star, Award, Sun, Moon, LogOut, Loader2, Trash2, AlertTriangle, X, RefreshCw } from 'lucide-react'
 import { FEATURES } from '../../config/features'
 
 export default function CleanerProfile() {
   const { theme, toggleTheme } = useTheme()
-  const { user, logout, deleteAccount } = useAuth()
+  const { user, logout, deleteAccount, refreshUser } = useAuth()
   const { showToast } = useToast()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await refreshUser()
+    setRefreshing(false)
+    showToast('Profile updated', 'success', 1500)
+  }
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true)
@@ -43,7 +51,12 @@ export default function CleanerProfile() {
 
   return (
     <div style={{ padding: '0 20px' }}>
-      <div style={{ padding: '24px 0', textAlign: 'center' }}>
+      <div className="app-header" style={{ padding: '16px 0', justifyContent: 'flex-end' }}>
+        <button onClick={handleRefresh} aria-label="Refresh profile" disabled={refreshing} style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: refreshing ? 'default' : 'pointer', display: 'flex' }}>
+          <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+        </button>
+      </div>
+      <div style={{ padding: '8px 0 24px', textAlign: 'center' }}>
         <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, var(--bg-accent), var(--primary-blue))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 28, fontWeight: 800, fontFamily: 'var(--font-display)', color: 'var(--text-on-accent)' }}>
           {user?.name ? user.name[0].toUpperCase() : 'C'}
         </div>

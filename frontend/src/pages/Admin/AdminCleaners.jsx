@@ -201,7 +201,18 @@ export default function AdminCleaners() {
     if (data.referenceName && !validateName(data.referenceName)) return 'Reference Name must contain only alphabetic characters'
     
     if (data.referencePhone && !validatePhone(data.referencePhone)) return 'Reference Phone must be a valid 10-digit number (can start with 91)'
-    
+
+    if (data.age !== '' && data.age != null) {
+      const age = Number(data.age)
+      if (!Number.isFinite(age) || age <= 0) return 'Age must be a valid number greater than 0'
+      if (age < 18 || age > 70) return 'Age must be between 18 and 70'
+    }
+
+    if (data.dailyRate !== '' && data.dailyRate != null) {
+      const rate = Number(data.dailyRate)
+      if (!Number.isFinite(rate) || rate < 1) return 'Daily payout rate must be at least ₹1'
+    }
+
     return null
   }
 
@@ -515,7 +526,7 @@ export default function AdminCleaners() {
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>AGE</label>
-                    <input type="number" className="input-field" placeholder="25" value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })} />
+                    <input type="number" min="18" max="70" className="input-field" placeholder="25" value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })} />
                   </div>
                 </div>
                  <div className="grid-3 gap-16">
@@ -644,7 +655,7 @@ export default function AdminCleaners() {
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>AGE</label>
-                    <input type="number" className="input-field" placeholder="25" value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })} />
+                    <input type="number" min="18" max="70" className="input-field" placeholder="25" value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })} />
                   </div>
                 </div>
                 <div className="grid-3 gap-16">

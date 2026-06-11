@@ -71,7 +71,7 @@ export default function SocietyDashboard() {
       subtitle: 'Lifetime commission earnings',
       icon: DollarSign,
       color: 'var(--accent-lime)',
-      bg: 'rgba(223, 255, 0, 0.1)'
+      bg: 'rgba(var(--bg-accent-rgb), 0.1)'
     },
     {
       title: 'Pending Payout Balance',
@@ -143,7 +143,7 @@ export default function SocietyDashboard() {
       <div className="glass premium-gradient" style={{
         padding: 32,
         borderRadius: 'var(--radius)',
-        background: 'linear-gradient(135deg, rgba(var(--primary-blue-rgb), 0.15) 0%, rgba(223, 255, 0, 0.03) 100%)',
+        background: 'linear-gradient(135deg, rgba(var(--primary-blue-rgb), 0.15) 0%, rgba(var(--bg-accent-rgb), 0.03) 100%)',
         border: '1px solid var(--border-glass)',
         display: 'flex',
         justifyContent: 'space-between',

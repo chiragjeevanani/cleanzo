@@ -24,7 +24,7 @@ function AccountSuspendedDialog({ message, onClose }) {
           {message || 'Your account has been suspended.'} Please contact our team to restore your access.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <a href={`tel:${SUPPORT_CONTACT.phone}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', borderRadius: 12, border: 'none', background: 'var(--accent-lime)', color: '#000', fontWeight: 700, textDecoration: 'none' }}>
+          <a href={`tel:${SUPPORT_CONTACT.phone}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', borderRadius: 12, border: 'none', background: 'var(--bg-accent)', color: 'var(--text-on-accent)', fontWeight: 700, textDecoration: 'none' }}>
             <PhoneCall size={16} /> Call {SUPPORT_CONTACT.phone}
           </a>
           <a href={`mailto:${SUPPORT_CONTACT.email}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', borderRadius: 12, border: '1px solid var(--border-glass)', background: 'transparent', color: 'var(--text-primary)', fontWeight: 600, textDecoration: 'none' }}>
@@ -55,7 +55,7 @@ function AuthConfirmDialog({ config, onClose }) {
           <button onClick={onClose} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: '1px solid var(--border-glass)', background: 'transparent', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}>
             Cancel
           </button>
-          <button onClick={config.action} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: 'none', background: 'var(--accent-lime)', color: '#000', fontWeight: 700, cursor: 'pointer' }}>
+          <button onClick={config.action} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: 'none', background: 'var(--bg-accent)', color: 'var(--text-on-accent)', fontWeight: 700, cursor: 'pointer' }}>
             {config.type === 'not_found' ? 'Sign Up' : 'Login'}
           </button>
         </div>
@@ -407,13 +407,13 @@ export default function CustomerAuth() {
                   width: 28, 
                   height: 28, 
                   borderRadius: '50%', 
-                  background: isCompleted 
-                    ? 'var(--accent-lime)' 
-                    : isActive 
-                      ? 'rgba(var(--accent-lime-rgb), 0.2)' 
-                      : 'var(--bg-secondary)', 
-                  border: isActive ? '2px solid var(--accent-lime)' : '2px solid var(--border-glass)',
-                  color: isCompleted ? '#000' : isActive ? 'var(--accent-lime)' : 'var(--text-secondary)',
+                  background: isCompleted
+                    ? 'var(--bg-accent)'
+                    : isActive
+                      ? 'rgba(var(--bg-accent-rgb), 0.2)'
+                      : 'var(--bg-secondary)',
+                  border: isActive ? '2px solid var(--bg-accent)' : '2px solid var(--border-glass)',
+                  color: isCompleted ? 'var(--text-on-accent)' : isActive ? 'var(--text-accent)' : 'var(--text-secondary)',
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center', 
@@ -429,7 +429,7 @@ export default function CustomerAuth() {
                   style={{ 
                     width: 30, 
                     height: 2, 
-                    background: isCompleted ? 'var(--accent-lime)' : 'var(--border-glass)',
+                    background: isCompleted ? 'var(--bg-accent)' : 'var(--border-glass)',
                     marginLeft: 8,
                     transition: 'all 0.3s ease'
                   }} 
@@ -457,7 +457,7 @@ export default function CustomerAuth() {
                 <Field label="First Name" icon={User}><input required className="input-field" style={inputStyle} placeholder="First name" value={formData.firstName} onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, firstName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })) }} /></Field>
                 <Field label="Last Name"><input required className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} placeholder="Last name" value={formData.lastName} onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, lastName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })) }} /></Field>
               </div>
-              <Field label="Phone Number" icon={Phone}><input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={12} value={formData.phone} onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') })) }} /></Field>
+              <Field label="Phone Number" icon={Phone}><input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={10} value={formData.phone} onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })) }} /></Field>
               <Field label="City" icon={MapPin}>
                 <select required className="input-field" style={selectStyle} value={formData.city} onChange={set('city')}>
                   <option value="" disabled>Select City</option>
@@ -486,7 +486,7 @@ export default function CustomerAuth() {
   if (step === 'success') return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', padding: 20 }}>
       <div className="glass reveal revealed" style={{ padding: 48, textAlign: 'center', maxWidth: 400, width: '100%', borderRadius: 28 }}>
-        <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(101,199,55,0.15)', color: 'var(--accent-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+        <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(var(--bg-accent-rgb), 0.15)', color: 'var(--text-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <CheckCircle2 size={40} />
         </div>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
@@ -536,7 +536,7 @@ export default function CustomerAuth() {
       {suspendedMsg && <AccountSuspendedDialog message={suspendedMsg} onClose={() => setSuspendedMsg(null)} />}
 
       {/* Background blobs */}
-      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(var(--accent-lime-rgb), 0.12) 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
+      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(var(--bg-accent-rgb), 0.12) 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
       <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '50%', height: '50%', background: 'radial-gradient(circle, rgba(var(--primary-blue-rgb), 0.12) 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
 
       <div style={{ position: 'relative', zIndex: 1, padding: '20px', maxWidth: 460, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -552,9 +552,9 @@ export default function CustomerAuth() {
           {/* Role Switcher */}
           {step !== 'otp' && (
             <div className="glass" style={{ padding: 6, borderRadius: 16, display: 'flex', marginBottom: 28, position: 'relative', border: '1px solid var(--border-glass)' }}>
-              <div style={{ position: 'absolute', top: 6, bottom: 6, left: role === 'customer' ? 6 : 'calc(50% + 3px)', width: 'calc(50% - 9px)', background: 'var(--accent-lime)', borderRadius: 12, transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)', zIndex: 0, boxShadow: '0 4px 12px rgba(var(--accent-lime-rgb), 0.3)' }} />
+              <div style={{ position: 'absolute', top: 6, bottom: 6, left: role === 'customer' ? 6 : 'calc(50% + 3px)', width: 'calc(50% - 9px)', background: 'var(--bg-accent)', borderRadius: 12, transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)', zIndex: 0, boxShadow: '0 4px 12px rgba(var(--bg-accent-rgb), 0.3)' }} />
               {[['customer', 'Car Owner'], ['crew', 'Crew / Executive']].map(([val, label]) => (
-                <button key={val} onClick={() => { setRole(val); setErrorMsg(''); if (val === 'crew') setMode('login'); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'none', color: role === val ? '#000' : 'var(--text-secondary)', fontWeight: 700, fontSize: 14, position: 'relative', zIndex: 1, transition: 'color 0.3s', cursor: 'pointer' }}>
+                <button key={val} onClick={() => { setRole(val); setErrorMsg(''); if (val === 'crew') setMode('login'); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'none', color: role === val ? 'var(--text-on-accent)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 14, position: 'relative', zIndex: 1, transition: 'color 0.3s', cursor: 'pointer' }}>
                   {label}
                 </button>
               ))}
@@ -583,9 +583,9 @@ export default function CustomerAuth() {
             {step === 'form' && (mode === 'login' || signupStep === 1) && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, borderBottom: '1px solid var(--border-glass)', width: '100%' }}>
                 <div style={{ display: 'flex', gap: 24 }}>
-                  <button onClick={() => { setMode('login'); setErrorMsg(''); setUseOtp(true) }} style={{ paddingBottom: 12, color: mode === 'login' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none', cursor: 'pointer', borderBottom: mode === 'login' ? '2px solid var(--accent-lime)' : 'none' }}>Login</button>
+                  <button onClick={() => { setMode('login'); setErrorMsg(''); setUseOtp(true) }} style={{ paddingBottom: 12, color: mode === 'login' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none', cursor: 'pointer', borderBottom: mode === 'login' ? '2px solid var(--bg-accent)' : 'none' }}>Login</button>
                   {role === 'customer' && (
-                    <button onClick={() => { setMode('signup'); setErrorMsg(''); setUseOtp(true); setSignupStep(1); }} style={{ paddingBottom: 12, color: mode === 'signup' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none', cursor: 'pointer', borderBottom: mode === 'signup' ? '2px solid var(--accent-lime)' : 'none' }}>Sign Up</button>
+                    <button onClick={() => { setMode('signup'); setErrorMsg(''); setUseOtp(true); setSignupStep(1); }} style={{ paddingBottom: 12, color: mode === 'signup' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 16, transition: 'all 0.3s', background: 'none', border: 'none', cursor: 'pointer', borderBottom: mode === 'signup' ? '2px solid var(--bg-accent)' : 'none' }}>Sign Up</button>
                   )}
                 </div>
                 {role === 'crew' && (
@@ -613,9 +613,9 @@ export default function CustomerAuth() {
                   <div style={{
                     padding: '12px 16px',
                     borderRadius: 12,
-                    background: 'rgba(223, 255, 0, 0.05)',
-                    border: '1px solid rgba(223, 255, 0, 0.2)',
-                    color: 'var(--accent-lime)',
+                    background: 'rgba(var(--bg-accent-rgb), 0.05)',
+                    border: '1px solid rgba(var(--bg-accent-rgb), 0.2)',
+                    color: 'var(--text-accent)',
                     fontSize: 13,
                     display: 'flex',
                     flexDirection: 'column',
@@ -630,7 +630,7 @@ export default function CustomerAuth() {
                       }
                     `}</style>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: 11 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-lime)', boxShadow: '0 0 8px var(--accent-lime)', animation: 'testingPulse 1.5s infinite' }} />
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--bg-accent)', boxShadow: '0 0 8px var(--bg-accent)', animation: 'testingPulse 1.5s infinite' }} />
                       Testing Mode Active
                     </div>
                     <div>Please use mock OTP code <span style={{ fontWeight: 800, textDecoration: 'underline' }}>123456</span> to complete authentication.</div>
@@ -665,7 +665,7 @@ export default function CustomerAuth() {
                         transition: 'border-color 0.2s',
                         minWidth: 0
                       }}
-                      onFocus={e => e.target.style.borderColor = 'var(--accent-lime)'}
+                      onFocus={e => e.target.style.borderColor = 'var(--bg-accent)'}
                       onBlur={e => e.target.style.borderColor = 'var(--border-glass)'}
                     />
                   ))}
@@ -717,9 +717,9 @@ export default function CustomerAuth() {
                   /* Step 3: Phone Number */
                   <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <Field label="Phone Number" icon={Phone}>
-                      <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={12}
+                      <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={10}
                         value={formData.phone}
-                        onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') })) }} />
+                        onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })) }} />
                     </Field>
                     <div style={{ display: 'flex', gap: 12 }}>
                       <button type="button" className="btn-glass" style={{ flex: 1, padding: 14, borderRadius: 12 }} onClick={() => setSignupStep(2)}>Back</button>
@@ -807,7 +807,7 @@ export default function CustomerAuth() {
                                         setShowSocietyDropdown(false);
                                       }}
                                       style={{ padding: '12px 16px', cursor: 'pointer', fontSize: 14, transition: 'background 0.2s', borderBottom: '1px solid var(--border-glass)' }}
-                                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(var(--accent-lime-rgb), 0.1)'}
+                                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(var(--bg-accent-rgb), 0.1)'}
                                       onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                     >
                                       <div style={{ fontWeight: 600 }}>{s.name}</div>
@@ -846,9 +846,9 @@ export default function CustomerAuth() {
               <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {/* PHONE FIELD */}
                 <Field label="Phone Number" icon={Phone}>
-                  <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={12}
+                  <input required className="input-field" style={inputStyle} placeholder="10-digit number" inputMode="numeric" maxLength={10}
                     value={formData.phone}
-                    onChange={e => setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '') }))} />
+                    onChange={e => setFormData(p => ({ ...p, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} />
                 </Field>
 
                 <button type="submit" disabled={loading} className="btn-primary" style={{ padding: '16px', borderRadius: 14, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
@@ -857,7 +857,7 @@ export default function CustomerAuth() {
 
                 {role === 'crew' && mode === 'login' && (
                   <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)', marginTop: 10 }}>
-                    New to Cleanzo? <a href="/join-crew" style={{ color: 'var(--accent-lime)', fontWeight: 700 }}>Apply to join our crew</a>
+                    New to Cleanzo? <a href="/join-crew" style={{ color: 'var(--text-accent)', fontWeight: 700 }}>Apply to join our crew</a>
                   </p>
                 )}
               </form>

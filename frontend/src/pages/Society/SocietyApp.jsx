@@ -79,7 +79,7 @@ export default function SocietyApp() {
 
       {/* Header and main container */}
       <div className="admin-main" style={{ marginLeft: isMobile ? 0 : (sidebarOpen ? 240 : 0), transition: 'margin-left var(--transition)' }}>
-        <div className="flex justify-between items-center" style={{ marginBottom: 32 }}>
+        <div className="flex justify-between items-center" style={{ marginBottom: 32, position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-primary)', paddingTop: 12, paddingBottom: 12 }}>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="btn-icon btn-glass">
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>

@@ -183,7 +183,8 @@ export default function AdminPackages() {
     e.preventDefault()
     if (!formData.name.trim()) { setError('Package name is required'); return }
     if (!formData.price || Number(formData.price) <= 0) { setError('Price must be greater than 0'); return }
-    
+    if (formData.trialPrice !== '' && formData.trialPrice != null && Number(formData.trialPrice) < 0) { setError('Trial price cannot be negative'); return }
+
     // Parse applicableModels, filtering out models covered in other packages of this tier
     const applicableModels = Object.keys(selectedModels)
       .filter(brandName => selectedModels[brandName]?.active)
@@ -470,13 +471,13 @@ export default function AdminPackages() {
               <div className="grid-2 gap-24">
                 <div className="flex flex-col gap-8">
                   <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>MONTHLY PRICE (₹)</label>
-                  <input required type="number" className="input-field" 
+                  <input required type="number" min="0" className="input-field"
                     style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
                     value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} placeholder="e.g. 599" />
                 </div>
                 <div className="flex flex-col gap-8">
                   <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>TRIAL PRICE (₹)</label>
-                  <input type="number" className="input-field" 
+                  <input type="number" min="0" className="input-field"
                     style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: '16px 20px', border: '1px solid var(--divider)', fontSize: 16 }}
                     value={formData.trialPrice} onChange={e => setFormData({...formData, trialPrice: e.target.value})} placeholder="e.g. 30 (Optional)" />
                 </div>

@@ -30,6 +30,8 @@ const subscriptionSchema = new Schema({
   specialInstructions: { type: String, maxlength: 200 },
   maxSkips:        { type: Number, default: 1 },
   skipsUsed:       { type: Number, default: 0 },
+  cancelledAt:     { type: Date },
+  cancelledBy:     { type: Schema.Types.ObjectId, ref: 'Admin' },
 }, { timestamps: true });
 
 export default mongoose.model('Subscription', subscriptionSchema);

@@ -138,7 +138,7 @@ export default function AdminSettings() {
             )}
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Name</label>
-              <input className="input-field" value={name} onChange={e => setName(e.target.value)} />
+              <input className="input-field" value={name} onChange={e => setName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))} />
             </div>
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Email / Phone</label>
@@ -244,7 +244,7 @@ export default function AdminSettings() {
                 />
                 <button 
                   className="btn btn-blue btn-sm" 
-                  style={{ background: 'var(--accent-lime)', color: '#000', fontWeight: 600 }} 
+                  style={{ background: 'var(--bg-accent)', color: 'var(--text-on-accent)', fontWeight: 600 }}
                   onClick={handleSavePriorityFee} 
                   disabled={savingSettings}
                 >

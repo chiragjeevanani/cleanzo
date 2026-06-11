@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Upload, CheckCircle2, AlertCircle, X, RotateCcw, Shield, CreditCard, FileText } from 'lucide-react'
+import { Camera, Upload, CheckCircle2, AlertCircle, X, RotateCcw, Shield, CreditCard, FileText, MapPin } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useAuth } from '../../context/AuthContext'
 import { optimizeImage } from '../../utils/imageOptimizer'
@@ -250,9 +250,19 @@ export default function CleanerKYC() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  // Working city — drives which societies the cleaner can be assigned to.
+  const [cities, setCities] = useState([])
+  const [city, setCity] = useState(user?.city || '')
+  const [currentAddress, setCurrentAddress] = useState(user?.currentAddress || '')
+
+  useEffect(() => {
+    apiClient.get('/public/cities')
+      .then(res => setCities(res.cities || []))
+      .catch(() => {})
+  }, [])
 
   const step = STEPS[currentStep]
-  const allDone = Object.values(files).every(Boolean)
+  const allDone = Object.values(files).every(Boolean) && !!city
 
   const handleCapture = async (file, dataUrl) => {
     const id = cameraTarget
@@ -288,7 +298,8 @@ export default function CleanerKYC() {
   }
 
   const handleSubmit = async () => {
-    if (!allDone) { setError('Please complete all 3 steps before submitting.'); return }
+    if (!city) { setError('Please select your city before submitting.'); return }
+    if (!Object.values(files).every(Boolean)) { setError('Please complete all 3 document steps before submitting.'); return }
     setError('')
     setLoading(true)
     try {
@@ -296,9 +307,11 @@ export default function CleanerKYC() {
       fd.append('live_photo', files.live_photo)
       fd.append('aadhaar', files.aadhaar)
       fd.append('pan', files.pan)
+      fd.append('city', city)
+      if (currentAddress) fd.append('currentAddress', currentAddress)
 
       const res = await apiClient.uploadForm('/cleaner/kyc', fd)
-      updateUser({ kycStatus: res.kycStatus, avatar: res.avatar })
+      updateUser({ kycStatus: res.kycStatus, avatar: res.avatar, city })
       setSubmitted(true)
     } catch (err) {
       setError(err.message || 'Upload failed. Please try again.')
@@ -384,6 +397,40 @@ export default function CleanerKYC() {
                 </button>
               )
             })}
+          </div>
+
+          {/* Working location card — city drives society assignment */}
+          <div className="glass" style={{ padding: 24, borderRadius: 24, border: '1px solid var(--border-glass)', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(74,158,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <MapPin size={24} color="#4A9EFF" />
+              </div>
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, margin: 0 }}>Your Working City</h2>
+                <p className="text-secondary" style={{ fontSize: 13, margin: 0 }}>You'll only be assigned to societies in this city.</p>
+              </div>
+            </div>
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.04em', display: 'block', marginBottom: 8 }}>CITY *</label>
+            <select
+              value={city}
+              onChange={e => setCity(e.target.value)}
+              style={{ width: '100%', padding: '14px', borderRadius: 14, border: '1px solid var(--border-glass)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 15, marginBottom: 16, cursor: 'pointer' }}
+            >
+              <option value="">Select your city…</option>
+              {cities.map(c => (
+                <option key={c._id || c.name} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.04em', display: 'block', marginBottom: 8 }}>CURRENT ADDRESS</label>
+            <textarea
+              value={currentAddress}
+              onChange={e => setCurrentAddress(e.target.value)}
+              rows={2}
+              placeholder="House / street / area where you currently live"
+              style={{ width: '100%', padding: '14px', borderRadius: 14, border: '1px solid var(--border-glass)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 15, resize: 'vertical', fontFamily: 'inherit' }}
+            />
           </div>
 
           {/* Step card */}

@@ -1,7 +1,7 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, RefreshCw } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 
 export default function CleanerHistory() {
@@ -9,21 +9,25 @@ export default function CleanerHistory() {
 
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const res = await apiClient.get('/cleaner/history?limit=50')
-        setTasks(res.tasks || [])
-      } catch (err) {
-        setError('Failed to load history.')
-      } finally {
-        setLoading(false)
-      }
+  const fetchHistory = async () => {
+    try {
+      const res = await apiClient.get('/cleaner/history?limit=50')
+      setTasks(res.tasks || [])
+      setError('')
+    } catch (err) {
+      setError('Failed to load history.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-    fetch()
-  }, [])
+  }
+
+  useEffect(() => { fetchHistory() }, [])
+
+  const handleRefresh = () => { setRefreshing(true); fetchHistory() }
 
   if (loading) return <PageLoader />
 
@@ -31,6 +35,9 @@ export default function CleanerHistory() {
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
         <button onClick={() => navigate(-1)}  className="flex items-center gap-8" style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}><ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>History</span></button>
+        <button onClick={handleRefresh} aria-label="Refresh history" disabled={refreshing} style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: refreshing ? 'default' : 'pointer', display: 'flex' }}>
+          <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       {error && (

@@ -182,21 +182,23 @@ export default function SocietyProfile() {
                   <input 
                     type="text" 
                     required 
-                    placeholder="Enter contact person name" 
-                    className="input-field" 
+                    placeholder="Enter contact person name"
+                    className="input-field"
                     value={contactName}
-                    onChange={e => setContactName(e.target.value)}
+                    onChange={e => setContactName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
                   />
                 </div>
                 <div>
                   <label className="text-label" style={{ display: 'block', marginBottom: 8, fontSize: 10 }}>Phone Number</label>
                   <input 
-                    type="tel" 
-                    required 
-                    placeholder="Enter phone number" 
-                    className="input-field" 
+                    type="tel"
+                    required
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="Enter phone number"
+                    className="input-field"
                     value={phone}
-                    onChange={e => setPhone(e.target.value)}
+                    onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   />
                 </div>
               </div>
@@ -252,20 +254,22 @@ export default function SocietyProfile() {
                   <label className="text-label" style={{ display: 'block', marginBottom: 8, fontSize: 10 }}>Account Holder Name</label>
                   <input 
                     type="text" 
-                    placeholder="Saved name on account" 
-                    className="input-field" 
+                    placeholder="Saved name on account"
+                    className="input-field"
                     value={accountName}
-                    onChange={e => setAccountName(e.target.value)}
+                    onChange={e => setAccountName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
                   />
                 </div>
                 <div>
                   <label className="text-label" style={{ display: 'block', marginBottom: 8, fontSize: 10 }}>Account Number</label>
                   <input 
                     type="text" 
-                    placeholder="Saved account number" 
-                    className="input-field" 
+                    placeholder="Saved account number"
+                    className="input-field"
+                    inputMode="numeric"
+                    maxLength={18}
                     value={accountNumber}
-                    onChange={e => setAccountNumber(e.target.value)}
+                    onChange={e => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 18))}
                   />
                 </div>
               </div>
@@ -275,20 +279,21 @@ export default function SocietyProfile() {
                   <label className="text-label" style={{ display: 'block', marginBottom: 8, fontSize: 10 }}>Bank Name</label>
                   <input 
                     type="text" 
-                    placeholder="e.g. HDFC Bank" 
-                    className="input-field" 
+                    placeholder="e.g. HDFC Bank"
+                    className="input-field"
                     value={bankName}
-                    onChange={e => setBankName(e.target.value)}
+                    onChange={e => setBankName(e.target.value.replace(/[^a-zA-Z\s&.]/g, ''))}
                   />
                 </div>
                 <div>
                   <label className="text-label" style={{ display: 'block', marginBottom: 8, fontSize: 10 }}>IFSC Code</label>
                   <input 
                     type="text" 
-                    placeholder="e.g. HDFC0001234" 
-                    className="input-field" 
+                    placeholder="e.g. HDFC0001234"
+                    className="input-field"
+                    maxLength={11}
                     value={ifscCode}
-                    onChange={e => setIfscCode(e.target.value)}
+                    onChange={e => setIfscCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))}
                   />
                 </div>
               </div>
@@ -320,7 +325,7 @@ export default function SocietyProfile() {
           {/* Comm Rate display */}
           <div className="glass" style={{ 
             padding: 32, 
-            background: 'linear-gradient(135deg, rgba(var(--primary-blue-rgb), 0.12) 0%, rgba(223, 255, 0, 0.02) 100%)',
+            background: 'linear-gradient(135deg, rgba(var(--primary-blue-rgb), 0.12) 0%, rgba(var(--bg-accent-rgb), 0.02) 100%)',
             border: '1px solid var(--border-glass)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -382,7 +387,7 @@ export default function SocietyProfile() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 32 }}>
-              <button type="submit" className="btn btn-glass" disabled={changingPassword} style={{ width: '100%' }}>
+              <button type="submit" className="btn btn-blue" disabled={changingPassword} style={{ width: '100%' }}>
                 <KeyRound size={16} />
                 <span>{changingPassword ? 'Updating...' : 'Change Password'}</span>
               </button>

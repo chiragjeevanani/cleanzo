@@ -41,6 +41,7 @@ export default function Footer() {
           <div className="footer-links-group">
             <h4 className="text-label" style={{ marginBottom: 24, color: 'var(--primary-blue)' }}>PORTAL</h4>
             <Link to="/customer" className="footer-link">CLIENT LOGIN</Link>
+            <Link to="/society/login" className="footer-link">SOCIETY LOGIN</Link>
             <Link to="/admin" className="footer-link">ADMINISTRATIVE HQ</Link>
           </div>
         </div>

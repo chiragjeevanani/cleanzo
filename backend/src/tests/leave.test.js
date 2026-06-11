@@ -28,8 +28,11 @@ const { createDailyTasks } = await import('../cron/referralCron.js');
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
 function isoDate(daysFromNow) {
-  const d = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
-  return d.toISOString().split('T')[0]; // "YYYY-MM-DD"
+  // Use the IST calendar date (not the UTC date) so the "YYYY-MM-DD" we POST
+  // matches how the server interprets it via getISTMidnight(). getISTMidnight()
+  // returns the IST date as a UTC-midnight marker, so its ISO date IS the IST day.
+  const d = getISTMidnight(new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000));
+  return d.toISOString().split('T')[0]; // "YYYY-MM-DD" in IST
 }
 
 function istMidnightFor(daysFromNow) {

@@ -179,7 +179,7 @@ export default function CustomerHome() {
                 <span>Plan Progress</span>
                 <span>{activeSub.completedDays || 0} / {activeSub.totalDays || 30} cleans</span>
               </div>
-              <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: 6, background: 'var(--bg-glass)', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--border-glass)' }}>
                 <div style={{ 
                   width: `${Math.min(100, ((activeSub.completedDays || 0) / (activeSub.totalDays || 30)) * 100)}%`, 
                   height: '100%', 

@@ -1,7 +1,7 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Check, ArrowRight, ChevronRight, Car, X, ShoppingBag, Crown } from 'lucide-react'
+import { ArrowLeft, Check, ArrowRight, ChevronRight, Car, X, ShoppingBag, Crown, RefreshCw } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { getPackagePricing } from '../../utils/pricing'
@@ -930,6 +930,15 @@ export default function PackageSelect() {
       <div className="app-header" style={{ padding: '16px 0' }}>
         <button onClick={() => navigate(-1)} className="flex items-center gap-8 bg-transparent border-none text-[color:var(--text-primary)] cursor-pointer p-0">
           <ArrowLeft size={20} /> <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Subscription Plans</span>
+        </button>
+        <button
+          onClick={() => refreshAll()}
+          aria-label="Refresh plans"
+          disabled={dataLoading.packages}
+          className="glass flex items-center justify-center"
+          style={{ width: 40, height: 40, borderRadius: 12, border: '1px solid var(--border-glass)', cursor: dataLoading.packages ? 'default' : 'pointer' }}
+        >
+          <RefreshCw size={18} className={dataLoading.packages ? 'animate-spin' : ''} />
         </button>
       </div>
 

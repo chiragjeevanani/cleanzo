@@ -201,20 +201,14 @@ function LeadRow({ lead, processingId, onUpdateLead, onDelete }) {
       </td>
       <td>
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-6" style={{ fontWeight: 500, fontSize: 13 }}>
-            <MapPin size={12} className="text-secondary" /> {lead.requestedSociety}
-          </div>
+          <div style={{ fontWeight: 500, fontSize: 13 }}>{lead.requestedSociety}</div>
           <div className="text-secondary" style={{ fontSize: 11 }}>{lead.requestedArea}, {lead.city} {lead.pincode ? `(${lead.pincode})` : ''}</div>
         </div>
       </td>
       <td>
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-6" style={{ fontSize: 13 }}>
-            <Phone size={12} className="text-secondary" /> {lead.phone}
-          </div>
-          <div className="flex items-center gap-6" style={{ fontSize: 13 }}>
-            <Mail size={12} className="text-secondary" /> {lead.email}
-          </div>
+          <div style={{ fontSize: 13 }}>{lead.phone}</div>
+          <div className="text-secondary" style={{ fontSize: 13 }}>{lead.email}</div>
         </div>
       </td>
       <td>

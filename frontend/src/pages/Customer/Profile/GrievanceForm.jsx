@@ -25,6 +25,7 @@ export default function GrievanceForm() {
   const [success, setSuccess] = useState(false)
   
   const fileInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
 
   // Sync user details if loaded late
   useEffect(() => {
@@ -204,21 +205,42 @@ export default function GrievanceForm() {
               </button>
             </div>
           ) : (
-            <div 
-              onClick={() => fileInputRef.current?.click()} 
-              style={{ height: 120, borderRadius: 16, border: '2px dashed var(--border-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'rgba(255,255,255,0.02)', cursor: 'pointer', color: 'var(--text-secondary)' }}
-            >
-              <Upload size={24} className="text-secondary" />
-              <span style={{ fontSize: 13 }}>Click to upload image</span>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                style={{ flex: 1, height: 120, borderRadius: 16, border: '2px dashed var(--border-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'rgba(255,255,255,0.02)', cursor: 'pointer', color: 'var(--text-secondary)' }}
+              >
+                <Camera size={24} className="text-secondary" />
+                <span style={{ fontSize: 13 }}>Take Photo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                style={{ flex: 1, height: 120, borderRadius: 16, border: '2px dashed var(--border-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'rgba(255,255,255,0.02)', cursor: 'pointer', color: 'var(--text-secondary)' }}
+              >
+                <Upload size={24} className="text-secondary" />
+                <span style={{ fontSize: 13 }}>Upload Image</span>
+              </button>
             </div>
           )}
-          
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            accept="image/*" 
-            onChange={handleFileChange} 
-            style={{ display: 'none' }} 
+
+          {/* Camera (direct capture on mobile) */}
+          <input
+            type="file"
+            ref={cameraInputRef}
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+          {/* Gallery / file picker */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
           />
         </div>
 

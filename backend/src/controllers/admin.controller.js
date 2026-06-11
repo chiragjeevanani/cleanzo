@@ -28,6 +28,7 @@ import PartnerSociety from '../models/PartnerSociety.js';
 import { sendPushNotification, NOTIFICATION_LINKS } from '../services/fcm.service.js';
 import Attendance from '../models/Attendance.js';
 import LeaveRequest from '../models/LeaveRequest.js';
+import { buildCityCleanerPool, isSameCity } from '../services/assignment.service.js';
 import Settings from '../models/Settings.js';
 import PackageDiscount from '../models/PackageDiscount.js';
 import Coupon from '../models/Coupon.js';
@@ -431,6 +432,217 @@ export const deleteUser = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'User deleted successfully' });
 });
 
+// ─── ADMIN-ON-BEHALF: VEHICLES & SUBSCRIPTIONS ───────────────────
+// Admin adds a vehicle for a specific user (mirrors customer addVehicle)
+export const createUserVehicle = asyncHandler(async (req, res) => {
+  const user = await Customer.findById(req.params.id);
+  if (!user) throw new ApiError(404, 'User not found');
+
+  const { brand, model, number, flatNumber, blockTower, slotPillar, color, category } = req.body;
+  if (!brand || !model || !number) throw new ApiError(400, 'Brand, model, and number are required');
+
+  const flatNumberClean = flatNumber || '';
+  const blockTowerClean = blockTower || '';
+  const slotPillarClean = slotPillar || '';
+  const parkingClean = [
+    blockTowerClean ? `Block/Tower: ${blockTowerClean}` : '',
+    slotPillarClean ? `Slot/Pillar: ${slotPillarClean}` : '',
+    flatNumberClean ? `Flat: ${flatNumberClean}` : ''
+  ].filter(Boolean).join(' · ');
+
+  let photos = [];
+  if (req.files && req.files.length > 0) {
+    photos = await Promise.all(
+      req.files.map(file => uploadBufferToCloudinary(file.buffer, 'cleanzo/vehicles'))
+    );
+  }
+
+  const vehicle = await Vehicle.create({
+    customer: user._id,
+    brand,
+    model,
+    number,
+    flatNumber: flatNumberClean,
+    blockTower: blockTowerClean,
+    slotPillar: slotPillarClean,
+    parking: parkingClean,
+    color,
+    category,
+    photos
+  });
+
+  await logActivity({
+    type: 'vehicle_added',
+    message: `Admin added vehicle ${brand} ${model} (${number}) for ${user.firstName} ${user.lastName}`,
+    performer: req.user._id,
+    metadata: { userId: user._id, vehicleId: vehicle._id }
+  });
+
+  await clearCache(`cache:${user._id}:*`);
+  res.status(201).json({ success: true, vehicle });
+});
+
+// Admin creates a subscription for a user's vehicle — full booking flow
+// (society + slot + capacity) with a manually set duration and no payment.
+export const createUserSubscription = asyncHandler(async (req, res) => {
+  const {
+    vehicleId, packageId, societyId, slotId,
+    startDate, durationDays, amount, assignedCleanerId, specialInstructions
+  } = req.body;
+
+  const user = await Customer.findById(req.params.id);
+  if (!user) throw new ApiError(404, 'User not found');
+
+  if (!vehicleId || !packageId || !societyId || !slotId) {
+    throw new ApiError(400, 'Vehicle, package, society, and slot are required');
+  }
+
+  const [vehicle, pkg, society] = await Promise.all([
+    Vehicle.findOne({ _id: vehicleId, customer: user._id, isActive: true }),
+    Package.findById(packageId),
+    Society.findById(societyId),
+  ]);
+  if (!vehicle) throw new ApiError(404, 'Vehicle not found for this user');
+  if (!pkg) throw new ApiError(404, 'Package not found');
+  if (!society || !society.isActive) throw new ApiError(404, 'Society not found or inactive');
+
+  // One active subscription per vehicle
+  const existing = await Subscription.findOne({ customer: user._id, vehicle: vehicleId, status: 'Active' });
+  if (existing) throw new ApiError(409, 'An active subscription already exists for this vehicle');
+
+  if (!Array.isArray(society.slots)) throw new ApiError(500, 'Society configuration error');
+  const slot = society.slots.find(s => s.slotId === slotId);
+  if (!slot) throw new ApiError(404, 'Slot not found');
+
+  const slotStatus = slot.status || 'Open';
+  if (slotStatus !== 'Open') {
+    throw new ApiError(400, `This slot is not open for booking. Current status: ${slotStatus}.`);
+  }
+  if (slot.currentCount >= slot.maxVehicles) {
+    throw new ApiError(400, 'This slot is at full capacity. Please choose another slot.');
+  }
+
+  // Atomic slot reservation — only succeeds if still Open and below capacity
+  const reserved = await Society.findOneAndUpdate(
+    { _id: societyId, slots: { $elemMatch: { slotId, status: 'Open', currentCount: { $lt: slot.maxVehicles } } } },
+    { $inc: { 'slots.$.currentCount': 1 } },
+    { returnDocument: 'after' }
+  );
+  if (!reserved) throw new ApiError(400, 'Slot capacity filled during booking. Please try again.');
+
+  // Manual duration + amount (admin override; defaults to package price)
+  const days = Math.max(1, parseInt(durationDays) || 30);
+  const finalStartDate = getISTMidnight(startDate || new Date());
+  const finalEndDate = new Date(finalStartDate);
+  finalEndDate.setDate(finalEndDate.getDate() + days);
+  const finalAmount = amount != null && amount !== '' ? Number(amount) : pkg.price;
+
+  // Optional cleaner assignment
+  let cleaner = null;
+  if (assignedCleanerId) {
+    cleaner = await Cleaner.findById(assignedCleanerId);
+    if (!cleaner) throw new ApiError(404, 'Cleaner not found');
+  }
+
+  const sub = await Subscription.create({
+    customer: user._id,
+    vehicle: vehicleId,
+    package: packageId,
+    society: societyId,
+    slot: slotId,
+    status: 'Active',
+    startDate: finalStartDate,
+    endDate: finalEndDate,
+    totalDays: days,
+    remainingDays: days,
+    nextWash: new Date(finalStartDate.getTime() + 24 * 60 * 60 * 1000),
+    amount: finalAmount,
+    assignedCleaner: cleaner ? cleaner._id : undefined,
+    specialInstructions,
+  });
+
+  // If a cleaner was assigned, generate today's task immediately
+  if (cleaner) {
+    const today = getISTMidnight();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const existingTask = await Task.findOne({ subscription: sub._id, date: { $gte: today, $lt: tomorrow } });
+    if (!existingTask) {
+      let scheduledTime = '07:00 AM';
+      if (slot?.timeWindow) scheduledTime = slot.timeWindow.split(' - ')[0];
+      try {
+        await Task.create({
+          subscription: sub._id,
+          customer: user._id,
+          cleaner: cleaner._id,
+          vehicle: vehicleId,
+          date: today,
+          scheduledTime,
+          status: 'pending',
+          packageName: pkg.name || 'Standard',
+        });
+      } catch (createErr) {
+        if (createErr.code !== 11000) throw createErr;
+      }
+    }
+    await syncCleanerStats(cleaner._id);
+  }
+
+  await logActivity({
+    type: 'subscription_created',
+    message: `Admin created subscription (${pkg.name}, ${days} days) for ${user.firstName} ${user.lastName}`,
+    performer: req.user._id,
+    metadata: { subscriptionId: sub._id, userId: user._id }
+  });
+
+  // Notify the customer
+  const customer = await Customer.findById(user._id).select('fcmTokens');
+  if (customer?.fcmTokens?.length) {
+    sendPushNotification(customer.fcmTokens, {
+      title: '🚗 Subscription Activated!',
+      body: `Your ${pkg.name} plan is now active.`,
+      data: { type: 'subscription_created', link: NOTIFICATION_LINKS.subscription_created },
+    }).catch(() => {});
+  }
+
+  await clearCache(`cache:${user._id}:*`);
+  res.status(201).json({ success: true, subscription: sub });
+});
+
+// Admin cancels (deactivates) a subscription — one-way
+export const cancelSubscription = asyncHandler(async (req, res) => {
+  const { subscriptionId } = req.params;
+  const sub = await Subscription.findById(subscriptionId);
+  if (!sub) throw new ApiError(404, 'Subscription not found');
+  if (sub.status === 'Cancelled') throw new ApiError(400, 'Subscription is already cancelled');
+  if (sub.status === 'Expired') throw new ApiError(400, 'Cannot cancel an expired subscription');
+
+  const wasActive = sub.status === 'Active';
+
+  sub.status = 'Cancelled';
+  sub.cancelledAt = new Date();
+  sub.cancelledBy = req.user._id;
+  await sub.save();
+
+  // Free up the reserved slot capacity (clamped at 0)
+  if (wasActive && sub.society && sub.slot) {
+    await Society.updateOne(
+      { _id: sub.society, slots: { $elemMatch: { slotId: sub.slot, currentCount: { $gt: 0 } } } },
+      { $inc: { 'slots.$.currentCount': -1 } }
+    );
+  }
+
+  await logActivity({
+    type: 'subscription_cancelled',
+    message: `Admin cancelled a subscription`,
+    performer: req.user._id,
+    metadata: { subscriptionId: sub._id, userId: sub.customer }
+  });
+
+  await clearCache(`cache:${sub.customer}:*`);
+  res.json({ success: true, message: 'Subscription cancelled', subscription: sub });
+});
+
 export const getCleanerById = asyncHandler(async (req, res) => {
   await syncCleanerStats(req.params.id);
   const cleaner = await Cleaner.findById(req.params.id);
@@ -746,12 +958,24 @@ export const getAllSubscriptions = asyncHandler(async (req, res) => {
   const status = req.query.status;
 
   const filter = status ? { status } : {};
+
+  // Optional multi-city filter — `?cities=Noida,Pune`. Cities live on the
+  // society, so resolve the matching societies first, then scope subscriptions
+  // to them. Case-insensitive to tolerate admin free-text casing.
+  const cities = (req.query.cities || '')
+    .split(',').map(c => c.trim()).filter(Boolean);
+  if (cities.length > 0) {
+    const cityRegexes = cities.map(c => new RegExp(`^\\s*${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i'));
+    const societyIds = await Society.find({ city: { $in: cityRegexes } }).distinct('_id');
+    filter.society = { $in: societyIds };
+  }
+
   const [subs, total] = await Promise.all([
     Subscription.find(filter)
       .populate('customer', 'firstName lastName phone')
       .populate('vehicle', 'model number')
       .populate('package', 'name price')
-      .populate('society', 'name')
+      .populate('society', 'name city')
       .sort('-createdAt').skip(skip).limit(limit),
     Subscription.countDocuments(filter),
   ]);
@@ -886,6 +1110,11 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
     performer: req.user._id,
     metadata: { title, target, recipients: totalSent, pushTokens: allFcmTokens.length }
   });
+
+  // The per-recipient notifications list is cached (cacheMiddleware 120s). Without
+  // this, freshly broadcast notifications wouldn't appear in-app until the cache
+  // expired. Clear all cached responses so the next fetch returns them. (bug 83)
+  await clearCache('cache:*');
 
   res.json({ success: true, message: `Sent to ${totalSent} recipients (${allFcmTokens.length} push devices)` });
 });
@@ -1130,12 +1359,28 @@ export const getCleanerKycList = asyncHandler(async (req, res) => {
 });
 
 export const reviewCleanerKyc = asyncHandler(async (req, res) => {
-  const { status, rejectionNote } = req.body;
+  const { status, rejectionNote, societyId } = req.body;
   if (!['approved', 'rejected'].includes(status)) {
     throw new ApiError(400, 'Status must be approved or rejected');
   }
   if (status === 'rejected' && !rejectionNote) {
     throw new ApiError(400, 'Rejection note is required when rejecting KYC');
+  }
+
+  // On approval the admin must assign a society — and it must be in the cleaner's
+  // own city (HARD city boundary). This populates society.cleaners[], the list
+  // the auto-assignment cron reads.
+  let society = null;
+  if (status === 'approved') {
+    if (!societyId) throw new ApiError(400, 'A society must be assigned to approve KYC');
+    const target = await Cleaner.findById(req.params.id).select('city');
+    if (!target) throw new ApiError(404, 'Cleaner not found');
+
+    society = await Society.findById(societyId).select('name city isActive cleaners');
+    if (!society || !society.isActive) throw new ApiError(404, 'Society not found or inactive');
+    if (!isSameCity(target.city, society.city)) {
+      throw new ApiError(400, `Society is in ${society.city} but the cleaner is in ${target.city || 'an unknown city'}. Assign a society from the cleaner's city.`);
+    }
   }
 
   const update = { kycStatus: status };
@@ -1146,6 +1391,11 @@ export const reviewCleanerKyc = asyncHandler(async (req, res) => {
     .select('name phone kycStatus kycRejectionNote');
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
 
+  // Link the cleaner to the assigned society (idempotent).
+  if (status === 'approved' && society) {
+    await Society.updateOne({ _id: society._id }, { $addToSet: { cleaners: cleaner._id } });
+  }
+
   const { sendSms } = await import('../services/sms.service.js');
   if (status === 'approved') {
     await sendSms(cleaner.phone, `Congratulations ${cleaner.name}! Your KYC has been approved by Cleanzo. Your account is now fully active.`, process.env.SMS_APPROVAL_TEMPLATE_ID);
@@ -1155,9 +1405,11 @@ export const reviewCleanerKyc = asyncHandler(async (req, res) => {
 
   await logActivity({
     type: status === 'approved' ? 'kyc_approved' : 'kyc_rejected',
-    message: `KYC ${status} for ${cleaner.name}`,
+    message: status === 'approved' && society
+      ? `KYC approved for ${cleaner.name} — assigned to ${society.name} (${society.city})`
+      : `KYC ${status} for ${cleaner.name}`,
     performer: req.user._id,
-    metadata: { cleanerId: cleaner._id }
+    metadata: { cleanerId: cleaner._id, societyId: society?._id }
   });
 
   // ── Push Notification → Cleaner ──
@@ -1319,6 +1571,11 @@ export const assignCleanerToSubscription = asyncHandler(async (req, res) => {
   if (!cleaner) throw new ApiError(404, 'Cleaner not found');
   if (!cleaner.isActive) throw new ApiError(400, 'Cannot assign a deactivated cleaner');
   if (!cleaner.isAvailable) throw new ApiError(400, 'This cleaner is currently marked as unavailable');
+
+  // HARD city boundary — a cleaner may only work in their own city.
+  if (subscription.society && !isSameCity(cleaner.city, subscription.society.city)) {
+    throw new ApiError(400, `Cleaner is in ${cleaner.city || 'an unknown city'} but this society is in ${subscription.society.city || 'an unknown city'}. Cleaners can only be assigned within their own city.`);
+  }
 
   // Block assignment if the cleaner has an approved leave for today
   const todayForLeave = getISTMidnight();
@@ -1546,11 +1803,14 @@ export const triggerCronJob = asyncHandler(async (req, res) => {
 /**
  * POST /api/admin/maintenance/assign-all-cleaners
  *
- * Body (optional): { redistribute: boolean }
+ * Body (optional): { redistribute: boolean, societyIds: string[] }
  *
  * Default mode  — fills in subscriptions that have no eligible cleaner.
  * Redistribute  — reassigns ALL active subscriptions fresh using round-robin
  *                 so the workload is evenly spread across all available cleaners.
+ * societyIds    — when a non-empty array, only subscriptions belonging to those
+ *                 societies are processed (admin chose specific societies).
+ *                 Omit / empty → every society (all cities).
  *
  * Pool selection (per society):
  *   1. society.cleaners[] if admin explicitly populated it
@@ -1560,17 +1820,26 @@ export const triggerCronJob = asyncHandler(async (req, res) => {
  *   picked because they were the only one in every "fromSubs" result.
  */
 export const assignAllCleaners = asyncHandler(async (req, res) => {
-  const { redistribute = false } = req.body || {};
+  const { redistribute = false, societyIds } = req.body || {};
 
   const today = getISTMidnight();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // 1. Get all active subscriptions
-  const activeSubs = await Subscription.find({ status: 'Active' })
+  // Optional scope — restrict to specific societies the admin selected.
+  const scopedSocietyIds = Array.isArray(societyIds)
+    ? societyIds.filter(Boolean)
+    : [];
+  const subFilter = { status: 'Active' };
+  if (scopedSocietyIds.length > 0) {
+    subFilter.society = { $in: scopedSocietyIds };
+  }
+
+  // 1. Get active subscriptions (optionally scoped to chosen societies)
+  const activeSubs = await Subscription.find(subFilter)
     .populate('package', 'name')
     .populate('assignedCleaner', '_id isActive isAvailable name')
-    .populate('society', 'slots cleaners');
+    .populate('society', 'slots cleaners city name');
 
   if (activeSubs.length === 0) {
     return res.json({
@@ -1622,14 +1891,9 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
     });
   }
 
-  // 4. Global pool — all active/available cleaners not on leave today
-  const allCleaners = await Cleaner.find({ isActive: true, isAvailable: true })
-    .select('_id name').lean();
-  const globalPool = allCleaners.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
-
-  console.log(`[ASSIGN-ALL] Global pool: ${allCleaners.length} active/available, ${globalPool.length} not on leave`);
-
-  if (globalPool.length === 0) {
+  // 4. Quick guard — bail early only if the system has no usable cleaners at all
+  const systemCleanerCount = await Cleaner.countDocuments({ isActive: true, isAvailable: true });
+  if (systemCleanerCount === 0) {
     return res.json({
       success: true,
       message: 'No active and available cleaners found in the system. Cannot assign.',
@@ -1638,13 +1902,25 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
     });
   }
 
-  // 5. Group by society
+  // City-scoped pool cache — HARD city boundary: a cleaner is only assigned to a
+  // society in the SAME city. One query per distinct city.
+  const cityPools = new Map(); // lowercased city → Array<{_id,name,city}>
+  const getCityPool = async (city) => {
+    if (!city) return [];
+    const key = city.trim().toLowerCase();
+    if (!cityPools.has(key)) {
+      cityPools.set(key, await buildCityCleanerPool(city, cleanersOnLeaveToday));
+    }
+    return cityPools.get(key);
+  };
+
+  // 5. Group by society (carry the society's city + name for the boundary)
   const NO_SOCIETY = '__no_society__';
   const bySociety = new Map();
   for (const sub of needsCleaner) {
     const sid = sub.society?._id?.toString() || NO_SOCIETY;
     if (!bySociety.has(sid)) {
-      bySociety.set(sid, { societyObjId: sub.society?._id || null, subs: [] });
+      bySociety.set(sid, { societyObjId: sub.society?._id || null, city: sub.society?.city || null, name: sub.society?.name || null, subs: [] });
     }
     bySociety.get(sid).subs.push(sub);
   }
@@ -1653,46 +1929,34 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
   let assignedCount = 0;
   let failedCount = 0;
   const details = [];
+  const gapByCity = new Map(); // city → unassigned subscription count (no cleaner in city)
 
-  for (const [sid, { societyObjId, subs }] of bySociety) {
-    const label = sid === NO_SOCIETY ? 'NO_SOCIETY' : sid;
+  for (const [sid, { societyObjId, city, name, subs }] of bySociety) {
+    const label = sid === NO_SOCIETY ? 'NO_SOCIETY' : `${name || sid} (${city || 'no city'})`;
 
-    // Build the cleaner pool for this society.
-    //
-    // Priority:
-    //   1. society.cleaners[] — only if admin explicitly configured this list
-    //   2. Global pool of ALL active/available cleaners
-    //
-    // We intentionally do NOT pull from existing subscription.assignedCleaner
-    // values (the old approach). That created a feedback loop: one cleaner in
-    // the list → everyone gets that cleaner → list stays at one cleaner forever.
-    let pool;
-    if (sid !== NO_SOCIETY) {
-      const societyDoc = await Society.findById(societyObjId).select('cleaners').lean();
-      const fromSocietyList = (societyDoc?.cleaners || []).map(c => c.toString());
-
-      if (fromSocietyList.length > 0) {
-        const eligible = await Cleaner.find({
-          _id: { $in: fromSocietyList },
-          isActive: true,
-          isAvailable: true,
-        }).select('_id name').lean();
-        pool = eligible.filter(c => !cleanersOnLeaveToday.has(c._id.toString()));
+    // Legacy subs without a society have no derivable city — we can't honour the
+    // city boundary, so leave them for manual assignment.
+    if (sid === NO_SOCIETY) {
+      for (const sub of subs) {
+        details.push({ subscriptionId: sub._id, reason: 'No society/city — cannot apply city boundary' });
+        failedCount++;
       }
-
-      if (!pool || pool.length === 0) {
-        console.log(`[ASSIGN-ALL] Society ${label}: no society.cleaners configured — using global pool (${globalPool.length} cleaners)`);
-        pool = [...globalPool];
-      } else {
-        console.log(`[ASSIGN-ALL] Society ${label}: using society.cleaners pool (${pool.length} cleaners)`);
-      }
-    } else {
-      pool = [...globalPool];
+      continue;
     }
 
+    // Build the city pool, then prefer this society's own cleaners within it.
+    // We never fall back to a cross-city global pool.
+    const cityPool = await getCityPool(city);
+    const societyDoc = await Society.findById(societyObjId).select('cleaners').lean();
+    const fromSocietyList = new Set((societyDoc?.cleaners || []).map(c => c.toString()));
+    const preferred = cityPool.filter(c => fromSocietyList.has(c._id.toString()));
+    const pool = preferred.length > 0 ? [...preferred] : [...cityPool];
+    console.log(`[ASSIGN-ALL] Society ${label}: cityPool=${cityPool.length}, preferred=${preferred.length}`);
+
     if (pool.length === 0) {
+      if (city) gapByCity.set(city, (gapByCity.get(city) || 0) + subs.length);
       for (const sub of subs) {
-        details.push({ subscriptionId: sub._id, reason: 'No cleaners available' });
+        details.push({ subscriptionId: sub._id, reason: `No cleaner available in ${city || 'this city'}` });
         failedCount++;
       }
       continue;
@@ -1788,23 +2052,28 @@ export const assignAllCleaners = asyncHandler(async (req, res) => {
   }
 
   const unassigned = needsCleaner.length - assignedCount - failedCount;
+  const cityGaps = [...gapByCity.entries()].map(([cityName, count]) => ({ city: cityName, count }));
+  const cityBreakdown = cityGaps.length
+    ? ` No cleaner available in: ${cityGaps.map(g => `${g.city} (${g.count})`).join(', ')}.`
+    : '';
 
   await logActivity({
     type: 'system',
-    message: `Admin triggered Assign All Cleaners: ${assignedCount} assigned, ${failedCount} failed, ${unassigned} unassigned`,
+    message: `Admin triggered Assign All Cleaners: ${assignedCount} assigned, ${failedCount} failed, ${unassigned} unassigned.${cityBreakdown}`,
     performer: req.user._id,
-    metadata: { assignedCount, failedCount, unassigned, alreadyAssigned, total: activeSubs.length },
+    metadata: { assignedCount, failedCount, unassigned, alreadyAssigned, total: activeSubs.length, cityGaps },
   });
 
-  console.log(`[ASSIGN-ALL] Done — assigned=${assignedCount}, failed=${failedCount}, unassigned=${unassigned}`);
+  console.log(`[ASSIGN-ALL] Done — assigned=${assignedCount}, failed=${failedCount}, unassigned=${unassigned}.${cityBreakdown}`);
 
   res.json({
     success: true,
-    message: `Assigned cleaners to ${assignedCount} subscription(s).${failedCount > 0 ? ` ${failedCount} failed.` : ''}${unassigned > 0 ? ` ${unassigned} still unassigned.` : ''}`,
+    message: `Assigned cleaners to ${assignedCount} subscription(s).${failedCount > 0 ? ` ${failedCount} failed.` : ''}${unassigned > 0 ? ` ${unassigned} still unassigned.` : ''}${cityBreakdown}`,
     assigned: assignedCount,
     alreadyAssigned,
     failed: failedCount,
     unassigned,
+    cityGaps,
     total: activeSubs.length,
     details,
   });

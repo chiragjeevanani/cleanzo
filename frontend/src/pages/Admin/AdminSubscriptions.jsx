@@ -27,6 +27,13 @@ export default function AdminSubscriptions() {
   const { showToast } = useToast()
   const [exporting, setExporting] = useState(false)
 
+  // Multi-select city filter — view subscriptions for societies in chosen cities.
+  const [cities, setCities] = useState([])
+  const [selectedCities, setSelectedCities] = useState([])
+  const citiesQuery = selectedCities.length ? `&cities=${encodeURIComponent(selectedCities.join(','))}` : ''
+  const toggleCity = (name) =>
+    setSelectedCities(prev => prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name])
+
   // Cron trigger state
   const [showCronConfirm, setShowCronConfirm] = useState(false)
   const [cronRunning, setCronRunning]         = useState(false)
@@ -38,12 +45,18 @@ export default function AdminSubscriptions() {
   const [showAssignConfirm, setShowAssignConfirm] = useState(false)
   const [assignRunning, setAssignRunning]         = useState(false)
   const [assignResults, setAssignResults]         = useState(null)
+  // Scope: assign to every society, or a specific selection of societies.
+  const [assignScope, setAssignScope] = useState('all') // 'all' | 'specific'
+  const [societies, setSocieties] = useState([])
+  const [selectedAssignSocieties, setSelectedAssignSocieties] = useState([])
+  const toggleAssignSociety = (id) =>
+    setSelectedAssignSocieties(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id])
 
   const handleExport = async () => {
     setExporting(true)
     setError('')
     try {
-      const res = await apiClient.get('/admin/subscriptions?limit=all')
+      const res = await apiClient.get(`/admin/subscriptions?limit=all${citiesQuery}`)
       const allSubs = res.subscriptions || []
       
       const filteredExport = filter === 'all'
@@ -58,6 +71,7 @@ export default function AdminSubscriptions() {
           { label: 'Customer Phone', key: (s) => s.customer?.phone || 'N/A' },
           { label: 'Cleaner Assigned', key: (s) => s.assignedCleaner?.name || 'Unassigned' },
           { label: 'Society Name', key: (s) => s.society?.name || 'N/A' },
+          { label: 'City', key: (s) => s.society?.city || 'N/A' },
           { label: 'Vehicle Model', key: (s) => s.vehicle?.model || 'N/A' },
           { label: 'Package Name', key: (s) => s.package?.name || (s.isTrial ? 'Trial' : 'Basic') },
           { label: 'Time Slot', key: (s) => s.slot || 'N/A' },
@@ -80,7 +94,7 @@ export default function AdminSubscriptions() {
   const fetchData = async () => {
     try {
       const [sRes, cRes] = await Promise.all([
-        apiClient.get('/admin/subscriptions'),
+        apiClient.get(`/admin/subscriptions?limit=all${citiesQuery}`),
         apiClient.get('/admin/cleaners')
       ])
       setSubs(sRes.subscriptions || [])
@@ -94,6 +108,15 @@ export default function AdminSubscriptions() {
 
   useEffect(() => {
     fetchData()
+  }, [selectedCities])
+
+  useEffect(() => {
+    apiClient.get('/admin/cities')
+      .then(res => setCities(res.cities || []))
+      .catch(() => {})
+    apiClient.get('/admin/societies')
+      .then(res => setSocieties((res.societies || []).filter(s => s.isActive)))
+      .catch(() => {})
   }, [])
 
   const handleAssignCleaner = async (subId, cleanerId) => {
@@ -129,11 +152,18 @@ export default function AdminSubscriptions() {
   }
 
   const handleAssignAllCleaners = async () => {
+    if (assignScope === 'specific' && selectedAssignSocieties.length === 0) {
+      showToast('Select at least one society, or choose "All societies".', 'error')
+      return
+    }
     setAssignRunning(true)
     setShowAssignConfirm(false)
     setAssignResults(null)
     try {
-      const res = await apiClient.post('/admin/maintenance/assign-all-cleaners', { redistribute: distributeAll })
+      const res = await apiClient.post('/admin/maintenance/assign-all-cleaners', {
+        redistribute: distributeAll,
+        ...(assignScope === 'specific' ? { societyIds: selectedAssignSocieties } : {}),
+      })
       setAssignResults(res)
       if (res.assigned > 0) {
         showToast(`✅ Assigned cleaners to ${res.assigned} subscription(s).`)
@@ -397,6 +427,93 @@ export default function AdminSubscriptions() {
               </button>
             </div>
 
+            {/* Scope — all societies vs a specific selection */}
+            <div style={{
+              background: 'var(--bg-glass)', border: '1px solid var(--border-glass)',
+              borderRadius: 14, marginBottom: 16, overflow: 'hidden',
+            }}>
+              {/* All societies */}
+              <button
+                onClick={() => setAssignScope('all')}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'flex-start', gap: 12,
+                  padding: '14px 16px', background: 'none', border: 'none',
+                  borderBottom: '1px solid var(--border-glass)', cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                <div style={{
+                  width: 18, height: 18, borderRadius: '50%', flexShrink: 0, marginTop: 2,
+                  border: `2px solid ${assignScope === 'all' ? '#32d74b' : 'var(--border-glass)'}`,
+                  background: assignScope === 'all' ? '#32d74b' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {assignScope === 'all' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>All societies (every city)</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    Process subscriptions across all societies in every city.
+                  </div>
+                </div>
+              </button>
+
+              {/* Specific societies */}
+              <button
+                onClick={() => setAssignScope('specific')}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'flex-start', gap: 12,
+                  padding: '14px 16px', background: assignScope === 'specific' ? 'rgba(50,215,75,0.04)' : 'none',
+                  border: 'none', cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                <div style={{
+                  width: 18, height: 18, borderRadius: '50%', flexShrink: 0, marginTop: 2,
+                  border: `2px solid ${assignScope === 'specific' ? '#32d74b' : 'var(--border-glass)'}`,
+                  background: assignScope === 'specific' ? '#32d74b' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {assignScope === 'specific' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>
+                    Specific societies {selectedAssignSocieties.length > 0 && `(${selectedAssignSocieties.length})`}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    Pick the societies to assign cleaners to.
+                  </div>
+                </div>
+              </button>
+
+              {/* Checkbox list — grouped by city */}
+              {assignScope === 'specific' && (
+                <div style={{ maxHeight: 200, overflowY: 'auto', borderTop: '1px solid var(--border-glass)', padding: '8px 0' }}>
+                  {societies.length === 0 ? (
+                    <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-tertiary)' }}>No active societies found.</div>
+                  ) : (
+                    Object.entries(
+                      societies.reduce((acc, s) => {
+                        (acc[s.city] = acc[s.city] || []).push(s); return acc
+                      }, {})
+                    ).map(([cityName, list]) => (
+                      <div key={cityName}>
+                        <div style={{ padding: '6px 16px', fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>{cityName}</div>
+                        {list.map(s => {
+                          const checked = selectedAssignSocieties.includes(s._id)
+                          return (
+                            <label key={s._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>
+                              <input type="checkbox" checked={checked} onChange={() => toggleAssignSociety(s._id)} style={{ accentColor: '#32d74b', width: 16, height: 16 }} />
+                              <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{s.name}</span>
+                              <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{s.area}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Info note */}
             <div style={{
               fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 20,
@@ -524,11 +641,37 @@ export default function AdminSubscriptions() {
         </div>
       )}
 
-      <div className="flex gap-8" style={{ marginBottom: 20 }}>
+      <div className="flex gap-8" style={{ marginBottom: 16 }}>
         {['all', 'Active', 'Expired', 'trial'].map(f => (
           <button key={f} onClick={() => setFilter(f)} className={`chip ${filter.toLowerCase() === f.toLowerCase() ? 'chip-lime' : 'chip-ghost'}`} style={{ cursor: 'pointer', textTransform: 'capitalize' }}>{f === 'trial' ? 'Trial' : f}</button>
         ))}
       </div>
+
+      {/* City filter — multi-select; view societies from one or more cities */}
+      {cities.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div className="flex items-center gap-8" style={{ marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.08em' }}>FILTER BY CITY</span>
+            {selectedCities.length > 0 && (
+              <button onClick={() => setSelectedCities([])} className="chip chip-ghost" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <X size={12} /> Clear ({selectedCities.length})
+              </button>
+            )}
+          </div>
+          <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
+            {cities.map(c => (
+              <button
+                key={c._id || c.name}
+                onClick={() => toggleCity(c.name)}
+                className={`chip ${selectedCities.includes(c.name) ? 'chip-lime' : 'chip-ghost'}`}
+                style={{ cursor: 'pointer' }}
+              >
+                {selectedCities.includes(c.name) ? '✓ ' : ''}{c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="glass" style={{ overflow: 'hidden' }}>
         <table className="data-table">
           <thead><tr><th>User</th><th>Vehicle</th><th>Plan</th><th>Cleaner</th><th>Status</th></tr></thead>
@@ -555,7 +698,7 @@ export default function AdminSubscriptions() {
                   <td style={{ fontWeight: 600 }}>
                     <div className="flex flex-col">
                       <span>{customerName}</span>
-                      <span className="text-[10px] text-tertiary font-bold uppercase">{s.society?.name || 'No Society'}</span>
+                      <span className="text-[10px] text-tertiary font-bold uppercase">{s.society?.name || 'No Society'}{s.society?.city ? ` · ${s.society.city}` : ''}</span>
                     </div>
                   </td>
                   <td className="text-secondary">{vehicleName}</td>
@@ -592,7 +735,6 @@ export default function AdminSubscriptions() {
                     <div className="flex items-center gap-8">
                       {s.assignedCleaner ? (
                         <div className={`flex items-center gap-6 text-xs font-bold ${isExpired || remaining <= 0 ? 'text-tertiary' : 'text-success'}`}>
-                          <ShieldCheck size={14} />
                           {s.assignedCleaner.name}
                           {(!isExpired && remaining > 0) && (
                             <select 

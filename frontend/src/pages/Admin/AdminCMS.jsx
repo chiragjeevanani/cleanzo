@@ -659,10 +659,10 @@ export default function AdminCMS() {
                     )}
                   </div>
 
-                  <div className="flex gap-12" style={{ marginTop: 8 }}>
-                    <button 
-                      className="btn btn-glass" 
-                      style={{ flex: 1, padding: '14px' }} 
+                  <div className="flex gap-12" style={{ marginTop: 24 }}>
+                    <button
+                      className="btn btn-glass"
+                      style={{ flex: 1, padding: '14px' }}
                       onClick={() => setShowPreview(!showPreview)}>
                       <Eye size={16} /> {showPreview ? 'Hide Preview' : 'Show Preview'}
                     </button>

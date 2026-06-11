@@ -41,8 +41,19 @@ const JoinAsCleaner = () => {
   const [showCamera, setShowCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
 
+  // Fields restricted to letters/spaces, and fields restricted to a 10-digit phone.
+  const NAME_FIELDS = ['name', 'fatherName', 'referenceName'];
+  const PHONE_FIELDS = ['phone', 'referencePhone'];
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    let next = value;
+    if (NAME_FIELDS.includes(name)) {
+      next = value.replace(/[^a-zA-Z\s]/g, '');
+    } else if (PHONE_FIELDS.includes(name)) {
+      next = value.replace(/\D/g, '').slice(0, 10);
+    }
+    setFormData({ ...formData, [name]: next });
   };
 
   const handleFileChange = async (e) => {
@@ -114,8 +125,16 @@ const JoinAsCleaner = () => {
         setError('Please fill in all mandatory profile fields');
         return false;
       }
-      if (phone.length !== 10) {
+      if (name.trim().length < 2 || fatherName.trim().length < 2) {
+        setError('Name and Father\'s Name must contain only letters (min 2 characters)');
+        return false;
+      }
+      if (!/^[6-9]\d{9}$/.test(phone)) {
         setError('Enter a valid 10-digit mobile number');
+        return false;
+      }
+      if (Number(age) < 18 || Number(age) > 70) {
+        setError('Age must be between 18 and 70');
         return false;
       }
     } else if (step === 2) {
@@ -127,6 +146,14 @@ const JoinAsCleaner = () => {
       const { referenceName, referencePhone } = formData;
       if (!referenceName || !referencePhone) {
         setError('Reference details are required for security verification');
+        return false;
+      }
+      if (referenceName.trim().length < 2) {
+        setError('Reference name must contain only letters (min 2 characters)');
+        return false;
+      }
+      if (!/^[6-9]\d{9}$/.test(referencePhone)) {
+        setError('Enter a valid 10-digit reference mobile number');
         return false;
       }
     }
@@ -179,8 +206,8 @@ const JoinAsCleaner = () => {
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         <div className="glass" style={{ maxWidth: 500, width: '100%', padding: '48px 32px', borderRadius: 40, textAlign: 'center', border: '1px solid var(--border-glass)' }}>
-          <div style={{ width: 80, height: 80, background: 'rgba(101,199,55,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 32px' }}>
-            <CheckCircle2 size={40} color="#65C737" />
+          <div style={{ width: 80, height: 80, background: 'rgba(var(--bg-accent-rgb),0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 32px' }}>
+            <CheckCircle2 size={40} color="var(--text-accent)" />
           </div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(24px, 5vw, 32px)', fontWeight: 900, marginBottom: 16 }}>Application Received!</h1>
           <p className="text-secondary" style={{ fontSize: 16, lineHeight: 1.6, marginBottom: 40 }}>
@@ -284,9 +311,9 @@ const JoinAsCleaner = () => {
         }
         .input-group input::placeholder, .input-group textarea::placeholder { color: var(--text-tertiary); }
         .input-group input:focus, .input-group textarea:focus {
-          border-color: var(--accent-lime);
+          border-color: var(--bg-accent);
           background: var(--bg-glass-hover);
-          box-shadow: 0 0 0 4px rgba(101,199,55,0.1);
+          box-shadow: 0 0 0 4px rgba(var(--bg-accent-rgb),0.1);
         }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
@@ -301,7 +328,7 @@ const JoinAsCleaner = () => {
       </button>
 
       {/* Visual Background Elements */}
-      <div style={{ position: 'fixed', top: '-10%', right: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(101,199,55,0.08) 0%, transparent 70%)', filter: 'blur(100px)', zIndex: 0 }} />
+      <div style={{ position: 'fixed', top: '-10%', right: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(var(--bg-accent-rgb),0.08) 0%, transparent 70%)', filter: 'blur(100px)', zIndex: 0 }} />
       <div style={{ position: 'fixed', bottom: '-20%', left: '-10%', width: '50vw', height: '50vw', background: 'radial-gradient(circle, rgba(74,158,255,0.05) 0%, transparent 70%)', filter: 'blur(120px)', zIndex: 0 }} />
 
       <div className="join-crew-container">
@@ -310,11 +337,11 @@ const JoinAsCleaner = () => {
         <div className="branding-section">
           <div className="brand-logo-wrapper" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
             <img src={getAppLogo(theme)} alt="Cleanzo" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'contain' }} />
-            <span style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em' }}>Cleanzo <span style={{ color: 'var(--accent-lime)' }}>Crew</span></span>
+            <span style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.02em' }}>Cleanzo <span style={{ color: 'var(--text-accent)' }}>Crew</span></span>
           </div>
 
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 64, fontWeight: 900, lineHeight: 0.95, letterSpacing: '-0.05em', marginBottom: 32 }}>
-            Join the <br /> <span style={{ color: 'var(--accent-lime)' }}>Top 1%</span> of <br /> Cleaning Pro's.
+            Join the <br /> <span style={{ color: 'var(--text-accent)' }}>Top 1%</span> of <br /> Cleaning Pro's.
           </h1>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginBottom: 48 }}>
@@ -325,7 +352,7 @@ const JoinAsCleaner = () => {
             ].map((item, i) => (
               <div key={i} className="benefit-item" style={{ display: 'flex', gap: 16 }}>
                 <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <item.icon size={22} color="var(--accent-lime)" />
+                  <item.icon size={22} color="var(--text-accent)" />
                 </div>
                 <div>
                   <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{item.title}</h3>
@@ -337,7 +364,7 @@ const JoinAsCleaner = () => {
 
           <div className="glass" style={{ padding: 24, borderRadius: 24, border: '1px solid var(--border-glass)', background: 'var(--bg-glass)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, justifyContent: 'inherit' }}>
-              <Info size={18} color="var(--accent-lime)" />
+              <Info size={18} color="var(--text-accent)" />
               <span style={{ fontWeight: 700, fontSize: 14 }}>ONBOARDING PROCESS</span>
             </div>
             <p className="text-secondary" style={{ fontSize: 13, lineHeight: 1.6 }}>
@@ -354,7 +381,7 @@ const JoinAsCleaner = () => {
             <div style={{ marginBottom: 40 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: 16 }}>
                 <div>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent-lime)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Step {step} of 3</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-accent)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Step {step} of 3</span>
                   <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 800, marginTop: 4 }}>
                     {step === 1 ? 'Personal Profile' : step === 2 ? 'Identity Documents' : 'Final Verification'}
                   </h2>
@@ -364,7 +391,7 @@ const JoinAsCleaner = () => {
                 </div>
               </div>
               <div style={{ height: 6, background: 'var(--bg-glass)', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${(step/3)*100}%`, background: 'var(--accent-lime)', transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 0 20px rgba(101,199,55,0.4)' }} />
+                <div style={{ height: '100%', width: `${(step/3)*100}%`, background: 'var(--bg-accent)', transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 0 20px rgba(var(--bg-accent-rgb),0.4)' }} />
               </div>
             </div>
 
@@ -384,7 +411,7 @@ const JoinAsCleaner = () => {
                   </div>
                   <div className="input-group">
                     <label>MOBILE NUMBER <span style={{ color: 'var(--error)' }}>*</span></label>
-                    <input name="phone" value={formData.phone} onChange={handleChange} placeholder="10-digit number" />
+                    <input name="phone" value={formData.phone} onChange={handleChange} placeholder="10-digit number" inputMode="numeric" maxLength={10} />
                   </div>
                 </div>
 
@@ -422,7 +449,7 @@ const JoinAsCleaner = () => {
                     {showCamera ? (
                       <div style={{ width: '100%', height: '100%' }}>
                         <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
-                        <div style={{ position: 'absolute', inset: 0, border: '2px solid var(--accent-lime)', borderRadius: 32, opacity: 0.3, pointerEvents: 'none' }} />
+                        <div style={{ position: 'absolute', inset: 0, border: '2px solid var(--bg-accent)', borderRadius: 32, opacity: 0.3, pointerEvents: 'none' }} />
                         <button onClick={capturePhoto} style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', width: 64, height: 64, borderRadius: '50%', background: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 30px rgba(0,0,0,0.5)', cursor: 'pointer' }}>
                           <div style={{ width: 50, height: 50, borderRadius: '50%', border: '2px solid #000' }} />
                         </button>
@@ -436,8 +463,8 @@ const JoinAsCleaner = () => {
                       </div>
                     ) : (
                       <div onClick={startCamera} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, cursor: 'pointer', padding: 20 }}>
-                        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(101,199,55,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Camera size={28} color="var(--accent-lime)" />
+                        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(var(--bg-accent-rgb),0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Camera size={28} color="var(--text-accent)" />
                         </div>
                         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center' }}>Open Camera to Take Photo</span>
                       </div>
@@ -454,13 +481,13 @@ const JoinAsCleaner = () => {
                     <div key={doc.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       <label style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)' }}>{doc.label} <span style={{ color: 'var(--error)' }}>*</span></label>
                       <label style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 24, border: '2px dashed var(--border-glass)', background: 'var(--bg-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
-                        <input type="file" name={doc.id} onChange={handleFileChange} style={{ display: 'none' }} />
+                        <input type="file" name={doc.id} accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
                         {previews[doc.id] ? (
                           <img src={previews[doc.id]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ textAlign: 'center' }}>
-                            <doc.icon size={28} color="var(--text-tertiary)" style={{ marginBottom: 8 }} />
-                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>UPLOAD</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                            <doc.icon size={28} color="var(--text-tertiary)" />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', lineHeight: 1 }}>UPLOAD</span>
                           </div>
                         )}
                       </label>
@@ -473,8 +500,8 @@ const JoinAsCleaner = () => {
             {/* Step 3: Reference */}
             {step === 3 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-                <div style={{ background: 'rgba(101,199,55,0.05)', border: '1px solid rgba(101,199,55,0.1)', padding: '32px 24px', borderRadius: 32 }}>
-                  <h3 style={{ fontSize: 18, fontWeight: 900, color: 'var(--accent-lime)', marginBottom: 12 }}>Candidate Declaration</h3>
+                <div style={{ background: 'rgba(var(--bg-accent-rgb),0.05)', border: '1px solid rgba(var(--bg-accent-rgb),0.1)', padding: '32px 24px', borderRadius: 32 }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 900, color: 'var(--text-accent)', marginBottom: 12 }}>Candidate Declaration</h3>
                   <p style={{ fontSize: 15, fontWeight: 500, lineHeight: 1.6, color: 'var(--text-primary)' }}>
                     I, <strong>{formData.name || 'Candidate'}</strong>, hereby certify that the information provided is accurate and I am ready to join the professional crew of Cleanzo.
                   </p>
@@ -487,12 +514,12 @@ const JoinAsCleaner = () => {
                   </div>
                   <div className="input-group">
                     <label>REFERENCE PHONE <span style={{ color: 'var(--error)' }}>*</span></label>
-                    <input name="referencePhone" value={formData.referencePhone} onChange={handleChange} placeholder="Mobile Number" />
+                    <input name="referencePhone" value={formData.referencePhone} onChange={handleChange} placeholder="Mobile Number" inputMode="numeric" maxLength={10} />
                   </div>
                 </div>
 
                 <p className="text-secondary" style={{ fontSize: 13, textAlign: 'center' }}>
-                  By clicking finalize, you agree to our <span style={{ color: 'var(--accent-lime)', cursor: 'pointer' }}>Terms of Service</span>.
+                  By clicking finalize, you agree to our <span style={{ color: 'var(--text-accent)', cursor: 'pointer' }}>Terms of Service</span>.
                 </p>
               </div>
             )}
