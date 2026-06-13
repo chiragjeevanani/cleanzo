@@ -243,6 +243,15 @@ export default function AdminPackages() {
     }
   }
 
+  const isBikeModel = (brandName, modelName) => {
+    return packages.some(pkg => 
+      pkg.category?.includes('bike') && 
+      pkg.applicableModels?.some(app => 
+        app.brand === brandName && (app.models?.length === 0 || app.models?.includes(modelName))
+      )
+    )
+  }
+
   const getCoverageStatus = (tierName) => {
     if (brands.length === 0) return false
     
@@ -250,10 +259,23 @@ export default function AdminPackages() {
     const tierPackages = packages.filter(pkg => pkg.isActive && (pkg.tier || 'BASIC').toUpperCase() === tierName.toUpperCase())
     if (tierPackages.length === 0) return false
 
+    const isBasicOrPremium = tierName.toUpperCase() === 'BASIC' || tierName.toUpperCase() === 'PREMIUM'
+
     // Check every brand
     for (const brand of brands) {
       const brandModels = brand.models || []
+      
       if (brandModels.length === 0) {
+        if (isBasicOrPremium) {
+          // If Basic/Premium, skip if this is only a bike brand
+          const isOnlyBikeBrand = packages.every(pkg => {
+            const hasBrand = pkg.applicableModels?.some(app => app.brand === brand.name)
+            if (!hasBrand) return true
+            return pkg.category?.includes('bike')
+          })
+          if (isOnlyBikeBrand) continue
+        }
+
         const brandIsCovered = tierPackages.some(pkg => 
           pkg.applicableModels?.some(app => app.brand === brand.name)
         )
@@ -263,6 +285,10 @@ export default function AdminPackages() {
 
       // Check if every model of this brand is covered
       for (const model of brandModels) {
+        if (isBasicOrPremium && isBikeModel(brand.name, model)) {
+          continue
+        }
+
         const modelIsCovered = tierPackages.some(pkg => 
           pkg.applicableModels?.some(app => 
             app.brand === brand.name && (app.models?.length === 0 || app.models?.includes(model))

@@ -131,6 +131,18 @@ export const addVehicle = asyncHandler(async (req, res) => {
     flatNumberClean ? `Flat: ${flatNumberClean}` : ''
   ].filter(Boolean).join(' · ');
 
+  let resolvedCategory = category || 'sedan';
+  if (brand && model) {
+    const matchedPkg = await Package.findOne({
+      isActive: true,
+      'applicableModels.brand': { $regex: new RegExp(`^${brand.trim()}$`, 'i') },
+      'applicableModels.models': { $regex: new RegExp(`^${model.trim()}$`, 'i') }
+    });
+    if (matchedPkg && matchedPkg.category) {
+      resolvedCategory = matchedPkg.category;
+    }
+  }
+
   let photos = [];
   if (req.files && req.files.length > 0) {
     const uploadPromises = req.files.map(file => 
@@ -149,7 +161,7 @@ export const addVehicle = asyncHandler(async (req, res) => {
     slotPillar: slotPillarClean,
     parking: parkingClean, 
     color, 
-    category,
+    category: resolvedCategory,
     photos 
   });
   
@@ -176,6 +188,18 @@ export const updateVehicle = asyncHandler(async (req, res) => {
     flatNumberClean ? `Flat: ${flatNumberClean}` : ''
   ].filter(Boolean).join(' · ');
 
+  let resolvedCategory = category || existing.category;
+  if (!hasActiveSub && brand && model) {
+    const matchedPkg = await Package.findOne({
+      isActive: true,
+      'applicableModels.brand': { $regex: new RegExp(`^${brand.trim()}$`, 'i') },
+      'applicableModels.models': { $regex: new RegExp(`^${model.trim()}$`, 'i') }
+    });
+    if (matchedPkg && matchedPkg.category) {
+      resolvedCategory = matchedPkg.category;
+    }
+  }
+
   const updateFields = {
     brand: hasActiveSub ? existing.brand : brand,
     model: hasActiveSub ? existing.model : model,
@@ -185,7 +209,7 @@ export const updateVehicle = asyncHandler(async (req, res) => {
     slotPillar: slotPillarClean,
     parking: parkingClean,
     color,
-    category: hasActiveSub ? existing.category : category
+    category: hasActiveSub ? existing.category : resolvedCategory
   };
 
   if (req.files && req.files.length > 0) {

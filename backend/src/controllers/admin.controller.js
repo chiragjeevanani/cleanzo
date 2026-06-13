@@ -450,6 +450,18 @@ export const createUserVehicle = asyncHandler(async (req, res) => {
     flatNumberClean ? `Flat: ${flatNumberClean}` : ''
   ].filter(Boolean).join(' · ');
 
+  let resolvedCategory = category || 'sedan';
+  if (brand && model) {
+    const matchedPkg = await Package.findOne({
+      isActive: true,
+      'applicableModels.brand': { $regex: new RegExp(`^${brand.trim()}$`, 'i') },
+      'applicableModels.models': { $regex: new RegExp(`^${model.trim()}$`, 'i') }
+    });
+    if (matchedPkg && matchedPkg.category) {
+      resolvedCategory = matchedPkg.category;
+    }
+  }
+
   let photos = [];
   if (req.files && req.files.length > 0) {
     photos = await Promise.all(
@@ -467,7 +479,7 @@ export const createUserVehicle = asyncHandler(async (req, res) => {
     slotPillar: slotPillarClean,
     parking: parkingClean,
     color,
-    category,
+    category: resolvedCategory,
     photos
   });
 
