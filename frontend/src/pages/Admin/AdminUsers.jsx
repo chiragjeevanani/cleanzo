@@ -6,7 +6,7 @@ import { exportToExcel } from '../../utils/excelExporter'
 import { validateName, validateEmail, validatePhone, cleanPhoneNumber, formatCityState } from '../../utils/helpers'
 
 const STATUSES = ['all', 'active', 'inactive']
-const PLANS = ['all', 'None', 'Basic', 'Standard', 'Premium', 'Elite']
+const PLANS = ['all', 'None', 'Basic', 'Standard', 'Premium']
 
 export default function AdminUsers() {
   const [searchParams] = useSearchParams()
@@ -217,7 +217,7 @@ export default function AdminUsers() {
         <button
           className={`btn ${showFilters ? 'btn-primary' : 'btn-glass'}`}
           onClick={() => setShowFilters(v => !v)}
-          style={{ position: 'relative' }}
+          style={{ position: 'relative', overflow: 'visible' }}
         >
           <Filter size={16} /> Filters
           {activeFiltersCount > 0 && (

@@ -14,6 +14,7 @@ export default function CustomerProfile() {
   const { showToast } = useToast()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -59,6 +60,7 @@ export default function CustomerProfile() {
   }
 
   const handleLogout = () => {
+    setShowLogoutModal(false)
     setIsLoggingOut(true)
     logout()
   }
@@ -356,7 +358,7 @@ export default function CustomerProfile() {
       </div>
 
       <button
-        onClick={handleLogout}
+        onClick={() => setShowLogoutModal(true)}
         disabled={isLoggingOut}
         className="btn btn-ghost w-full"
         style={{
@@ -428,6 +430,53 @@ export default function CustomerProfile() {
               <button
                 onClick={() => setShowDeleteModal(false)}
                 disabled={isDeleting}
+                className="btn btn-ghost w-full"
+                style={{ height: 48 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLogoutModal && (
+        <div className="modal-overlay" onClick={() => !isLoggingOut && setShowLogoutModal(false)}>
+          <div className="modal-content" style={{ padding: 24, borderRadius: 24, maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
+              <div className="flex items-center gap-12">
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,69,58,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <LogOut size={20} style={{ color: 'var(--error)' }} />
+                </div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800 }}>Sign Out?</h3>
+              </div>
+              {!isLoggingOut && (
+                <button onClick={() => setShowLogoutModal(false)} className="btn-icon glass" style={{ width: 32, height: 32, borderRadius: 10 }}>
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            <p className="text-body-sm text-secondary" style={{ marginBottom: 24, lineHeight: 1.5 }}>
+              Are you sure you want to sign out of your Cleanzo account?
+            </p>
+
+            <div className="flex flex-col gap-8">
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="btn w-full"
+                style={{ background: 'var(--error)', color: '#fff', height: 48, fontWeight: 700 }}
+              >
+                {isLoggingOut ? (
+                  <><Loader2 size={16} className="animate-spin" /> <span>Signing out...</span></>
+                ) : (
+                  <><LogOut size={16} /> <span>Yes, Sign Out</span></>
+                )}
+              </button>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                disabled={isLoggingOut}
                 className="btn btn-ghost w-full"
                 style={{ height: 48 }}
               >

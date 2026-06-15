@@ -78,7 +78,7 @@ export default function Navbar() {
           ))}
           <div className="mobile-menu-divider" />
           <Link to="/login" className="btn btn-primary btn-lg w-full" onClick={() => setMobileOpen(false)}>
-            Get Started
+            RESERVE NOW
           </Link>
           <Link to="/admin" className="btn btn-ghost btn-lg w-full" onClick={() => setMobileOpen(false)}>
             Admin Panel

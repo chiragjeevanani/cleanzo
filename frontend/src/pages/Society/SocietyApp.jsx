@@ -2,7 +2,7 @@ import { useState, useEffect, Suspense, lazy } from 'react'
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
 import { useSocietyAuth } from '../../context/SocietyAuthContext'
 import { useTheme } from '../../context/ThemeContext'
-import { LayoutDashboard, CreditCard, User, LogOut, Moon, Sun, Menu, X, ShieldCheck } from 'lucide-react'
+import { LayoutDashboard, CreditCard, User, LogOut, Moon, Sun, Menu, X, ShieldCheck, Loader2 } from 'lucide-react'
 import PageLoader from '../../components/PageLoader'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { getAppLogo } from '../../utils/helpers'
@@ -23,6 +23,8 @@ export default function SocietyApp() {
   
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
@@ -34,6 +36,17 @@ export default function SocietyApp() {
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
   }, [])
+
+  const handleLogout = async () => {
+    setShowLogoutModal(false)
+    setIsLoggingOut(true)
+    try {
+      await societyLogout()
+    } catch (err) {
+      console.error(err)
+      setIsLoggingOut(false)
+    }
+  }
 
   if (societyLoading) return <PageLoader />
   if (!societyUser) return <Navigate to="/society/login" replace />
@@ -70,7 +83,7 @@ export default function SocietyApp() {
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </div>
-          <div className="sidebar-nav-item" style={{ cursor: 'pointer', color: 'var(--error)' }} onClick={societyLogout}>
+          <div className="sidebar-nav-item" style={{ cursor: 'pointer', color: 'var(--error)' }} onClick={() => setShowLogoutModal(true)}>
             <LogOut size={20} />
             <span>Sign Out</span>
           </div>
@@ -123,6 +136,53 @@ export default function SocietyApp() {
           </ErrorBoundary>
         </main>
       </div>
+
+      {showLogoutModal && (
+        <div className="modal-overlay" onClick={() => !isLoggingOut && setShowLogoutModal(false)} style={{ zIndex: 1000 }}>
+          <div className="modal-content glass animate-scale-in" style={{ padding: 24, borderRadius: 24, maxWidth: 380, width: '90%' }} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
+              <div className="flex items-center gap-12">
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,69,58,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <LogOut size={20} style={{ color: 'var(--error)' }} />
+                </div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800 }}>Sign Out?</h3>
+              </div>
+              {!isLoggingOut && (
+                <button onClick={() => setShowLogoutModal(false)} className="btn-icon glass" style={{ width: 32, height: 32, borderRadius: 10 }}>
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            <p className="text-body-sm text-secondary" style={{ marginBottom: 24, lineHeight: 1.5 }}>
+              Are you sure you want to sign out of the Cleanzo Partner Panel?
+            </p>
+
+            <div className="flex flex-col gap-8">
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="btn w-full"
+                style={{ background: 'var(--error)', color: '#fff', height: 48, fontWeight: 700 }}
+              >
+                {isLoggingOut ? (
+                  <><Loader2 size={16} className="animate-spin" /> <span>Signing out...</span></>
+                ) : (
+                  <><LogOut size={16} /> <span>Yes, Sign Out</span></>
+                )}
+              </button>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                disabled={isLoggingOut}
+                className="btn btn-ghost w-full"
+                style={{ height: 48 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

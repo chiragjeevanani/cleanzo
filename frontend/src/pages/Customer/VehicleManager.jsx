@@ -252,12 +252,21 @@ export default function VehicleManager() {
   }
 
   const saveVehicle = async () => {
-    if (!form.brand || !form.model || !form.number || !form.flatNumber) {
-      setError('Brand, model, plate number, and flat number are required'); return
+    if (!form.brand || !form.model || !form.number || !form.flatNumber || !form.blockTower || !form.color) {
+      setError('Brand, model, plate number, flat number, block/tower, and color are required'); return
     }
     const plateClean = form.number.replace(/\s/g, '').toUpperCase()
     if (!/^[A-Z]{2}\d{2}[A-Z]{1,3}\d{1,4}$/.test(plateClean)) {
       setError('Enter a valid vehicle registration number (e.g. MH01AB1234)'); return
+    }
+    if (!/^[a-zA-Z0-9\s-]+$/.test(form.blockTower.trim())) {
+      setError('Block / Tower must be alphanumeric (letters, numbers, spaces, or dashes)'); return
+    }
+    if (!/^[a-zA-Z\s]+$/.test(form.color.trim())) {
+      setError('Color must contain only alphabetic characters'); return
+    }
+    if (form.color.trim().length < 2) {
+      setError('Color must be at least 2 characters'); return
     }
     if (!editVehicle && form.photos.length === 0) {
       setError('Please upload at least 1 photo of the vehicle'); return
@@ -391,13 +400,13 @@ export default function VehicleManager() {
 
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Flat Number <span style={{ color: 'var(--error)' }}>*</span></label>
-              <input className="input-field" placeholder="e.g. 102" value={form.flatNumber} onChange={e => setForm({ ...form, flatNumber: e.target.value })} />
+              <input className="input-field" placeholder="e.g. 102" value={form.flatNumber} onChange={e => setForm({ ...form, flatNumber: e.target.value.replace(/[^a-zA-Z0-9\s/-]/g, '') })} />
             </div>
 
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1 }}>
-                <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Block / Tower</label>
-                <input className="input-field" placeholder="Tower A" value={form.blockTower} onChange={e => setForm({ ...form, blockTower: e.target.value })} />
+                <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Block / Tower <span style={{ color: 'var(--error)' }}>*</span></label>
+                <input className="input-field" placeholder="e.g. Tower A" value={form.blockTower} onChange={e => setForm({ ...form, blockTower: e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '') })} />
               </div>
               <div style={{ flex: 1 }}>
                 <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Slot / Pillar</label>
@@ -406,8 +415,8 @@ export default function VehicleManager() {
             </div>
 
             <div>
-              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Color (optional)</label>
-              <input className="input-field" placeholder="e.g. Black, White, Silver" value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} />
+              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Color <span style={{ color: 'var(--error)' }}>*</span></label>
+              <input className="input-field" placeholder="e.g. Black, White, Silver" value={form.color} onChange={e => setForm({ ...form, color: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} />
             </div>
 
             {/* Existing photos (edit mode) */}
@@ -457,7 +466,7 @@ export default function VehicleManager() {
             <button
               className="btn btn-blue w-full"
               onClick={saveVehicle}
-              disabled={submitting || compressing || !form.brand || !form.model || !form.number || !form.flatNumber || (!editVehicle && form.photos.length === 0)}
+              disabled={submitting || compressing || !form.brand || !form.model || !form.number || !form.flatNumber || !form.blockTower || !form.color || (!editVehicle && form.photos.length === 0)}
             >
               {submitting ? 'Saving…' : editVehicle ? 'Update Vehicle' : 'Save Vehicle'}
             </button>

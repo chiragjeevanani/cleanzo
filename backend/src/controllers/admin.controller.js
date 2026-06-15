@@ -369,7 +369,62 @@ export const getUsers = asyncHandler(async (req, res) => {
     Customer.countDocuments(filter),
   ]);
 
-  res.json({ success: true, users, page, totalPages: Math.ceil(total / limit), total });
+  const userIds = users.map(u => u._id);
+  const activeSubs = await Subscription.find({
+    customer: { $in: userIds },
+    status: 'Active'
+  }).populate('package', 'tier').lean();
+
+  const subIds = activeSubs.map(s => s._id);
+  const tasks = await Task.find({
+    subscription: { $in: subIds }
+  }).select('subscription packageName').lean();
+
+  const taskMap = {};
+  tasks.forEach(t => {
+    if (t.packageName) {
+      taskMap[t.subscription.toString()] = t.packageName;
+    }
+  });
+
+  const subMap = {};
+  activeSubs.forEach(sub => {
+    let tier = null;
+    if (sub.package && sub.package.tier) {
+      tier = sub.package.tier;
+    } else if (sub.isTrial) {
+      tier = 'Basic';
+    } else {
+      const pkgName = taskMap[sub._id.toString()];
+      if (pkgName) {
+        const n = pkgName.toLowerCase();
+        if (n.includes('basic') || n.includes('essential')) tier = 'Basic';
+        else if (n.includes('standard') || n.includes('plus')) tier = 'Standard';
+        else if (n.includes('premium') || n.includes('elite')) tier = 'Premium';
+      }
+    }
+
+    if (!tier) {
+      tier = 'Standard';
+    }
+
+    const formattedTier = tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase();
+    if (subMap[sub.customer.toString()]) {
+      const currentTiers = subMap[sub.customer.toString()].split(', ');
+      if (!currentTiers.includes(formattedTier)) {
+        subMap[sub.customer.toString()] += `, ${formattedTier}`;
+      }
+    } else {
+      subMap[sub.customer.toString()] = formattedTier;
+    }
+  });
+
+  const usersWithPlans = users.map(u => ({
+    ...u,
+    activePlan: subMap[u._id.toString()] || null
+  }));
+
+  res.json({ success: true, users: usersWithPlans, page, totalPages: Math.ceil(total / limit), total });
 });
 
 export const getUserById = asyncHandler(async (req, res) => {

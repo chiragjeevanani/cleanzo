@@ -7,6 +7,43 @@ import { validateName, validateEmail, validatePhone, cleanPhoneNumber, validateP
 
 const STATUSES = ['all', 'active', 'inactive']
 
+const convertTo24Hour = (timeStr) => {
+  if (!timeStr) return '';
+  const clean = timeStr.trim();
+  if (/^\d{2}:\d{2}$/.test(clean)) return clean;
+  if (/^\d:\d{2}$/.test(clean)) return `0${clean}`;
+  
+  const match = clean.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return '';
+  let [_, hours, minutes, period] = match;
+  hours = parseInt(hours, 10);
+  if (period.toUpperCase() === 'PM' && hours < 12) hours += 12;
+  if (period.toUpperCase() === 'AM' && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, '0')}:${minutes}`;
+};
+
+const parseTimeWindow = (timeWindow) => {
+  if (!timeWindow) return { start: '05:00', end: '06:00' };
+  const parts = timeWindow.split('-');
+  if (parts.length !== 2) return { start: '05:00', end: '06:00' };
+  const start = convertTo24Hour(parts[0]);
+  const end = convertTo24Hour(parts[1]);
+  return {
+    start: start || '05:00',
+    end: end || '06:00'
+  };
+};
+
+const convertTo12Hour = (time24) => {
+  if (!time24) return '';
+  const [hoursStr, minutes] = time24.split(':');
+  let hours = parseInt(hoursStr, 10);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+  return `${String(hours).padStart(2, '0')}:${minutes} ${period}`;
+};
+
 export default function AdminSocieties() {
   const { showToast } = useToast()
   const [activeTab, setActiveTab] = useState('cities') // 'cities' | 'societies' | 'partners' | 'payouts'
@@ -1234,29 +1271,55 @@ export default function AdminSocieties() {
                    </div>
                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
                       {(formData.slots || []).map((slot, idx) => (
-                         <div key={idx} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <input 
-                               required 
-                               className="input-field" 
-                               style={{ flex: 2, minWidth: 150 }} 
-                               value={slot.timeWindow} 
-                               onChange={e => handleSlotChange(idx, 'timeWindow', e.target.value)} 
-                               placeholder="Time Window (e.g. 05:00 AM - 06:00 AM)" 
-                            />
+                         <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 2.2, minWidth: 220 }}>
+                               <input 
+                                  required 
+                                  type="time" 
+                                  className="input-field" 
+                                  style={{ padding: '8px 6px', minWidth: 90, flex: 1 }} 
+                                  value={parseTimeWindow(slot.timeWindow).start} 
+                                  onChange={e => {
+                                     const { end } = parseTimeWindow(slot.timeWindow);
+                                     const newStart = convertTo12Hour(e.target.value);
+                                     const newEnd = convertTo12Hour(end);
+                                     handleSlotChange(idx, 'timeWindow', `${newStart} - ${newEnd}`);
+                                  }} 
+                               />
+                               <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>to</span>
+                               <input 
+                                  required 
+                                  type="time" 
+                                  className="input-field" 
+                                  style={{ padding: '8px 6px', minWidth: 90, flex: 1 }} 
+                                  value={parseTimeWindow(slot.timeWindow).end} 
+                                  onChange={e => {
+                                     const { start } = parseTimeWindow(slot.timeWindow);
+                                     const newStart = convertTo12Hour(start);
+                                     const newEnd = convertTo12Hour(e.target.value);
+                                     handleSlotChange(idx, 'timeWindow', `${newStart} - ${newEnd}`);
+                                  }} 
+                               />
+                            </div>
                             <input
                                required
-                               type="number"
-                               min="1"
+                               type="text"
+                               inputMode="numeric"
+                               pattern="[0-9]*"
                                className="input-field"
-                               style={{ flex: 0.8, minWidth: 80 }}
-                               value={slot.maxVehicles}
-                               onChange={e => handleSlotChange(idx, 'maxVehicles', Number(e.target.value))}
-                               placeholder="Max Vehicles"
+                               style={{ flex: 0.6, minWidth: 55 }}
+                               value={slot.maxVehicles ?? ''}
+                               onChange={e => {
+                                  const val = e.target.value.replace(/\D/g, '');
+                                  const cleanVal = val.startsWith('0') && val.length > 1 ? val.replace(/^0+/, '') : val;
+                                  handleSlotChange(idx, 'maxVehicles', cleanVal === '' ? '' : Number(cleanVal));
+                               }}
+                               placeholder="Max"
                                title="Max Vehicles capacity"
                             />
                             <select 
                                className="input-field" 
-                               style={{ flex: 1.2, minWidth: 110, background: 'var(--bg-glass)', color: 'var(--text-primary)', cursor: 'pointer' }} 
+                               style={{ flex: 1, minWidth: 100, background: 'var(--bg-glass)', color: 'var(--text-primary)', cursor: 'pointer' }} 
                                value={slot.status || 'Open'} 
                                onChange={e => handleSlotChange(idx, 'status', e.target.value)}
                             >

@@ -116,6 +116,52 @@ export const handleSendOtp = asyncHandler(async (req, res) => {
 
   // Existence checks
   if (mode === 'login' && !user) {
+    if (targetRole === 'customer') {
+      const { default: Lead } = await import('../models/Lead.js');
+      const lead = await Lead.findOne({ phone: normalized, status: 'pending' });
+      if (lead) {
+        const result = await sendOtp(phone, targetRole);
+        if (!result.success) {
+          return res.status(400).json({
+            success: false,
+            message: result.message,
+            ...(process.env.NODE_ENV !== 'production' && { debug: result.debug })
+          });
+        }
+        return res.json({
+          success: true,
+          type: 'LEAD_FOUND',
+          message: 'Your account creation is pending. Please verify your phone number and fill all details to complete your registration.',
+          lead: {
+            name: lead.name,
+            phone: lead.phone,
+            email: lead.email,
+            city: lead.city,
+          }
+        });
+      }
+    }
+
+    if (targetRole === 'cleaner') {
+      const { default: CleanerApplication } = await import('../models/CleanerApplication.js');
+      const application = await CleanerApplication.findOne({ phone: normalized });
+      if (application) {
+        if (application.status === 'pending') {
+          return res.status(400).json({
+            success: false,
+            type: 'APPLICATION_PENDING',
+            message: 'Your application has been received and is currently under review. We will notify you once it is approved.'
+          });
+        } else if (application.status === 'rejected') {
+          return res.status(400).json({
+            success: false,
+            type: 'APPLICATION_REJECTED',
+            message: `Your application was rejected. Reason: ${application.rejectionNote || 'N/A'}`
+          });
+        }
+      }
+    }
+
     return res.status(404).json({
       success: false,
       type: 'USER_NOT_FOUND',

@@ -13,16 +13,50 @@ import { useTheme } from '../../context/ThemeContext';
 const JoinAsCleaner = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('cleanzo_crew_apply_step');
+      return saved ? Number(saved) : 1;
+    } catch {
+      return 1;
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  const [formData, setFormData] = useState({
-    name: '', phone: '', email: '', age: '', city: 'Gurugram',
-    fatherName: '', permanentAddress: '', currentAddress: '',
-    referenceName: '', referencePhone: ''
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('cleanzo_crew_apply_form');
+      return saved ? JSON.parse(saved) : {
+        name: '', phone: '', email: '', age: '', city: 'Gurugram',
+        fatherName: '', permanentAddress: '', currentAddress: '',
+        referenceName: '', referencePhone: ''
+      };
+    } catch {
+      return {
+        name: '', phone: '', email: '', age: '', city: 'Gurugram',
+        fatherName: '', permanentAddress: '', currentAddress: '',
+        referenceName: '', referencePhone: ''
+      };
+    }
   });
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('cleanzo_crew_apply_form', JSON.stringify(formData));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [formData]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('cleanzo_crew_apply_step', step.toString());
+    } catch (e) {
+      console.error(e);
+    }
+  }, [step]);
 
   const [files, setFiles] = useState({
     livePhoto: null,
@@ -38,6 +72,7 @@ const JoinAsCleaner = () => {
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const formRef = useRef(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
 
@@ -133,6 +168,10 @@ const JoinAsCleaner = () => {
         setError('Enter a valid 10-digit mobile number');
         return false;
       }
+      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        setError('Please enter a valid email address');
+        return false;
+      }
       if (Number(age) < 18 || Number(age) > 70) {
         setError('Age must be between 18 and 70');
         return false;
@@ -164,7 +203,7 @@ const JoinAsCleaner = () => {
   const handleNext = () => {
     if (validateStep()) {
       setStep(step + 1);
-      window.scrollTo(0, 0);
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -185,6 +224,10 @@ const JoinAsCleaner = () => {
       const res = await apiClient.uploadForm('/public/cleaner-apply', data);
       if (res.success) {
         setSuccess(true);
+        try {
+          sessionStorage.removeItem('cleanzo_crew_apply_form');
+          sessionStorage.removeItem('cleanzo_crew_apply_step');
+        } catch {}
       } else {
         setError(res.message);
       }
@@ -375,7 +418,7 @@ const JoinAsCleaner = () => {
 
         {/* Right Side: Multi-step Form */}
         <div>
-          <div className="glass form-card-wrapper" style={{ border: '1px solid var(--border-glass)', boxShadow: '0 40px 100px rgba(0,0,0,0.1)' }}>
+          <div ref={formRef} className="glass form-card-wrapper" style={{ border: '1px solid var(--border-glass)', boxShadow: '0 40px 100px rgba(0,0,0,0.1)' }}>
             
             {/* Header / Progress */}
             <div style={{ marginBottom: 40 }}>
@@ -417,13 +460,18 @@ const JoinAsCleaner = () => {
 
                 <div className="input-grid-2">
                   <div className="input-group">
+                    <label>EMAIL ADDRESS</label>
+                    <input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="john.doe@example.com" />
+                  </div>
+                  <div className="input-group">
                     <label>AGE <span style={{ color: 'var(--error)' }}>*</span></label>
                     <input name="age" type="number" value={formData.age} onChange={handleChange} placeholder="25" />
                   </div>
-                  <div className="input-group">
-                    <label>FATHER'S NAME <span style={{ color: 'var(--error)' }}>*</span></label>
-                    <input name="fatherName" value={formData.fatherName} onChange={handleChange} placeholder="Legal Name" />
-                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label>FATHER'S NAME <span style={{ color: 'var(--error)' }}>*</span></label>
+                  <input name="fatherName" value={formData.fatherName} onChange={handleChange} placeholder="Legal Name" />
                 </div>
 
                 <div className="input-group">
@@ -457,9 +505,22 @@ const JoinAsCleaner = () => {
                     ) : previews.livePhoto ? (
                       <div style={{ width: '100%', height: '100%' }}>
                         <img src={previews.livePhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <button onClick={startCamera} style={{ position: 'absolute', top: 16, right: 16, padding: '8px 16px', borderRadius: 12, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <RotateCcw size={14} /> Retake
-                        </button>
+                        <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
+                          <button onClick={startCamera} style={{ padding: '8px 16px', borderRadius: 12, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <RotateCcw size={14} /> Retake
+                          </button>
+                          <button 
+                            onClick={(e) => { 
+                              e.preventDefault(); 
+                              e.stopPropagation(); 
+                              setFiles(prev => ({ ...prev, livePhoto: null })); 
+                              setPreviews(prev => ({ ...prev, livePhoto: null })); 
+                            }} 
+                            style={{ padding: '8px 16px', borderRadius: 12, background: 'rgba(219,68,85,0.9)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                          >
+                            <X size={14} /> Remove
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div onClick={startCamera} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, cursor: 'pointer', padding: 20 }}>
@@ -480,17 +541,46 @@ const JoinAsCleaner = () => {
                   ].map(doc => (
                     <div key={doc.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       <label style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)' }}>{doc.label} <span style={{ color: 'var(--error)' }}>*</span></label>
-                      <label style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 24, border: '2px dashed var(--border-glass)', background: 'var(--bg-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
-                        <input type="file" name={doc.id} accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-                        {previews[doc.id] ? (
+                      {previews[doc.id] ? (
+                        <div style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 24, border: '2px solid var(--bg-accent)', overflow: 'hidden' }}>
                           <img src={previews[doc.id]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
+                          <button 
+                            type="button" 
+                            onClick={(e) => { 
+                              e.preventDefault(); 
+                              e.stopPropagation();
+                              setFiles(prev => ({ ...prev, [doc.id]: null })); 
+                              setPreviews(prev => ({ ...prev, [doc.id]: null })); 
+                            }} 
+                            style={{ 
+                              position: 'absolute', 
+                              top: 12, 
+                              right: 12, 
+                              background: 'rgba(219,68,85,0.9)', 
+                              border: 'none', 
+                              borderRadius: '50%', 
+                              width: 32, 
+                              height: 32, 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              color: '#fff', 
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                            }}
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                      ) : (
+                        <label style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 24, border: '2px dashed var(--border-glass)', background: 'var(--bg-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                          <input type="file" name={doc.id} accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                             <doc.icon size={28} color="var(--text-tertiary)" />
                             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', lineHeight: 1 }}>UPLOAD</span>
                           </div>
-                        )}
-                      </label>
+                        </label>
+                      )}
                     </div>
                   ))}
                 </div>

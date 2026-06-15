@@ -30,6 +30,20 @@ export default function Marketplace() {
 
   const loading = dataLoading.products;
 
+  useEffect(() => {
+    if (!loading && products.length === 0) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [loading, products.length]);
+
   const addToCart = (product) => {
     setCart(prev => {
       const existing = prev.find(item => item._id === product._id);
@@ -291,8 +305,9 @@ export default function Marketplace() {
           <div className="animate-slide-up" style={{ 
             position: 'fixed', 
             bottom: 0, 
-            left: '50%', 
-            transform: 'translateX(-50%)',
+            left: 0, 
+            right: 0,
+            margin: '0 auto',
             width: '100%',
             maxWidth: 480, 
             background: 'var(--bg-secondary)', 

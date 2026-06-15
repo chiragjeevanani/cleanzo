@@ -347,7 +347,7 @@ export default function AdminCleaners() {
         <button
           className={`btn ${showFilters ? 'btn-primary' : 'btn-glass'}`}
           onClick={() => setShowFilters(v => !v)}
-          style={{ position: 'relative' }}
+          style={{ position: 'relative', overflow: 'visible' }}
         >
           <Filter size={16} /> Filters
           {activeFiltersCount > 0 && (

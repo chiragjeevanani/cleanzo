@@ -23,7 +23,7 @@ export const mockPackages = [
     popular: true, category: 'sedan'
   },
   {
-    id: 3, name: 'Elite Plan', tier: 'Luxury Care',
+    id: 3, name: 'Premium Plan', tier: 'Luxury Care',
     price: 1999, duration: 'Monthly', perDay: 66,
     features: ['Daily Exterior Cleaning', '365 Days (No Holidays)', '5 AM - 10 AM Slot', 'Interior Cleaning (Weekly)', 'Microfiber Deep Dry', 'Priority Support'],
     popular: false, category: 'suv'
@@ -63,7 +63,7 @@ export const mockCleaner = {
 
 export const mockTasks = [
   { id: 1, car: 'BMW 3 Series', plate: 'MH 02 AB 1234', location: 'Tower A, Slot 42', customer: 'Arjun Mehta', package: 'Premium Detail', status: 'pending', time: '07:00 AM' },
-  { id: 2, car: 'Mercedes C-Class', plate: 'DL 01 EF 9012', location: 'Tower C, Slot 08', customer: 'Priya Sharma', package: 'Elite Care', status: 'in-progress', time: '07:30 AM' },
+  { id: 2, car: 'Mercedes C-Class', plate: 'DL 01 EF 9012', location: 'Tower C, Slot 08', customer: 'Priya Sharma', package: 'Premium Care', status: 'in-progress', time: '07:30 AM' },
   { id: 3, car: 'Hyundai Creta', plate: 'MH 04 CD 5678', location: 'Tower B, Slot 15', customer: 'Arjun Mehta', package: 'Daily Exterior', status: 'completed', time: '06:30 AM' },
   { id: 4, car: 'Maruti Swift', plate: 'HR 26 GH 3456', location: 'Tower A, Slot 31', customer: 'Vikram Patel', package: 'Daily Exterior', status: 'pending', time: '08:00 AM' },
   { id: 5, car: 'Tata Nexon EV', plate: 'MH 12 IJ 7890', location: 'Tower D, Slot 55', customer: 'Neha Gupta', package: 'Premium Detail', status: 'pending', time: '08:30 AM' },
@@ -92,23 +92,23 @@ export const mockRevenueData = [
 
 export const mockAdminUsers = [
   { id: 1, name: 'Arjun Mehta', phone: '+91 98765 43210', vehicles: 2, plan: 'Standard', status: 'Active', joined: '2025-01-15' },
-  { id: 2, name: 'Priya Sharma', phone: '+91 87654 32109', vehicles: 1, plan: 'Elite', status: 'Active', joined: '2025-02-20' },
+  { id: 2, name: 'Priya Sharma', phone: '+91 87654 32109', vehicles: 1, plan: 'Premium', status: 'Active', joined: '2025-02-20' },
   { id: 3, name: 'Vikram Patel', phone: '+91 76543 21098', vehicles: 1, plan: 'Basic', status: 'Active', joined: '2025-03-10' },
   { id: 4, name: 'Neha Gupta', phone: '+91 65432 10987', vehicles: 3, plan: 'Standard', status: 'Paused', joined: '2025-01-22' },
   { id: 5, name: 'Rohit Verma', phone: '+91 54321 09876', vehicles: 1, plan: 'Basic', status: 'Expired', joined: '2024-11-05' },
-  { id: 6, name: 'Ananya Iyer', phone: '+91 43210 98765', vehicles: 2, plan: 'Elite', status: 'Active', joined: '2025-04-01' },
+  { id: 6, name: 'Ananya Iyer', phone: '+91 43210 98765', vehicles: 2, plan: 'Standard', status: 'Active', joined: '2025-04-01' },
 ]
 
 export const mockNotifications = [
   { id: 1, type: 'service', title: 'Cleaning Completed', message: 'Your BMW 3 Series has been cleaned.', time: '2 hours ago', read: false },
   { id: 2, type: 'subscription', title: 'Renewal Reminder', message: 'Your Premium subscription expires in 10 days.', time: '5 hours ago', read: false },
-  { id: 3, type: 'offer', title: '20% Off Elite Plan!', message: 'Upgrade to Elite and save ₹700 this month.', time: '1 day ago', read: true },
+  { id: 3, type: 'offer', title: '20% Off Premium Plan!', message: 'Upgrade to Premium and save ₹700 this month.', time: '1 day ago', read: true },
   { id: 4, type: 'service', title: 'Service Skipped', message: 'You skipped the cleaning on Apr 16.', time: '2 days ago', read: true },
 ]
 
 export const testimonials = [
   { name: 'Rohit Agarwal', role: 'BMW Owner', text: 'Cleanzo transformed my morning routine. My car is spotless every single day without me lifting a finger.', rating: 5 },
   { name: 'Simran Kaur', role: 'Fleet Manager', text: 'Managing 30+ vehicles was a nightmare. Cleanzo\'s subscription model and admin panel made it effortless.', rating: 5 },
-  { name: 'Deepak Joshi', role: 'Audi Owner', text: 'The Elite Care package is worth every rupee. Interior detailing is better than what I got at the dealership.', rating: 5 },
+  { name: 'Deepak Joshi', role: 'Audi Owner', text: 'The Premium Care package is worth every rupee. Interior detailing is better than what I got at the dealership.', rating: 5 },
   { name: 'Meera Patel', role: 'Tesla Owner', text: 'I love the skip feature. When I\'m traveling, I just skip and the days get added back. Brilliant!', rating: 4 },
 ]

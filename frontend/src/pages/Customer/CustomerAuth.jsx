@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import {
   Phone, User, ShieldCheck, CheckCircle2, MapPin, Building2,
   Mail, Tag, ChevronDown, Ban, PhoneCall
@@ -48,15 +48,22 @@ function AuthConfirmDialog({ config, onClose }) {
           <ShieldCheck size={32} />
         </div>
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
-          {config.type === 'not_found' ? 'Account Not Found' : 'Account Exists'}
+          {config.type === 'not_found' ? 'Account Not Found' : 
+           config.type === 'lead_pending' ? 'Account Pending' : 
+           config.type === 'application_pending' ? 'Application Pending' :
+           config.type === 'application_rejected' ? 'Application Rejected' :
+           'Account Exists'}
         </h3>
-        <p className="text-secondary" style={{ fontSize: 14, marginBottom: 24 }}>{config.message}</p>
+        <p className="text-secondary" style={{ fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>{config.message}</p>
         <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: '1px solid var(--border-glass)', background: 'transparent', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}>
-            Cancel
-          </button>
+          {config.type !== 'lead_pending' && config.type !== 'application_pending' && config.type !== 'application_rejected' && (
+            <button onClick={onClose} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: '1px solid var(--border-glass)', background: 'transparent', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
+          )}
           <button onClick={config.action} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: 'none', background: 'var(--bg-accent)', color: 'var(--text-on-accent)', fontWeight: 700, cursor: 'pointer' }}>
-            {config.type === 'not_found' ? 'Sign Up' : 'Login'}
+            {config.type === 'not_found' ? 'Sign Up' : 
+             config.type === 'already_exists' ? 'Login' : 'Okay'}
           </button>
         </div>
       </div>
@@ -92,6 +99,7 @@ export default function CustomerAuth() {
     const role = user.role
     if (role === 'admin' || role === 'superadmin') navigate('/admin', { replace: true })
     else if (role === 'cleaner') navigate('/cleaner', { replace: true })
+    else if (role === 'society') navigate('/society', { replace: true })
     else navigate('/customer', { replace: true })
   }, [user, authLoading, navigate])
 
@@ -99,31 +107,146 @@ export default function CustomerAuth() {
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('role') === 'crew'
       ? 'crew' : 'customer'
   ))   // customer | crew
-  const [mode, setMode] = useState('login')       // login | signup
-  const [step, setStep] = useState('form')        // form | otp | success | lead
-  const [signupStep, setSignupStep] = useState(1) // 1: First Name, 2: Last Name, 3: Phone, 4: OTP, 5: Post-OTP
-  const [signupToken, setSignupToken] = useState('')
+  const [mode, setMode] = useState(() => {
+    try {
+      return sessionStorage.getItem('cleanzo_cust_auth_mode') || 'login';
+    } catch {
+      return 'login';
+    }
+  })       // login | signup
+  const [step, setStep] = useState(() => {
+    try {
+      return sessionStorage.getItem('cleanzo_cust_auth_step') || 'form';
+    } catch {
+      return 'form';
+    }
+  })        // form | otp | success | lead
+  const [signupStep, setSignupStep] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('cleanzo_cust_auth_signup_step');
+      return saved ? Number(saved) : 1;
+    } catch {
+      return 1;
+    }
+  }) // 1: First Name, 2: Last Name, 3: Phone, 4: OTP, 5: Post-OTP
+  const [signupToken, setSignupToken] = useState(() => {
+    try {
+      return sessionStorage.getItem('cleanzo_cust_auth_signup_token') || '';
+    } catch {
+      return '';
+    }
+  })
   const [showPwd, setShowPwd] = useState(false)
 
   const [societies, setSocieties] = useState([])
   const [filteredSocieties, setFilteredSocieties] = useState([])
-  const [societySearch, setSocietySearch] = useState('')
-  const [showSocietyDropdown, setShowSocietyDropdown] = useState(false)
-  const [isOtherSociety, setIsOtherSociety] = useState(false)
-
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    city: '',
-    society: '', // Society ID
-    societyName: '', // For lead capture
-    area: '', // For lead capture
-    pincode: '', // For lead capture
-    referralCode: '',
-    otp: ['', '', '', '', '', ''],
+  const [societySearch, setSocietySearch] = useState(() => {
+    try {
+      return sessionStorage.getItem('cleanzo_cust_auth_society_search') || '';
+    } catch {
+      return '';
+    }
   })
+  const [showSocietyDropdown, setShowSocietyDropdown] = useState(false)
+  const [isOtherSociety, setIsOtherSociety] = useState(() => {
+    try {
+      return sessionStorage.getItem('cleanzo_cust_auth_other_society') === 'true';
+    } catch {
+      return false;
+    }
+  })
+
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('cleanzo_cust_auth_form');
+      return saved ? JSON.parse(saved) : {
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        city: '',
+        society: '', // Society ID
+        societyName: '', // For lead capture
+        area: '', // For lead capture
+        pincode: '', // For lead capture
+        referralCode: '',
+        otp: ['', '', '', '', '', ''],
+      };
+    } catch {
+      return {
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        city: '',
+        society: '', // Society ID
+        societyName: '', // For lead capture
+        area: '', // For lead capture
+        pincode: '', // For lead capture
+        referralCode: '',
+        otp: ['', '', '', '', '', ''],
+      };
+    }
+  })
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('cleanzo_cust_auth_form', JSON.stringify({
+        ...formData,
+        otp: ['', '', '', '', '', ''] // reset otp for security
+      }));
+    } catch {}
+  }, [formData]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('cleanzo_cust_auth_mode', mode);
+    } catch {}
+  }, [mode]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('cleanzo_cust_auth_step', step);
+    } catch {}
+  }, [step]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('cleanzo_cust_auth_signup_step', signupStep.toString());
+    } catch {}
+  }, [signupStep]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('cleanzo_cust_auth_other_society', isOtherSociety ? 'true' : 'false');
+    } catch {}
+  }, [isOtherSociety]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('cleanzo_cust_auth_society_search', societySearch);
+    } catch {}
+  }, [societySearch]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('cleanzo_cust_auth_signup_token', signupToken);
+    } catch {}
+  }, [signupToken]);
+
+  useEffect(() => {
+    if (step === 'success') {
+      try {
+        sessionStorage.removeItem('cleanzo_cust_auth_form');
+        sessionStorage.removeItem('cleanzo_cust_auth_mode');
+        sessionStorage.removeItem('cleanzo_cust_auth_step');
+        sessionStorage.removeItem('cleanzo_cust_auth_signup_step');
+        sessionStorage.removeItem('cleanzo_cust_auth_other_society');
+        sessionStorage.removeItem('cleanzo_cust_auth_society_search');
+        sessionStorage.removeItem('cleanzo_cust_auth_signup_token');
+      } catch {}
+    }
+  }, [step]);
 
   const [cities, setCities] = useState([])
 
@@ -232,11 +355,34 @@ export default function CustomerAuth() {
 
     setLoading(true)
     try {
-      await apiClient.post('/auth/send-otp', { phone: cleanPhone, role, mode })
-      setStep('otp')
-      setTimer(30)
-      if (mode === 'signup') {
-        setSignupStep(4)
+      const res = await apiClient.post('/auth/send-otp', { phone: cleanPhone, role, mode })
+      if (res && res.type === 'LEAD_FOUND') {
+        setConfirmDialog({
+          type: 'lead_pending',
+          message: 'Your account creation is pending. Please verify your phone number and fill all details to complete your registration.',
+          action: () => {
+            setMode('signup')
+            setStep('otp')
+            setSignupStep(4)
+            setTimer(30)
+            const parts = (res.lead?.name || '').split(' ')
+            setFormData(prev => ({
+              ...prev,
+              firstName: parts[0] || '',
+              lastName: parts.slice(1).join(' ') || '',
+              email: res.lead?.email || prev.email,
+              city: res.lead?.city && res.lead?.city !== 'Pending Signup' ? res.lead.city : prev.city,
+              phone: cleanPhone
+            }))
+            setConfirmDialog(null)
+          }
+        })
+      } else {
+        setStep('otp')
+        setTimer(30)
+        if (mode === 'signup') {
+          setSignupStep(4)
+        }
       }
     } catch (err) {
       const errType = err.data?.type || err.type
@@ -260,6 +406,18 @@ export default function CustomerAuth() {
             setMode('login'); 
             setConfirmDialog(null); 
           } 
+        })
+      } else if (errType === 'APPLICATION_PENDING') {
+        setConfirmDialog({
+          type: 'application_pending',
+          message: err.data?.message || err.message || 'Your application is received and is currently under review.',
+          action: () => setConfirmDialog(null)
+        })
+      } else if (errType === 'APPLICATION_REJECTED') {
+        setConfirmDialog({
+          type: 'application_rejected',
+          message: err.data?.message || err.message || 'Your application was rejected.',
+          action: () => setConfirmDialog(null)
         })
       } else {
         setErrorMsg(err.message || 'Failed to send OTP. Please try again.')
@@ -468,8 +626,22 @@ export default function CustomerAuth() {
               <div style={{ display: 'flex', gap: 12 }}>
                 <Field label="Area" icon={MapPin}><input required className="input-field" style={inputStyle} value={formData.area} onChange={set('area')} /></Field>
                 <Field label="Pincode">
-                  <input required className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} placeholder="6 digits" inputMode="numeric" maxLength={6}
-                    value={formData.pincode} onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '') })) }} />
+                  <input 
+                    required 
+                    className="input-field" 
+                    style={{ width: '100%', boxSizing: 'border-box' }} 
+                    placeholder="6 digits" 
+                    inputMode="numeric" 
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    onKeyDown={e => {
+                      if (['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) return;
+                      if (e.ctrlKey || e.metaKey) return;
+                      if (!/^[0-9]$/.test(e.key)) e.preventDefault();
+                    }}
+                    value={formData.pincode} 
+                    onChange={e => { setErrorMsg(''); setFormData(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '') })) }} 
+                  />
                 </Field>
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
@@ -520,6 +692,7 @@ export default function CustomerAuth() {
               });
               setSocietySearch('');
               setIsOtherSociety(false);
+              setSignupToken('');
               navigate('/login', { replace: true });
             }}
           >
@@ -589,7 +762,7 @@ export default function CustomerAuth() {
                   )}
                 </div>
                 {role === 'crew' && (
-                  <a href="/join-crew" className="chip chip-lime" style={{ marginBottom: 12, fontSize: 11, fontWeight: 800, padding: '8px 16px', textDecoration: 'none' }}>JOIN CREW</a>
+                  <Link to="/join-crew" className="chip chip-lime" style={{ marginBottom: 12, fontSize: 11, fontWeight: 800, padding: '8px 16px', textDecoration: 'none' }}>JOIN CREW</Link>
                 )}
               </div>
             )}
@@ -857,7 +1030,7 @@ export default function CustomerAuth() {
 
                 {role === 'crew' && mode === 'login' && (
                   <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)', marginTop: 10 }}>
-                    New to Cleanzo? <a href="/join-crew" style={{ color: 'var(--text-accent)', fontWeight: 700 }}>Apply to join our crew</a>
+                    New to Cleanzo? <Link to="/join-crew" style={{ color: 'var(--text-accent)', fontWeight: 700 }}>Apply to join our crew</Link>
                   </p>
                 )}
               </form>
@@ -865,7 +1038,7 @@ export default function CustomerAuth() {
           </div>
 
           <p style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text-muted)' }}>
-            Protected by Cleanzo Security. <a href="/terms" style={{ color: 'var(--primary-blue)' }}>Terms</a> applied.
+            Protected by Cleanzo Security. <Link to="/terms" style={{ color: 'var(--primary-blue)' }}>Terms</Link> applied.
           </p>
         </main>
       </div>

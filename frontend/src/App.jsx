@@ -30,13 +30,21 @@ function ScrollToTop() {
 
 export default function App() {
   useEffect(() => {
-    // 1. Mobile Keyboard Shift Guide
+    // 1. Mobile Keyboard Shift Guide & Scroll focused input into view
     const handleFocus = (e) => {
       const target = e.target;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
         const type = target.getAttribute('type') || 'text';
         if (!['email', 'password', 'number', 'tel', 'checkbox', 'radio', 'file'].includes(type)) {
           target.setAttribute('autocapitalize', 'sentences');
+        }
+
+        // Check if on a mobile or touch screen device
+        const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        if (isMobile) {
+          setTimeout(() => {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300); // Wait for virtual keyboard to slide open
         }
       }
     };
@@ -71,12 +79,28 @@ export default function App() {
       }
     };
 
+    const handleViewportResize = () => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        if (isMobile) {
+          activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    };
+
     document.addEventListener('focusin', handleFocus, true);
     document.addEventListener('input', handleInput, true);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleViewportResize);
+    }
 
     return () => {
       document.removeEventListener('focusin', handleFocus, true);
       document.removeEventListener('input', handleInput, true);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleViewportResize);
+      }
     };
   }, []);
 

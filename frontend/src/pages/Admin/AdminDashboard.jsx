@@ -108,8 +108,8 @@ export default function AdminDashboard() {
   const isPieDefault = !stats?.pieData
   const pieData = stats?.pieData || [
     { name: 'Basic', value: 3200, color: 'var(--text-tertiary)' },
-    { name: 'Premium', value: 3800, color: 'var(--primary-blue)' },
-    { name: 'Elite', value: 1234, color: '#DFFF00' },
+    { name: 'Standard', value: 3800, color: 'var(--accent-lime)' },
+    { name: 'Premium', value: 1234, color: 'var(--primary-blue)' },
   ]
 
   const isRevenueDefault = !stats?.revenueData

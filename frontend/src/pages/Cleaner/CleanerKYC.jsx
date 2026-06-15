@@ -33,207 +33,69 @@ const STEPS = [
   },
 ]
 
-// ─── Camera Capture Component ─────────────────────
-function CameraCapture({ onCapture, onClose }) {
-  const videoRef = useRef(null)
-  const canvasRef = useRef(null)
-  const streamRef = useRef(null)
-  const [ready, setReady] = useState(false)
-  const [facingMode, setFacingMode] = useState('user')
-  const [flash, setFlash] = useState(false)
-  const [error, setError] = useState('')
-
-  const startCamera = useCallback(async (facing = 'user') => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop())
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.onloadedmetadata = () => setReady(true)
-      }
-    } catch (err) {
-      setError('Camera access denied. Please allow camera permissions and try again.')
-    }
-  }, [])
-
-  useEffect(() => {
-    startCamera(facingMode)
-    return () => streamRef.current?.getTracks().forEach(t => t.stop())
-  }, [])
-
-  const flipCamera = async () => {
-    const next = facingMode === 'user' ? 'environment' : 'user'
-    setFacingMode(next)
-    setReady(false)
-    await startCamera(next)
-  }
-
-  const capture = () => {
-    if (!canvasRef.current || !videoRef.current) return
-    setFlash(true)
-    setTimeout(() => setFlash(false), 300)
-    const canvas = canvasRef.current
-    canvas.width = videoRef.current.videoWidth
-    canvas.height = videoRef.current.videoHeight
-    const ctx = canvas.getContext('2d')
-    if (facingMode === 'user') {
-      ctx.translate(canvas.width, 0)
-      ctx.scale(-1, 1)
-    }
-    ctx.drawImage(videoRef.current, 0, 0)
-    canvas.toBlob(blob => {
-      if (blob) {
-        const file = new File([blob], 'live_photo.jpg', { type: 'image/jpeg' })
-        onCapture(file, canvas.toDataURL('image/jpeg', 0.9))
-      }
-    }, 'image/jpeg', 0.9)
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#000', display: 'flex', flexDirection: 'column' }}>
-      {/* Flash effect */}
-      {flash && <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', zIndex: 10, pointerEvents: 'none' }} />}
-
-      {/* Close */}
-      <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, zIndex: 20, background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer' }}>
-        <X size={22} />
-      </button>
-
-      {error ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32 }}>
-          <AlertCircle size={48} color="#ff5555" />
-          <p style={{ color: '#fff', textAlign: 'center', fontSize: 15 }}>{error}</p>
-          <button onClick={() => startCamera(facingMode)} style={{ padding: '12px 24px', borderRadius: 12, background: '#65C737', color: '#000', fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-            Retry
-          </button>
-        </div>
-      ) : (
-        <>
-          {/* Face guide overlay */}
-          <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              style={{ width: '100%', height: '100%', objectFit: 'cover', transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
-            />
-            {/* Oval face guide */}
-            <div style={{
-              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none'
-            }}>
-              <div style={{
-                width: '60%', maxWidth: 220, aspectRatio: '3/4', borderRadius: '50%',
-                border: `3px solid ${ready ? '#65C737' : 'rgba(255,255,255,0.4)'}`,
-                boxShadow: `0 0 0 9999px rgba(0,0,0,0.55)`,
-                transition: 'border-color 0.4s',
-              }} />
-            </div>
-            {!ready && (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ width: 40, height: 40, border: '3px solid #65C737', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-              </div>
-            )}
-          </div>
-
-          {/* Controls */}
-          <div style={{ background: '#111', padding: '24px 32px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button onClick={flipCamera} style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <RotateCcw size={20} />
-            </button>
-
-            <button
-              onClick={capture}
-              disabled={!ready}
-              style={{ width: 72, height: 72, borderRadius: '50%', background: ready ? '#65C737' : '#333', border: '4px solid rgba(255,255,255,0.3)', cursor: ready ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', transform: ready ? 'scale(1)' : 'scale(0.9)' }}>
-              <Camera size={28} color={ready ? '#000' : '#666'} />
-            </button>
-
-            <div style={{ width: 48 }} />
-          </div>
-          <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', fontSize: 12, paddingBottom: 8 }}>Position your face inside the oval</p>
-        </>
-      )}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-    </div>
-  )
-}
-
 // ─── Document Upload Component ────────────────────
-function DocUpload({ step, preview, onFile }) {
-  const fileRef = useRef(null)
-  const [dragActive, setDragActive] = useState(false)
-
-  const handleDrag = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
-    }
-  }
-
-  const handleDrop = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      onFile(e.dataTransfer.files[0])
-    }
-  }
+function DocUpload({ step, preview, onFile, onRemove }) {
+  const cameraInputRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {preview ? (
         <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', border: '2px solid var(--bg-accent)' }}>
           <img src={preview} alt="Document preview" style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block' }} />
-          <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(101,199,55,0.9)', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircle2 size={20} color="#000" />
-          </div>
+          <button 
+            type="button" 
+            onClick={onRemove} 
+            style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
         </div>
       ) : (
-        <div 
-          onClick={() => fileRef.current?.click()}
-          onDragEnter={handleDrag}
-          onDragOver={handleDrag}
-          onDragLeave={handleDrag}
-          onDrop={handleDrop}
-          style={{ 
-            height: 180, 
-            borderRadius: 20, 
-            border: dragActive ? '2.5px solid var(--text-accent)' : '2px dashed var(--border-glass)', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            gap: 12, 
-            background: dragActive ? 'rgba(var(--bg-accent-rgb), 0.05)' : 'rgba(255,255,255,0.02)', 
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-          }}
-        >
-          <step.icon size={40} strokeWidth={1.5} color={step.color} />
-          <p style={{ fontSize: 13, textAlign: 'center', maxWidth: '70%', fontWeight: 500 }}>
-            Drag & drop or click to upload file
-          </p>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            style={{ flex: 1, height: 120, borderRadius: 16, border: '2px dashed var(--border-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'rgba(255,255,255,0.02)', cursor: 'pointer', color: 'var(--text-secondary)' }}
+          >
+            <Camera size={24} className="text-secondary" />
+            <span style={{ fontSize: 13 }}>Take Photo</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={{ flex: 1, height: 120, borderRadius: 16, border: '2px dashed var(--border-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'rgba(255,255,255,0.02)', cursor: 'pointer', color: 'var(--text-secondary)' }}
+          >
+            <Upload size={24} className="text-secondary" />
+            <span style={{ fontSize: 13 }}>Upload Image</span>
+          </button>
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 12 }}>
-        <button onClick={() => fileRef.current?.click()} style={{ flex: 1, padding: '14px', borderRadius: 14, border: '1px solid var(--border-glass)', background: 'transparent', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>
-          <Upload size={18} />
-          Choose File
-        </button>
-        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onFile(e.target.files[0])} />
-      </div>
+      {/* Hidden file inputs */}
+      <input
+        type="file"
+        ref={cameraInputRef}
+        accept="image/*"
+        capture="environment"
+        onChange={e => {
+          if (e.target.files && e.target.files[0]) {
+            onFile(e.target.files[0])
+          }
+        }}
+        style={{ display: 'none' }}
+      />
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={e => {
+          if (e.target.files && e.target.files[0]) {
+            onFile(e.target.files[0])
+          }
+        }}
+        style={{ display: 'none' }}
+      />
     </div>
   )
 }
@@ -245,8 +107,6 @@ export default function CleanerKYC() {
   const [currentStep, setCurrentStep] = useState(0)
   const [files, setFiles] = useState({ live_photo: null, aadhaar: null, pan: null })
   const [previews, setPreviews] = useState({ live_photo: null, aadhaar: null, pan: null })
-  const [showCamera, setShowCamera] = useState(false)
-  const [cameraTarget, setCameraTarget] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -264,20 +124,6 @@ export default function CleanerKYC() {
   const step = STEPS[currentStep]
   const allDone = Object.values(files).every(Boolean) && !!city
 
-  const handleCapture = async (file, dataUrl) => {
-    const id = cameraTarget
-    try {
-      const optimized = await optimizeImage(file, { maxWidth: 800, quality: 0.7 })
-      setFiles(prev => ({ ...prev, [id]: optimized }))
-      setPreviews(prev => ({ ...prev, [id]: dataUrl }))
-    } catch (e) {
-      console.error('Photo optimization failed', e)
-      setFiles(prev => ({ ...prev, [id]: file }))
-      setPreviews(prev => ({ ...prev, [id]: dataUrl }))
-    }
-    setShowCamera(false)
-  }
-
   const handleFile = async (file) => {
     if (!file) return
     const id = step.id
@@ -292,9 +138,9 @@ export default function CleanerKYC() {
     }
   }
 
-  const openCamera = (id) => {
-    setCameraTarget(id)
-    setShowCamera(true)
+  const removeFile = (id) => {
+    setFiles(prev => ({ ...prev, [id]: null }))
+    setPreviews(prev => ({ ...prev, [id]: null }))
   }
 
   const handleSubmit = async () => {
@@ -342,13 +188,6 @@ export default function CleanerKYC() {
   )
 
   return (
-    <>
-      {showCamera && (
-        <CameraCapture
-          onCapture={handleCapture}
-          onClose={() => setShowCamera(false)}
-        />
-      )}
 
       <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '0 0 40px' }}>
         {/* Header */}
@@ -445,39 +284,12 @@ export default function CleanerKYC() {
               </div>
             </div>
 
-            {step.cameraOnly ? (
-              /* Live photo — camera only */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {previews.live_photo ? (
-                  <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', border: '3px solid var(--bg-accent)' }}>
-                    <img src={previews.live_photo} alt="Live photo" style={{ width: '100%', height: 280, objectFit: 'cover', display: 'block' }} />
-                    <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(101,199,55,0.9)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <CheckCircle2 size={22} color="#000" />
-                    </div>
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', padding: '20px 16px 16px' }}>
-                      <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: 0 }}>✓ Profile photo captured</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div onClick={() => openCamera('live_photo')} style={{ height: 220, borderRadius: 20, border: '2px dashed #65C737', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'rgba(101,199,55,0.04)', cursor: 'pointer' }}>
-                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(101,199,55,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Camera size={32} color="#65C737" />
-                    </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center' }}>Tap to open camera</p>
-                  </div>
-                )}
-                <button onClick={() => openCamera('live_photo')} className="btn-primary" style={{ padding: '14px', borderRadius: 14, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  <Camera size={18} />
-                  {previews.live_photo ? 'Retake Photo' : 'Open Camera'}
-                </button>
-              </div>
-            ) : (
-              <DocUpload
-                step={step}
-                preview={previews[step.id]}
-                onFile={handleFile}
-              />
-            )}
+            <DocUpload
+              step={step}
+              preview={previews[step.id]}
+              onFile={handleFile}
+              onRemove={() => removeFile(step.id)}
+            />
           </div>
 
           {/* Navigation */}
@@ -532,6 +344,5 @@ export default function CleanerKYC() {
           </div>
         </div>
       </div>
-    </>
   )
 }

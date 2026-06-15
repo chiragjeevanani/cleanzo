@@ -35,7 +35,10 @@ export default function SavedAddresses() {
   }, [])
 
   const handleSave = async () => {
-    if (!form.city || !form.state || !form.societyName || !form.flat) return
+    if (!form.city || !form.state || !form.societyName || !form.flat) {
+      setError('Please fill in all mandatory fields (*).')
+      return
+    }
     setError('')
     
     const formattedCity = formatCityState(form.city)
@@ -194,7 +197,7 @@ export default function SavedAddresses() {
               <button 
                 className="btn btn-primary" 
                 onClick={handleSave} 
-                disabled={saving || !form.societyName || !form.flat || !form.city || !form.state}
+                disabled={saving}
                 style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 0', borderRadius: 12, minWidth: 0 }}
               >
                 {saving ? 'Saving...' : <>Save Address <Check size={16} /></>}

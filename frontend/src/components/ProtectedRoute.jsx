@@ -43,6 +43,7 @@ export default function ProtectedRoute({ children, role, redirectTo = '/login' }
       if (userRole === 'customer') return <Navigate to="/customer" replace />;
       if (userRole === 'cleaner') return <Navigate to="/cleaner" replace />;
       if (userRole === 'admin' || userRole === 'superadmin') return <Navigate to="/admin" replace />;
+      if (userRole === 'society') return <Navigate to="/society" replace />;
       return <Navigate to="/" replace />;
     }
   }

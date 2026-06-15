@@ -1,7 +1,7 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Share2, CheckCircle2, XCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, XCircle } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { useToast } from '../../context/ToastContext'
@@ -16,29 +16,6 @@ export default function PlanDetail() {
   const [pkg, setPkg] = useState(null)
   const [loading, setLoading] = useState(true)
   const { subscriptions, vehicles, discounts } = useCustomerData()
-
-  // Share the current plan via the native share sheet, falling back to clipboard.
-  const handleShare = async () => {
-    const url = window.location.href
-    const shareData = {
-      title: pkg?.name ? `Cleanzo · ${pkg.name}` : 'Cleanzo Plan',
-      text: pkg?.name ? `Check out the ${pkg.name} plan on Cleanzo` : 'Check out this Cleanzo plan',
-      url,
-    }
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData)
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(url)
-        showToast('🔗 Link copied to clipboard', 'success', 2500)
-      } else {
-        showToast('Sharing is not supported on this device', 'info', 2500)
-      }
-    } catch (err) {
-      // User dismissing the native share sheet throws AbortError — ignore it.
-      if (err?.name !== 'AbortError') showToast('Could not share this plan', 'error', 2500)
-    }
-  }
 
   const activeSubForVehicle = (subscriptions || []).find(
     s => s.status === 'Active' && s.vehicle?._id === vehicleId
@@ -76,9 +53,6 @@ export default function PlanDetail() {
         <button onClick={() => navigate(-1)} style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
           <ArrowLeft size={20} /> 
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Plan Details</span>
-        </button>
-        <button onClick={handleShare} aria-label="Share plan" style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}>
-          <Share2 size={20} className="text-secondary" />
         </button>
       </div>
 
