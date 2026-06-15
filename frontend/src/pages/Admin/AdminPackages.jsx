@@ -54,8 +54,16 @@ export default function AdminPackages() {
 
     // Check if all models of this brand are individually covered
     const brandModels = brandObj.models || []
-    if (brandModels.length === 0) return false
-    return brandModels.every(model => isModelCoveredInOtherPlans(brandName, model))
+    const tierUpper = (formData.tier || 'BASIC').toUpperCase()
+    const applicableModelsForTier = brandModels.filter(model => {
+      if (tierUpper === 'BASIC' || tierUpper === 'PREMIUM') {
+        return !isBikeModel(brandName, model)
+      }
+      return true
+    })
+
+    if (applicableModelsForTier.length === 0) return true
+    return applicableModelsForTier.every(model => isModelCoveredInOtherPlans(brandName, model))
   }
 
   const closeModal = () => {
@@ -191,8 +199,16 @@ export default function AdminPackages() {
       .map(brandName => {
         const brandObj = brands.find(b => b.name === brandName)
         const brandModels = brandObj?.models || []
-        const availableModels = brandModels.filter(model => !isModelCoveredInOtherPlans(brandName, model))
-        const showAllModelsCheckbox = availableModels.length === brandModels.length
+        const tierUpper = (formData.tier || 'BASIC').toUpperCase()
+        const applicableModelsForTier = brandModels.filter(model => {
+          if (tierUpper === 'BASIC' || tierUpper === 'PREMIUM') {
+            return !isBikeModel(brandName, model)
+          }
+          return true
+        })
+
+        const availableModels = applicableModelsForTier.filter(model => !isModelCoveredInOtherPlans(brandName, model))
+        const showAllModelsCheckbox = availableModels.length === applicableModelsForTier.length && applicableModelsForTier.length > 0
         const useAllModels = selectedModels[brandName].all && showAllModelsCheckbox
 
         return {
@@ -205,8 +221,16 @@ export default function AdminPackages() {
         // Otherwise, if they select a brand but it has no models selected and no longer supports "All", filter it out.
         const brandObj = brands.find(b => b.name === app.brand)
         const brandModels = brandObj?.models || []
-        const availableModels = brandModels.filter(model => !isModelCoveredInOtherPlans(app.brand, model))
-        const showAllModelsCheckbox = availableModels.length === brandModels.length
+        const tierUpper = (formData.tier || 'BASIC').toUpperCase()
+        const applicableModelsForTier = brandModels.filter(model => {
+          if (tierUpper === 'BASIC' || tierUpper === 'PREMIUM') {
+            return !isBikeModel(app.brand, model)
+          }
+          return true
+        })
+
+        const availableModels = applicableModelsForTier.filter(model => !isModelCoveredInOtherPlans(app.brand, model))
+        const showAllModelsCheckbox = availableModels.length === applicableModelsForTier.length && applicableModelsForTier.length > 0
         const useAllModels = selectedModels[app.brand].all && showAllModelsCheckbox
 
         return useAllModels || app.models.length > 0
@@ -528,8 +552,16 @@ export default function AdminPackages() {
                         .filter(brand => !isBrandFullyCoveredInOtherPlans(brand.name))
                         .map(brand => {
                           const isBrandActive = !!selectedModels[brand.name]?.active
-                          const availableModels = (brand.models || []).filter(model => !isModelCoveredInOtherPlans(brand.name, model))
-                          const showAllModelsCheckbox = availableModels.length === (brand.models || []).length
+                          const brandModels = brand.models || []
+                          const tierUpper = (formData.tier || 'BASIC').toUpperCase()
+                          const applicableModelsForTier = brandModels.filter(model => {
+                            if (tierUpper === 'BASIC' || tierUpper === 'PREMIUM') {
+                              return !isBikeModel(brand.name, model)
+                            }
+                            return true
+                          })
+                          const availableModels = applicableModelsForTier.filter(model => !isModelCoveredInOtherPlans(brand.name, model))
+                          const showAllModelsCheckbox = availableModels.length === applicableModelsForTier.length && applicableModelsForTier.length > 0
                           const isAllModels = !!selectedModels[brand.name]?.all && showAllModelsCheckbox
                           const activeModels = selectedModels[brand.name]?.models || []
 
