@@ -47,7 +47,8 @@ export default function SocietyDashboard() {
       subtitle: 'Joined using Cleanzo app',
       icon: Users,
       color: 'var(--primary-blue)',
-      bg: 'rgba(0, 122, 255, 0.1)'
+      bg: 'rgba(0, 122, 255, 0.1)',
+      path: '/society/commissions'
     },
     {
       title: 'Active Subscriptions',
@@ -55,7 +56,8 @@ export default function SocietyDashboard() {
       subtitle: 'Currently active paid plans',
       icon: Award,
       color: 'var(--success)',
-      bg: 'rgba(48, 209, 88, 0.1)'
+      bg: 'rgba(48, 209, 88, 0.1)',
+      path: '/society/commissions'
     },
     {
       title: 'Trial-Only Members',
@@ -63,7 +65,8 @@ export default function SocietyDashboard() {
       subtitle: 'Never converted to paid',
       icon: ShieldAlert,
       color: 'var(--warning)',
-      bg: 'rgba(255, 214, 10, 0.1)'
+      bg: 'rgba(255, 214, 10, 0.1)',
+      path: '/society/commissions'
     },
     {
       title: 'Total Earned',
@@ -71,7 +74,8 @@ export default function SocietyDashboard() {
       subtitle: 'Lifetime commission earnings',
       icon: DollarSign,
       color: 'var(--accent-lime)',
-      bg: 'rgba(var(--bg-accent-rgb), 0.1)'
+      bg: 'rgba(var(--bg-accent-rgb), 0.1)',
+      path: '/society/commissions'
     },
     {
       title: 'Pending Payout Balance',
@@ -79,7 +83,8 @@ export default function SocietyDashboard() {
       subtitle: 'Available to withdraw',
       icon: CreditCard,
       color: 'var(--primary-blue)',
-      bg: 'rgba(0, 122, 255, 0.1)'
+      bg: 'rgba(0, 122, 255, 0.1)',
+      path: '/society/commissions'
     },
     {
       title: 'Your Commission Rate',
@@ -87,7 +92,8 @@ export default function SocietyDashboard() {
       subtitle: 'Of subscription value',
       icon: Percent,
       color: 'var(--text-secondary)',
-      bg: 'var(--bg-glass)'
+      bg: 'var(--bg-glass)',
+      path: '/society/profile'
     }
   ]
 
@@ -105,14 +111,29 @@ export default function SocietyDashboard() {
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon
           return (
-            <div key={idx} className="glass premium-gradient" style={{
-              padding: 24,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: 160,
-              position: 'relative'
-            }}>
+            <div 
+              key={idx} 
+              className="glass premium-gradient" 
+              onClick={() => navigate(kpi.path)}
+              style={{
+                padding: 24,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: 160,
+                position: 'relative',
+                cursor: 'pointer',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-4px)'
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.15)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'none'
+                e.currentTarget.style.boxShadow = 'none'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <span className="text-label" style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{kpi.title}</span>
                 <div style={{

@@ -101,9 +101,18 @@ export default function AdminCMS() {
   }
 
   const saveSocieties = async () => {
+    const containsAlphanumeric = (str) => /^(?=.*[a-zA-Z0-9]).+$/.test(str);
+    if (!societiesData.heading || !containsAlphanumeric(societiesData.heading)) {
+      showToast('Society heading cannot consist of only special characters', 'error')
+      return
+    }
     const filteredItems = societiesData.items.filter(s => s.trim() !== '')
     if (filteredItems.length === 0 && societiesData.items.length > 0) {
       showToast('Please enter at least one society name before saving.', 'error')
+      return
+    }
+    if (filteredItems.some(s => !containsAlphanumeric(s))) {
+      showToast('Society names cannot consist of only special characters', 'error')
       return
     }
     const payload = { ...societiesData, items: filteredItems }
@@ -139,7 +148,7 @@ export default function AdminCMS() {
 
     try {
       const res = await apiClient.uploadForm('/admin/upload', formData)
-      setBannerForm({ ...bannerForm, imageUrl: res.imageUrl })
+      setBannerForm({ ...bannerForm, imageUrl: res.imageUrl || res.url })
       showToast('Image uploaded successfully', 'success')
     } catch (err) {
       showToast(err?.message || 'Failed to upload image', 'error')
@@ -152,6 +161,25 @@ export default function AdminCMS() {
     if (!bannerForm.title || !bannerForm.imageUrl) {
       showToast('Title and Image are required', 'error')
       return
+    }
+
+    const containsAlphanumeric = (str) => /^(?=.*[a-zA-Z0-9]).+$/.test(str);
+    if (!containsAlphanumeric(bannerForm.title)) {
+      showToast('Banner title cannot consist of only special characters', 'error')
+      return
+    }
+
+    if (bannerForm.link) {
+      const pattern = new RegExp('^(https?:\\/\\/)?'+ // protocol
+        '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
+        '((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
+        '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
+        '(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
+        '(\\#[-a-z\\d_]*)?$','i'); // fragment locator
+      if (!pattern.test(bannerForm.link) && !bannerForm.link.startsWith('/')) {
+        showToast('Target link must be a valid URL (e.g. https://example.com)', 'error')
+        return
+      }
     }
 
     setPublishingBanner(true)
@@ -190,6 +218,24 @@ export default function AdminCMS() {
   }
 
   const saveSupport = () => {
+    if (supportData.phone.length !== 10) {
+      showToast('Call number must be exactly 10 digits', 'error')
+      return
+    }
+    if (supportData.whatsapp.length !== 10) {
+      showToast('WhatsApp number must be exactly 10 digits', 'error')
+      return
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!supportData.email || !emailRegex.test(supportData.email.trim())) {
+      showToast('Please enter a valid support email address', 'error')
+      return
+    }
+    const containsAlphanumeric = (str) => /^(?=.*[a-zA-Z0-9]).+$/.test(str);
+    if (!containsAlphanumeric(supportData.address)) {
+      showToast('Address cannot consist of only special characters', 'error')
+      return
+    }
     localStorage.setItem('cleanzo_cms_support', JSON.stringify(supportData))
     showToast('Support contact details saved and updated!', 'success')
   }
@@ -434,11 +480,11 @@ export default function AdminCMS() {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="e.g. 919555860362"
+                  placeholder="e.g. 9555860362"
                   value={supportData.whatsapp}
-                  onChange={e => setSupportData({ ...supportData, whatsapp: e.target.value })}
+                  onChange={e => setSupportData({ ...supportData, whatsapp: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                 />
-                <span className="text-tertiary" style={{ fontSize: 11 }}>Include country code (no +). Used for the wa.me chat link.</span>
+                <span className="text-tertiary" style={{ fontSize: 11 }}>Include 10-digit number. Used for the wa.me chat link.</span>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -448,9 +494,9 @@ export default function AdminCMS() {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="e.g. +919555860362"
+                  placeholder="e.g. 9555860362"
                   value={supportData.phone}
-                  onChange={e => setSupportData({ ...supportData, phone: e.target.value })}
+                  onChange={e => setSupportData({ ...supportData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                 />
               </div>
 
@@ -463,7 +509,7 @@ export default function AdminCMS() {
                   className="input-field"
                   placeholder="e.g. hello@trycleanzo.com"
                   value={supportData.email}
-                  onChange={e => setSupportData({ ...supportData, email: e.target.value })}
+                  onChange={e => setSupportData({ ...supportData, email: e.target.value.toLowerCase() })}
                 />
               </div>
 

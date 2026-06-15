@@ -1,10 +1,11 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react';
-import { Check, X, Eye, FileText, User, Trash2, AlertCircle } from 'lucide-react';
+import { Check, X, Eye, FileText, User, Trash2, AlertCircle, Search } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
 export default function AdminApplications() {
   const [applications, setApplications] = useState([]);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedApp, setSelectedApp] = useState(null);
@@ -24,6 +25,17 @@ export default function AdminApplications() {
       .then(res => setSocieties((res.societies || []).filter(s => s.isActive)))
       .catch(() => {});
   }, []);
+
+  const filteredApplications = applications.filter(app => {
+    const query = search.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      (app.name || '').toLowerCase().includes(query) ||
+      (app.phone || '').includes(query) ||
+      (app.email || '').toLowerCase().includes(query) ||
+      (app.city || '').toLowerCase().includes(query)
+    );
+  });
 
   // Societies in the same city as the applicant (the hard city boundary).
   const sameCity = (a, b) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -135,6 +147,12 @@ export default function AdminApplications() {
           </div>
         </div>
       </div>
+      <div className="flex gap-12" style={{ marginBottom: 16 }}>
+        <div style={{ position: 'relative', flex: 1 }}>
+          <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+          <input className="input-field" placeholder="Search applications by name, phone, city..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 40 }} />
+        </div>
+      </div>
 
       <div className="glass" style={{ overflow: 'hidden' }}>
         <table className="data-table">
@@ -149,9 +167,9 @@ export default function AdminApplications() {
             </tr>
           </thead>
           <tbody>
-            {applications.length === 0 ? (
+            {filteredApplications.length === 0 ? (
               <tr><td colSpan="6" className="text-center py-48 text-secondary">No applications found.</td></tr>
-            ) : applications.map((app) => (
+            ) : filteredApplications.map((app) => (
               <tr key={app._id}>
                 <td>
                   <div className="flex items-center gap-12">

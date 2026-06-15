@@ -184,7 +184,7 @@ export default function AdminUsers() {
 
   return (
     <div style={{ position: 'relative' }}>
-      {error && (
+      {error && !showAddModal && (
         <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 16, fontSize: 14 }}>
           {error}
         </div>
@@ -203,7 +203,7 @@ export default function AdminUsers() {
           >
             <Download size={16} /> {exporting ? 'Exporting...' : 'Export Excel'}
           </button>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
+          <button className="btn btn-primary btn-sm" onClick={() => { setError(''); setShowAddModal(true); }}>
             <Plus size={16} /> Add User
           </button>
         </div>
@@ -344,11 +344,18 @@ export default function AdminUsers() {
                 <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>Add User</h2>
                 <p className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>Create a new customer account</p>
               </div>
-              <button className="glass flex items-center justify-center" onClick={() => setShowAddModal(false)}
+              <button className="glass flex items-center justify-center" onClick={() => { setError(''); setShowAddModal(false); }}
                 style={{ width: 40, height: 40, borderRadius: 14 }}>
                 <X size={18} />
               </button>
             </div>
+            
+            {error && (
+              <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,50,50,0.08)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff5555', marginBottom: 16, fontSize: 14 }}>
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleAdd} className="flex flex-col gap-20">
               <div className="grid-2 gap-16">
                 <div className="flex flex-col gap-8">
@@ -362,11 +369,11 @@ export default function AdminUsers() {
               </div>
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>PHONE *</label>
-                <input required className="input-field" placeholder="9876543210" maxLength={12} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })} />
+                <input required className="input-field" placeholder="9876543210" maxLength={10} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
               </div>
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>EMAIL</label>
-                <input type="email" className="input-field" placeholder="john@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                <input type="email" className="input-field" placeholder="john@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value.toLowerCase() })} />
               </div>
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>CITY</label>

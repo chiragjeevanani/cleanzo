@@ -77,6 +77,26 @@ export default function SocietyProfile() {
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault()
+
+    if (accountNumber) {
+      if (accountNumber.length < 9 || accountNumber.length > 18 || !/^\d+$/.test(accountNumber)) {
+        showToast('Account number must be between 9 and 18 digits', 'error')
+        return
+      }
+    }
+    if (ifscCode) {
+      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+        showToast('Invalid IFSC code format (e.g. HDFC0001234)', 'error')
+        return
+      }
+    }
+    if (upiId) {
+      if (!/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(upiId)) {
+        showToast('Invalid UPI ID format (e.g. name@upi)', 'error')
+        return
+      }
+    }
+
     setSavingProfile(true)
     try {
       const res = await apiClient.put('/society/profile', {

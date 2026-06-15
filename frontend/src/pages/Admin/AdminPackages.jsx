@@ -193,6 +193,28 @@ export default function AdminPackages() {
     if (!formData.price || Number(formData.price) <= 0) { setError('Price must be greater than 0'); return }
     if (formData.trialPrice !== '' && formData.trialPrice != null && Number(formData.trialPrice) < 0) { setError('Trial price cannot be negative'); return }
 
+    const containsAlphanumeric = (str) => /^(?=.*[a-zA-Z0-9]).+$/.test(str);
+
+    const featuresList = formData.features.split(',').map(f => f.trim()).filter(Boolean)
+    if (featuresList.length === 0) {
+      setError("Please specify at least one feature included in this package (in 'What's Included')")
+      return
+    }
+    if (featuresList.some(f => !containsAlphanumeric(f))) {
+      setError("Included features cannot consist of only special characters.")
+      return
+    }
+
+    const excludedList = formData.excludedFeatures.split(',').map(f => f.trim()).filter(Boolean)
+    if (excludedList.length === 0) {
+      setError("Please specify at least one excluded feature (in 'What's Excluded')")
+      return
+    }
+    if (excludedList.some(f => !containsAlphanumeric(f))) {
+      setError("Excluded features cannot consist of only special characters.")
+      return
+    }
+
     // Parse applicableModels, filtering out models covered in other packages of this tier
     const applicableModels = Object.keys(selectedModels)
       .filter(brandName => selectedModels[brandName]?.active)

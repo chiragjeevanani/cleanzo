@@ -66,10 +66,32 @@ export default function AdminNotifications() {
 
   const handleBroadcast = async (e) => {
     e.preventDefault()
+    const trimmedTitle = form.title.trim()
+    const trimmedMessage = form.message.trim()
+    
+    if (!trimmedTitle || !trimmedMessage) {
+      setBroadcastResult('Title and Message are required and cannot be empty or whitespaces')
+      return
+    }
+    
+    const hasAlphanumeric = (str) => /[a-zA-Z0-9]/.test(str);
+    if (!hasAlphanumeric(trimmedTitle)) {
+      setBroadcastResult('Title must contain at least one letter or digit')
+      return
+    }
+    if (!hasAlphanumeric(trimmedMessage)) {
+      setBroadcastResult('Message must contain at least one letter or digit')
+      return
+    }
+
     setSending(true)
     setBroadcastResult('')
     try {
-      const res = await apiClient.post('/admin/notifications/broadcast', form)
+      const res = await apiClient.post('/admin/notifications/broadcast', {
+        ...form,
+        title: trimmedTitle,
+        message: trimmedMessage
+      })
       setBroadcastResult(res.message || 'Notification sent!')
       setForm({ title: '', message: '', type: 'system', target: 'all' })
       fetchNotifications()

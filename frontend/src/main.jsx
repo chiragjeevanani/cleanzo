@@ -7,6 +7,23 @@ import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
 
+// Intercept Date.prototype.toLocaleDateString to standardize date format to DD/MM/YYYY
+const originalToLocaleDateString = Date.prototype.toLocaleDateString;
+Date.prototype.toLocaleDateString = function (locale, options) {
+  const hasOptions = options && Object.keys(options).length > 0;
+  const isFullDateOptions = hasOptions && 
+    (options.dateStyle === 'medium' || options.dateStyle === 'short' || 
+     (options.day && options.month && options.year && !options.weekday));
+     
+  if (!hasOptions || isFullDateOptions) {
+    const day = String(this.getDate()).padStart(2, '0');
+    const month = String(this.getMonth() + 1).padStart(2, '0');
+    const year = this.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+  return originalToLocaleDateString.call(this, locale, options);
+};
+
 // Unregister stale PWA service workers — but KEEP the Firebase messaging SW and our PWA SW
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {

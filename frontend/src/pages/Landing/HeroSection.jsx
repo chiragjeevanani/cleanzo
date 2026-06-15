@@ -67,6 +67,10 @@ export default function HeroSection({ bgImageUrl, heroReady }) {
   const handleCheck = async (e) => {
     if (e) e.preventDefault()
     if (!query) return
+    if (searchMode === 'pincode' && (query.length !== 6 || !/^\d{6}$/.test(query))) {
+      setShowStatus('fail')
+      return
+    }
     setLoading(true)
     setShowStatus(null)
     setShowSuggestions(false)
@@ -92,6 +96,14 @@ export default function HeroSection({ bgImageUrl, heroReady }) {
     setResults([s]);
     setShowStatus('success');
     setShowSuggestions(false);
+  }
+
+  const handleToggleSearchMode = (mode) => {
+    setSearchMode(mode);
+    setQuery('');
+    setResults(null);
+    setShowStatus(null);
+    setSuggestions([]);
   }
 
   const splitText = (text, className = '') => {
@@ -154,8 +166,8 @@ export default function HeroSection({ bgImageUrl, heroReady }) {
               <div className="flex justify-between items-center" style={{ marginBottom: 12 }}>
                 <span className="widget-label">CHECK AVAILABILITY</span>
                 <div className="search-toggle">
-                  <button onClick={() => setSearchMode('name')} className={searchMode === 'name' ? 'active' : ''}>SOCIETY</button>
-                  <button onClick={() => setSearchMode('pincode')} className={searchMode === 'pincode' ? 'active' : ''}>PINCODE</button>
+                  <button type="button" onClick={() => handleToggleSearchMode('name')} className={searchMode === 'name' ? 'active' : ''}>SOCIETY</button>
+                  <button type="button" onClick={() => handleToggleSearchMode('pincode')} className={searchMode === 'pincode' ? 'active' : ''}>PINCODE</button>
                 </div>
               </div>
 

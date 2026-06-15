@@ -31,6 +31,7 @@ export default function TestimonialsManager() {
   const handleSave = async () => {
     if (!form.name || !form.role || !form.text) { showToast('Name, role and review text are required', 'error'); return }
     if (!validateName(form.name)) { showToast('Client Name must contain only alphabetic characters', 'error'); return }
+    if (form.sortOrder < 0) { showToast('Sort order cannot be negative', 'error'); return }
     setSaving(true)
     try {
       if (editId) {
@@ -72,7 +73,7 @@ export default function TestimonialsManager() {
           </div>
           <div className="flex flex-col gap-12">
             <input className="input-field" placeholder="Client Name (e.g. JULIAN MARKS)" value={form.name} onChange={e => set('name', e.target.value.replace(/[^a-zA-Z\s]/g, ''))} />
-            <input className="input-field" placeholder="Role / Title (e.g. PORSCHE COLLECTOR)" value={form.role} onChange={e => set('role', e.target.value)} />
+            <input className="input-field" placeholder="Role / Title (e.g. PORSCHE COLLECTOR)" value={form.role} onChange={e => set('role', e.target.value.replace(/[^a-zA-Z0-9\s]/g, ''))} />
             <textarea className="input-field" rows={3} placeholder="Review text..." style={{ resize: 'none' }} value={form.text} onChange={e => set('text', e.target.value)} />
             <div className="flex items-center gap-16">
               <div>
@@ -87,7 +88,7 @@ export default function TestimonialsManager() {
               </div>
               <div>
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 6 }}>SORT ORDER</label>
-                <input className="input-field" type="number" style={{ width: 80 }} value={form.sortOrder} onChange={e => set('sortOrder', +e.target.value)} />
+                <input className="input-field" type="number" min="0" style={{ width: 80 }} value={form.sortOrder} onChange={e => set('sortOrder', Math.max(0, +e.target.value))} />
               </div>
               <div className="flex items-center gap-8" style={{ marginTop: 20 }}>
                 <label style={{ fontSize: 13 }}>Active</label>

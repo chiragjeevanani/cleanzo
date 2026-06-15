@@ -29,6 +29,11 @@ export default function FaqsManager() {
 
   const handleSave = async () => {
     if (!form.question || !form.answer) { showToast('Question and answer are required', 'error'); return }
+    const hasAlphanumeric = (str) => /[a-zA-Z0-9]/.test(str);
+    if (!hasAlphanumeric(form.question)) { showToast('Question must contain at least one letter or digit', 'error'); return }
+    if (!hasAlphanumeric(form.answer)) { showToast('Answer must contain at least one letter or digit', 'error'); return }
+    if (form.sortOrder < 0) { showToast('Sort order cannot be negative', 'error'); return }
+    
     setSaving(true)
     try {
       if (editId) {
@@ -74,7 +79,7 @@ export default function FaqsManager() {
             <div className="flex items-center gap-16">
               <div>
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 6 }}>SORT ORDER</label>
-                <input className="input-field" type="number" style={{ width: 80 }} value={form.sortOrder} onChange={e => set('sortOrder', +e.target.value)} />
+                <input className="input-field" type="number" min="0" style={{ width: 80 }} value={form.sortOrder} onChange={e => set('sortOrder', Math.max(0, +e.target.value))} />
               </div>
               <div className="flex items-center gap-8" style={{ marginTop: 20 }}>
                 <label style={{ fontSize: 13 }}>Active</label>

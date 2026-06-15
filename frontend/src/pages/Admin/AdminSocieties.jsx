@@ -441,6 +441,7 @@ export default function AdminSocieties() {
 
   // ─── CITY OPERATIONS ──────────────────────────────────────────
   const resetCityForm = () => {
+    setError('')
     setCityFormData({
       name: '',
       state: '',
@@ -451,6 +452,7 @@ export default function AdminSocieties() {
   }
 
   const handleEditCity = (city) => {
+    setError('')
     setEditingCity(city)
     setCityFormData({
       name: city.name,
@@ -548,6 +550,8 @@ export default function AdminSocieties() {
     e.preventDefault()
     setPartnerError('')
 
+    const trimmedEmail = (partnerFormData.email || '').trim().toLowerCase()
+
     if (!partnerFormData.contactName?.trim()) {
       setPartnerError('Contact name is required')
       return
@@ -558,7 +562,7 @@ export default function AdminSocieties() {
     }
     
     if (!editingPartner) {
-      if (!partnerFormData.email?.trim() || !validateEmail(partnerFormData.email)) {
+      if (!trimmedEmail || !validateEmail(trimmedEmail)) {
         setPartnerError('Please enter a valid email address')
         return
       }
@@ -573,14 +577,16 @@ export default function AdminSocieties() {
       }
     }
     
-    if (partnerFormData.phone && !validatePhone(partnerFormData.phone)) {
-      setPartnerError('Please enter a valid 10-digit phone number (can start with 91)')
-      return
+    if (partnerFormData.phone) {
+      if (partnerFormData.phone.length !== 10 || !/^\d{10}$/.test(partnerFormData.phone)) {
+        setPartnerError('Phone number must be exactly 10 digits')
+        return
+      }
     }
 
     setPartnerSaving(true)
     try {
-      const cleanedPhone = partnerFormData.phone ? cleanPhoneNumber(partnerFormData.phone) : ''
+      const cleanedPhone = partnerFormData.phone || ''
       if (editingPartner) {
         const payload = {
           contactName: partnerFormData.contactName,
@@ -597,7 +603,7 @@ export default function AdminSocieties() {
         const payload = {
           societyId: partnerFormData.societyId,
           contactName: partnerFormData.contactName,
-          email: partnerFormData.email,
+          email: trimmedEmail,
           password: partnerFormData.password,
           phone: cleanedPhone,
           commissionRate: Number(partnerFormData.commissionRate)
@@ -684,7 +690,7 @@ export default function AdminSocieties() {
 
   return (
     <div style={{ position: 'relative' }}>
-      {error && (
+      {error && !showCityModal && (
         <div className="alert-error" style={{ marginBottom: 16 }}>
           {error}
         </div>
@@ -1423,7 +1429,7 @@ export default function AdminSocieties() {
                       style={editingPartner ? { opacity: 0.7 } : {}}
                       type="email" 
                       value={partnerFormData.email} 
-                      onChange={e => setPartnerFormData({...partnerFormData, email: e.target.value})} 
+                      onChange={e => setPartnerFormData({...partnerFormData, email: e.target.value.toLowerCase()})} 
                       placeholder="e.g. partner@society.com" 
                    />
                 </div>
@@ -1443,7 +1449,7 @@ export default function AdminSocieties() {
 
                 <div className="flex flex-col gap-6">
                    <label className="text-label-xs">PHONE NUMBER</label>
-                   <input className="input-field" value={partnerFormData.phone} maxLength={12} onChange={e => setPartnerFormData({...partnerFormData, phone: e.target.value.replace(/\D/g, '')})} placeholder="10-digit mobile" />
+                    <input type="tel" inputMode="numeric" pattern="[0-9]*" className="input-field" value={partnerFormData.phone} maxLength={10} onChange={e => setPartnerFormData({...partnerFormData, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} placeholder="10-digit mobile" />
                 </div>
 
                 <div className="flex flex-col gap-6">
@@ -1657,6 +1663,11 @@ export default function AdminSocieties() {
                 <h2 className="text-display-sm" style={{ fontSize: 20, fontWeight: 700 }}>{editingCity ? 'Edit City' : 'Add New City'}</h2>
                 <button type="button" className="btn-icon btn-glass" onClick={() => setShowCityModal(false)}><X size={20} /></button>
              </div>
+             {error && (
+                <div className="alert-error" style={{ marginBottom: 16 }}>
+                   {error}
+                </div>
+             )}
              <form onSubmit={handleSaveCity} className="flex flex-col gap-16">
                 <div className="flex flex-col gap-6">
                    <label className="text-label-xs">CITY NAME *</label>

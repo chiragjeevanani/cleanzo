@@ -213,6 +213,13 @@ export default function AdminCleaners() {
       if (!Number.isFinite(rate) || rate < 1) return 'Daily payout rate must be at least ₹1'
     }
 
+    if (data.currentAddress && data.currentAddress.trim()) {
+      if (!/[a-zA-Z0-9]/.test(data.currentAddress)) return 'Current Address details must contain at least one letter or digit'
+    }
+    if (data.permanentAddress && data.permanentAddress.trim()) {
+      if (!/[a-zA-Z0-9]/.test(data.permanentAddress)) return 'Permanent Address details must contain at least one letter or digit'
+    }
+
     return null
   }
 
@@ -518,11 +525,11 @@ export default function AdminCleaners() {
                 <div className="grid-3 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>PHONE *</label>
-                    <input required className="input-field" placeholder="9876543210" maxLength={12} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })} />
+                    <input required className="input-field" placeholder="9876543210" maxLength={10} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>EMAIL</label>
-                    <input type="email" className="input-field" placeholder="ravi@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    <input type="email" className="input-field" placeholder="ravi@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value.toLowerCase() })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>AGE</label>
@@ -570,7 +577,7 @@ export default function AdminCleaners() {
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>REFERENCE PHONE</label>
-                    <input className="input-field" placeholder="Contact Person Phone" maxLength={12} value={formData.referencePhone} onChange={e => setFormData({ ...formData, referencePhone: e.target.value.replace(/\D/g, '') })} />
+                    <input className="input-field" placeholder="Contact Person Phone" maxLength={10} value={formData.referencePhone} onChange={e => setFormData({ ...formData, referencePhone: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
                   </div>
                 </div>
               </section>
@@ -647,11 +654,11 @@ export default function AdminCleaners() {
                 <div className="grid-3 gap-16">
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>PHONE *</label>
-                    <input required className="input-field" placeholder="9876543210" maxLength={12} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })} />
+                    <input required className="input-field" placeholder="9876543210" maxLength={10} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>EMAIL</label>
-                    <input type="email" className="input-field" placeholder="ravi@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    <input type="email" className="input-field" placeholder="ravi@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value.toLowerCase() })} />
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>AGE</label>
@@ -699,7 +706,7 @@ export default function AdminCleaners() {
                   </div>
                   <div className="flex flex-col gap-6">
                     <label style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>REFERENCE PHONE</label>
-                    <input className="input-field" placeholder="Contact Person Phone" maxLength={12} value={formData.referencePhone} onChange={e => setFormData({ ...formData, referencePhone: e.target.value.replace(/\D/g, '') })} />
+                    <input className="input-field" placeholder="Contact Person Phone" maxLength={10} value={formData.referencePhone} onChange={e => setFormData({ ...formData, referencePhone: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
                   </div>
                 </div>
               </section>

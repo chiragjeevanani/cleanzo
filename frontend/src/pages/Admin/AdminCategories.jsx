@@ -44,6 +44,12 @@ export default function AdminCategories() {
       return;
     }
 
+    const containsAlphanumeric = (str) => /^(?=.*[a-zA-Z0-9]).+$/.test(str);
+    if (!containsAlphanumeric(formData.name)) {
+      showToast('Marketplace category name cannot consist of only special characters', 'error');
+      return;
+    }
+
     try {
       const payload = {
         ...formData,

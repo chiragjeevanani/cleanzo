@@ -43,15 +43,25 @@ export default function GrievanceForm() {
     const file = e.target.files[0]
     if (!file) return
     
+    // Determine extension and ensure file has a valid name for backend upload
+    const extension = file.type ? file.type.split('/')[1] : 'jpg';
+    let cleanName = file.name || `capture_${Date.now()}.${extension}`;
+    if (!cleanName.includes('.')) {
+      cleanName = `${cleanName}.${extension}`;
+    }
+
+    const fileToOptimize = (file.name === cleanName) ? file : new File([file], cleanName, { type: file.type });
+    
     try {
-      const optimized = await optimizeImage(file, { maxWidth: 1000, quality: 0.7 })
+      const optimized = await optimizeImage(fileToOptimize, { maxWidth: 1000, quality: 0.7 })
       setAttachment(optimized)
       setPreview(URL.createObjectURL(optimized))
       setError('')
     } catch (err) {
       console.error('Image optimization failed:', err)
-      setAttachment(file)
-      setPreview(URL.createObjectURL(file))
+      const fallbackFile = (file.name === cleanName) ? file : new File([file], cleanName, { type: file.type });
+      setAttachment(fallbackFile)
+      setPreview(URL.createObjectURL(fallbackFile))
     }
   }
 
@@ -156,9 +166,9 @@ export default function GrievanceForm() {
               className="input-field" 
               type="tel" 
               placeholder="e.g. 9876543210" 
-              maxLength={12}
+              maxLength={10}
               value={form.phone} 
-              onChange={e => setForm({...form, phone: e.target.value.replace(/\D/g, '')})} 
+              onChange={e => setForm({...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} 
               style={{ width: '100%', padding: '14px 16px' }} 
             />
           </div>

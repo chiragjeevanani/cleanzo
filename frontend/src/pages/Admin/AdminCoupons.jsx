@@ -287,8 +287,26 @@ export default function AdminCoupons() {
                 </div>
                 <div className="flex flex-col gap-8">
                   <label className="text-label" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>{form.discountType === 'percent' ? 'PERCENT (%)' : 'AMOUNT (₹)'}</label>
-                  <input required type="number" min="1" className="input-field" style={inputStyle}
-                    value={form.discountValue} onChange={e => setForm({ ...form, discountValue: e.target.value })} placeholder={form.discountType === 'percent' ? 'e.g. 20' : 'e.g. 100'} />
+                  <input 
+                    required 
+                    type="number" 
+                    min="1" 
+                    max={form.discountType === 'percent' ? "100" : undefined}
+                    className="input-field" 
+                    style={inputStyle}
+                    value={form.discountValue} 
+                    onChange={e => {
+                      let val = e.target.value;
+                      if (form.discountType === 'percent') {
+                        const num = Number(val);
+                        if (!Number.isNaN(num) && num > 100) {
+                          val = '100';
+                        }
+                      }
+                      setForm({ ...form, discountValue: val });
+                    }} 
+                    placeholder={form.discountType === 'percent' ? 'e.g. 20' : 'e.g. 100'} 
+                  />
                 </div>
               </div>
 

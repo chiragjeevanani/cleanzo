@@ -70,7 +70,8 @@ export default function AdminPanel() {
     pendingOrdersCount: 0,
     pendingLeavesCount: 0,
     pendingGrievancesCount: 0,
-    pendingLeadsCount: 0
+    pendingLeadsCount: 0,
+    pendingPayoutsCount: 0
   })
   const [globalSearch, setGlobalSearch] = useState('')
 
@@ -93,7 +94,8 @@ export default function AdminPanel() {
             pendingOrdersCount: res.pendingOrdersCount || 0,
             pendingLeavesCount: res.pendingLeavesCount || 0,
             pendingGrievancesCount: res.pendingGrievancesCount || 0,
-            pendingLeadsCount: res.pendingLeadsCount || 0
+            pendingLeadsCount: res.pendingLeadsCount || 0,
+            pendingPayoutsCount: res.pendingPayoutsCount || 0
           })
         }
       } catch (err) {
@@ -168,6 +170,9 @@ export default function AdminPanel() {
                 )}
                 {item.label === 'Leads' && badges.pendingLeadsCount > 0 && (
                   <span className="pending-dot-indicator" title={`${badges.pendingLeadsCount} pending`} />
+                )}
+                {item.label === 'Societies' && badges.pendingPayoutsCount > 0 && (
+                  <span className="pending-dot-indicator" title={`${badges.pendingPayoutsCount} pending payouts`} />
                 )}
               </div>
             </NavLink>

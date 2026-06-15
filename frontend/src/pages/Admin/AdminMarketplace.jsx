@@ -78,11 +78,46 @@ export default function AdminMarketplace() {
   const handleSubmitProduct = async (e) => {
     e.preventDefault();
     try {
+      if (!formData.name || !formData.name.trim()) {
+        showToast('Product identity is required', 'error');
+        return;
+      }
+      const containsAlphanumeric = (str) => /^(?=.*[a-zA-Z0-9]).+$/.test(str);
+      if (!containsAlphanumeric(formData.name)) {
+        showToast('Product identity cannot consist of only special characters', 'error');
+        return;
+      }
+      if (!formData.description || !formData.description.trim()) {
+        showToast('Description is required', 'error');
+        return;
+      }
+      if (!containsAlphanumeric(formData.description)) {
+        showToast('Description cannot consist of only special characters', 'error');
+        return;
+      }
+
+      const priceVal = Number(formData.price);
+      const discountPriceVal = formData.discountPrice ? Number(formData.discountPrice) : undefined;
+      const stockVal = Number(formData.stock);
+
+      if (Number.isNaN(priceVal) || priceVal < 0) {
+        showToast('Base price cannot be negative', 'error');
+        return;
+      }
+      if (discountPriceVal !== undefined && (Number.isNaN(discountPriceVal) || discountPriceVal < 0)) {
+        showToast('Offer price cannot be negative', 'error');
+        return;
+      }
+      if (Number.isNaN(stockVal) || stockVal < 0) {
+        showToast('Inventory level cannot be negative', 'error');
+        return;
+      }
+
       const payload = {
         ...formData,
-        price: Number(formData.price),
-        discountPrice: formData.discountPrice ? Number(formData.discountPrice) : undefined,
-        stock: Number(formData.stock)
+        price: priceVal,
+        discountPrice: discountPriceVal,
+        stock: stockVal
       };
 
       if (editingProduct) {
@@ -363,13 +398,13 @@ export default function AdminMarketplace() {
                 <div className="grid-2" style={{ gap: 32 }}>
                   <div className="flex flex-col gap-12">
                     <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>BASE PRICE (₹)</label>
-                    <input required type="number" className="input-field" 
+                    <input required type="number" min="0" className="input-field" 
                       style={{ background: 'var(--bg-glass)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 18, fontWeight: 700 }}
                       value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} placeholder="0" />
                   </div>
                   <div className="flex flex-col gap-12">
                     <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>OFFER PRICE (₹)</label>
-                    <input type="number" className="input-field" 
+                    <input type="number" min="0" className="input-field" 
                       style={{ background: 'var(--bg-glass)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 18, fontWeight: 700, color: 'var(--accent-lime)' }}
                       value={formData.discountPrice} onChange={e => setFormData({ ...formData, discountPrice: e.target.value })} placeholder="Optional" />
                   </div>
@@ -386,7 +421,7 @@ export default function AdminMarketplace() {
                   </div>
                   <div className="flex flex-col gap-12">
                     <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>INVENTORY LEVEL</label>
-                    <input required type="number" className="input-field" 
+                    <input required type="number" min="0" className="input-field" 
                       style={{ background: 'var(--bg-glass)', borderRadius: 18, padding: '18px 24px', border: '1px solid var(--divider)', fontSize: 17 }}
                       value={formData.stock} onChange={e => setFormData({ ...formData, stock: e.target.value })} placeholder="Units available" />
                   </div>
@@ -397,16 +432,19 @@ export default function AdminMarketplace() {
                   <label style={{ fontSize: 12, color: 'var(--text-tertiary)', letterSpacing: '0.15em', fontWeight: 700 }}>PRODUCT MEDIA</label>
                   <div className="flex flex-wrap gap-16">
                     {formData.images.map((url, i) => (
-                      <div key={i} className="relative w-100 h-100 rounded-24 overflow-hidden border border-divider group shadow-xl transition-all hover:scale-105">
+                      <div key={i} className="relative rounded-24 overflow-hidden border border-divider group shadow-xl transition-all hover:scale-105" style={{ width: 100, height: 100, flexShrink: 0 }}>
                         <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button type="button" className="p-8 bg-error rounded-12 hover:scale-110 transition-transform" onClick={() => setFormData({ ...formData, images: formData.images.filter((_, idx) => idx !== i) })}>
-                            <Trash2 size={18} color="#fff" />
-                          </button>
-                        </div>
+                        <button 
+                          type="button" 
+                          className="absolute hover:scale-110 transition-transform flex items-center justify-center" 
+                          style={{ top: 6, right: 6, width: 28, height: 28, borderRadius: '50%', background: 'rgba(239, 68, 68, 0.9)', border: 'none', color: '#fff', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)', padding: 0 }}
+                          onClick={() => setFormData({ ...formData, images: formData.images.filter((_, idx) => idx !== i) })}
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     ))}
-                    <label className="w-100 h-100 rounded-24 border-2 border-dashed border-divider flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all group">
+                    <label className="rounded-24 border-2 border-dashed border-divider flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all group" style={{ width: 100, height: 100, flexShrink: 0 }}>
                       <div className="p-10 bg-glass rounded-14 group-hover:bg-primary/20 group-hover:text-primary transition-all">
                         <Plus size={24} />
                       </div>

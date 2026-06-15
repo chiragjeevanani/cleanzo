@@ -332,13 +332,15 @@ export const getDashboard = asyncHandler(async (req, res) => {
 export const getAdminBadges = asyncHandler(async (req, res) => {
   const { default: CleanerApplication } = await import('../models/CleanerApplication.js');
   const { default: Lead } = await import('../models/Lead.js');
-  const [pendingApps, pendingKyc, pendingOrdersCount, pendingLeavesCount, pendingGrievancesCount, pendingLeadsCount] = await Promise.all([
+  const { default: SocietyPayoutRequest } = await import('../models/SocietyPayoutRequest.js');
+  const [pendingApps, pendingKyc, pendingOrdersCount, pendingLeavesCount, pendingGrievancesCount, pendingLeadsCount, pendingPayoutsCount] = await Promise.all([
     CleanerApplication.countDocuments({ status: 'pending' }),
     Cleaner.countDocuments({ kycStatus: 'pending' }),
     Order.countDocuments({ status: { $in: ['Placed', 'Confirmed'] } }),
     LeaveRequest.countDocuments({ status: 'pending' }),
     Grievance.countDocuments({ status: { $in: ['Open', 'In Progress'] } }),
-    Lead.countDocuments({ status: 'pending' })
+    Lead.countDocuments({ status: 'pending' }),
+    SocietyPayoutRequest.countDocuments({ status: 'pending' })
   ]);
 
   res.json({ 
@@ -347,7 +349,8 @@ export const getAdminBadges = asyncHandler(async (req, res) => {
     pendingOrdersCount,
     pendingLeavesCount,
     pendingGrievancesCount,
-    pendingLeadsCount
+    pendingLeadsCount,
+    pendingPayoutsCount
   });
 });
 
@@ -1119,7 +1122,12 @@ export const getAdminNotifications = asyncHandler(async (req, res) => {
 // ─── NOTIFICATIONS BROADCAST ─────────────────────
 export const broadcastNotification = asyncHandler(async (req, res) => {
   const { title, message, type, target } = req.body; // target: 'all' | 'customers' | 'cleaners' | 'society'
-  if (!title || !message) throw new ApiError(400, 'Title and message required');
+  const trimmedTitle = (title || '').trim();
+  const trimmedMessage = (message || '').trim();
+  if (!trimmedTitle || !trimmedMessage) throw new ApiError(400, 'Title and message required');
+  if (!/[a-zA-Z0-9]/.test(trimmedTitle)) throw new ApiError(400, 'Title must contain at least one letter or digit');
+  if (!/[a-zA-Z0-9]/.test(trimmedMessage)) throw new ApiError(400, 'Message must contain at least one letter or digit');
+
   if (!target || !['all', 'customers', 'cleaners', 'society'].includes(target)) {
     throw new ApiError(400, "target must be one of: 'all', 'customers', 'cleaners', 'society'");
   }
@@ -1138,7 +1146,7 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
   const processCursor = async (cursor, recipientModel) => {
     let batch = [];
     for await (const doc of cursor) {
-      batch.push({ recipient: doc._id, recipientModel, type: type || 'system', title, message });
+      batch.push({ recipient: doc._id, recipientModel, type: type || 'system', title: trimmedTitle, message: trimmedMessage });
       // Collect FCM tokens for push delivery
       if (doc.fcmTokens?.length) allFcmTokens.push(...doc.fcmTokens);
       if (batch.length >= BATCH_SIZE) {
@@ -1160,14 +1168,15 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
   }
 
   // Fire FCM push to all collected tokens (non-fatal)
-  if (allFcmTokens.length > 0) {
+  const uniqueFcmTokens = Array.from(new Set(allFcmTokens)).filter(Boolean);
+  if (uniqueFcmTokens.length > 0) {
     // Split into batches of 500 (FCM multicast limit)
     const tokenBatches = [];
-    for (let i = 0; i < allFcmTokens.length; i += 500) {
-      tokenBatches.push(allFcmTokens.slice(i, i + 500));
+    for (let i = 0; i < uniqueFcmTokens.length; i += 500) {
+      tokenBatches.push(uniqueFcmTokens.slice(i, i + 500));
     }
     await Promise.allSettled(tokenBatches.map(tokens =>
-      sendPushNotification(tokens, { title, body: message, data: { type: type || 'system', link: '/' } })
+      sendPushNotification(tokens, { title: trimmedTitle, body: trimmedMessage, data: { type: type || 'system', link: '/' } })
     ));
   }
 
@@ -2404,13 +2413,46 @@ export const processPayoutRequest = asyncHandler(async (req, res) => {
     }).sort('createdAt');
 
     let remaining = request.amount;
-    const toMark = [];
+    const fullyPaidIds = [];
+    let partialCommission = null;
+    let partialPaidAmount = 0;
+    let partialPendingAmount = 0;
+
     for (const c of pendingCommissions) {
       if (remaining <= 0) break;
-      toMark.push(c._id);
-      remaining -= c.commissionAmount;
+      if (c.commissionAmount <= remaining) {
+        fullyPaidIds.push(c._id);
+        remaining -= c.commissionAmount;
+      } else {
+        partialCommission = c;
+        partialPaidAmount = remaining;
+        partialPendingAmount = c.commissionAmount - remaining;
+        remaining = 0;
+        break;
+      }
     }
-    await SocietyCommission.updateMany({ _id: { $in: toMark } }, { status: 'paid' });
+
+    if (fullyPaidIds.length > 0) {
+      await SocietyCommission.updateMany({ _id: { $in: fullyPaidIds } }, { status: 'paid' });
+    }
+
+    if (partialCommission) {
+      const originalId = partialCommission._id;
+      await SocietyCommission.findByIdAndUpdate(originalId, {
+        commissionAmount: partialPaidAmount,
+        status: 'paid'
+      });
+
+      await SocietyCommission.create({
+        partnerSociety: partialCommission.partnerSociety,
+        subscription: partialCommission.subscription,
+        customer: partialCommission.customer,
+        subscriptionAmount: partialCommission.subscriptionAmount,
+        commissionRate: partialCommission.commissionRate,
+        commissionAmount: partialPendingAmount,
+        status: 'pending'
+      });
+    }
 
     // Update pendingBalance on PartnerSociety
     await PartnerSociety.findByIdAndUpdate(request.partnerSociety, {

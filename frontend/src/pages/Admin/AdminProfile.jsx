@@ -124,7 +124,7 @@ export default function AdminProfile() {
               </div>
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>PHONE</label>
-                <input className="input-field" value={formData.phone} maxLength={12} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })} placeholder="9876543210" />
+                <input className="input-field" value={formData.phone} maxLength={10} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })} placeholder="9876543210" />
               </div>
               <button disabled={saving} className="btn btn-primary" type="submit"
                 style={{ padding: '14px', borderRadius: 16, fontSize: 15, fontWeight: 700 }}>
