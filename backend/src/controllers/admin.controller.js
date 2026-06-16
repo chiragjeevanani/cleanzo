@@ -1110,13 +1110,33 @@ export const getAdminNotifications = asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
   const skip = (page - 1) * limit;
 
+  const query = {
+    $or: [
+      { recipientModel: { $in: ['Customer', 'Cleaner'] }, isHiddenFromAdmin: { $ne: true } },
+      { isBroadcast: true }
+    ]
+  };
+
   const [notifications, total] = await Promise.all([
-    Notification.find({ recipientModel: { $in: ['Customer', 'Cleaner'] } })
+    Notification.find(query)
       .sort('-createdAt').skip(skip).limit(limit)
       .populate('recipient', 'firstName lastName name phone'),
-    Notification.countDocuments()
+    Notification.countDocuments(query)
   ]);
-  res.json({ success: true, notifications, page, total, totalPages: Math.ceil(total / limit) });
+
+  const formattedNotifications = notifications.map(n => {
+    const doc = n.toObject();
+    if (doc.isBroadcast) {
+      let targetName = 'Everyone';
+      if (doc.broadcastTarget === 'customers') targetName = 'Customer';
+      if (doc.broadcastTarget === 'cleaners') targetName = 'Cleaner';
+      if (doc.broadcastTarget === 'society') targetName = 'Society';
+      doc.recipient = { name: targetName };
+    }
+    return doc;
+  });
+
+  res.json({ success: true, notifications: formattedNotifications, page, total, totalPages: Math.ceil(total / limit) });
 });
 
 // ─── NOTIFICATIONS BROADCAST ─────────────────────
@@ -1153,7 +1173,8 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
         type: type || 'system',
         title: trimmedTitle,
         message: trimmedMessage,
-        link: trimmedLink || null
+        link: trimmedLink || null,
+        isHiddenFromAdmin: true
       });
       // Collect FCM tokens for push delivery
       if (doc.fcmTokens?.length) allFcmTokens.push(...doc.fcmTokens);
@@ -1174,6 +1195,17 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
   if (target === 'all' || target === 'society') {
     await processCursor(PartnerSociety.find({ isActive: true }).select('_id fcmTokens').cursor(), 'PartnerSociety');
   }
+
+  // Create one single broadcast log entry in the Notification collection
+  await Notification.create({
+    type: type || 'system',
+    title: trimmedTitle,
+    message: trimmedMessage,
+    link: trimmedLink || null,
+    isBroadcast: true,
+    broadcastTarget: target,
+    isHiddenFromAdmin: false
+  });
 
   // Fire FCM push to all collected tokens (non-fatal)
   const uniqueFcmTokens = Array.from(new Set(allFcmTokens)).filter(Boolean);

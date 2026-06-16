@@ -51,6 +51,10 @@ export async function sendPushNotification(tokens, payload) {
   if (!firebaseAdmin) return null;
   if (!tokens || tokens.length === 0) return null;
 
+  const rawSound = process.env.FCM_NOTIFICATION_SOUND || 'notification.mp3';
+  const apnsSound = rawSound;
+  const androidSound = rawSound === 'default' ? 'default' : rawSound.replace(/\.[^/.]+$/, "");
+
   // FCM data values must all be strings
   const dataPayload = {};
   if (payload.data) {
@@ -80,7 +84,7 @@ export async function sendPushNotification(tokens, payload) {
         icon: 'ic_notification',
         color: '#65C737',
         click_action: 'FLUTTER_NOTIFICATION_CLICK',
-        sound: process.env.FCM_NOTIFICATION_SOUND || 'notification',
+        sound: androidSound,
         notificationPriority: 'PRIORITY_HIGH',
         defaultVibrateTimings: true,
         ...(process.env.FCM_ANDROID_CHANNEL_ID ? { channelId: process.env.FCM_ANDROID_CHANNEL_ID } : {}),
@@ -90,7 +94,7 @@ export async function sendPushNotification(tokens, payload) {
       payload: {
         aps: {
           badge: 1,
-          sound: process.env.FCM_NOTIFICATION_SOUND || 'notification.mp3',
+          sound: apnsSound,
         },
       },
     },

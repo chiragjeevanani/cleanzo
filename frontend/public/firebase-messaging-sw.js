@@ -27,7 +27,15 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Background push received:', payload);
 
-  const { title, body, icon, data } = payload.notification || {};
+  // If the payload contains a notification object, FCM automatically displays it.
+  // We do not call showNotification to avoid duplicate/double notifications.
+  if (payload.notification) {
+    console.log('[SW] Notification payload present, skipping manual showNotification to prevent duplicates');
+    return;
+  }
+
+  // Otherwise (data-only payload), manually display the notification
+  const { title, body, icon } = payload.data || {};
   const notifTitle = title || 'Cleanzo';
   const notifOptions = {
     body: body || 'You have a new notification.',
