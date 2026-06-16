@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Check, Car, ShieldCheck, Clock, X, ChevronRight, MapPin } from 'lucide-react'
+import { ArrowLeft, Check, Car, ShieldCheck, Clock, X, ChevronRight, MapPin, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
@@ -667,6 +667,34 @@ export default function BookingFlow() {
                       </button>
                     )
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* Society Selector */}
+            {vehicles.length > 0 && societies.length > 0 && (
+              <div>
+                <p className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 10, paddingLeft: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>
+                  SELECT SOCIETY
+                </p>
+                <div style={{ position: 'relative' }}>
+                  <select 
+                    className="input-field" 
+                    style={{ width: '100%', boxSizing: 'border-box', appearance: 'none', cursor: 'pointer', paddingRight: 36, fontWeight: 700 }} 
+                    value={selectedSociety?._id || ''} 
+                    onChange={e => {
+                      const soc = societies.find(s => s._id === e.target.value)
+                      if (soc) {
+                        setSelectedSociety(soc)
+                        setSelectedSlot(null) // clear selected slot since slots belong to society
+                      }
+                    }}
+                  >
+                    {societies.map(s => (
+                      <option key={s._id} value={s._id}>{s.name} ({s.city})</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} style={{ position: 'absolute', right: 14, bottom: 14, opacity: 0.4, pointerEvents: 'none' }} />
                 </div>
               </div>
             )}
