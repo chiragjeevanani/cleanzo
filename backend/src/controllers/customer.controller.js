@@ -1383,18 +1383,27 @@ export const getPaymentDetails = asyncHandler(async (req, res) => {
   const payment = await Payment.findOne({ paymentId: req.params.paymentId, customer: req.user._id })
     .populate('package')
     .populate('vehicle')
+    .populate('customer')
+    .populate({
+      path: 'subscription',
+      populate: {
+        path: 'society'
+      }
+    })
     .lean();
 
   if (!payment) throw new ApiError(404, 'Payment record not found');
 
-  if (!payment.package || !payment.vehicle) {
+  if (!payment.package || !payment.vehicle || !payment.subscription) {
     const sub = await Subscription.findOne({ paymentId: payment.paymentId })
       .populate('package')
       .populate('vehicle')
+      .populate('society')
       .lean();
     if (sub) {
       if (!payment.package) payment.package = sub.package;
       if (!payment.vehicle) payment.vehicle = sub.vehicle;
+      if (!payment.subscription) payment.subscription = sub;
     }
   }
 

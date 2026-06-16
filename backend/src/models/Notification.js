@@ -8,6 +8,7 @@ const notificationSchema = new Schema({
   title:          { type: String, required: true },
   message:        { type: String, required: true },
   read:           { type: Boolean, default: false },
+  link:           { type: String, default: null },
   data:           { type: Schema.Types.Mixed },
 }, { timestamps: true });
 

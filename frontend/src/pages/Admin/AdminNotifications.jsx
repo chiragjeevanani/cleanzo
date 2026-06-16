@@ -19,7 +19,7 @@ export default function AdminNotifications() {
   const [broadcastResult, setBroadcastResult] = useState('')
   const [error, setError] = useState('')
 
-  const [form, setForm] = useState({ title: '', message: '', type: 'system', target: 'all' })
+  const [form, setForm] = useState({ title: '', message: '', type: 'system', target: 'all', link: '' })
   const [exporting, setExporting] = useState(false)
 
   const handleExport = () => {
@@ -41,6 +41,7 @@ export default function AdminNotifications() {
             }
             return n.target || 'All'
           }},
+          { label: 'Deep Link', key: 'link' },
           { label: 'Sent Date', key: (n) => n.createdAt ? new Date(n.createdAt).toLocaleString() : 'N/A' }
         ]
       })
@@ -93,7 +94,7 @@ export default function AdminNotifications() {
         message: trimmedMessage
       })
       setBroadcastResult(res.message || 'Notification sent!')
-      setForm({ title: '', message: '', type: 'system', target: 'all' })
+      setForm({ title: '', message: '', type: 'system', target: 'all', link: '' })
       fetchNotifications()
     } catch (err) {
       setBroadcastResult(err?.message || 'Failed to send notification')
@@ -149,12 +150,12 @@ export default function AdminNotifications() {
         </div>
         <table className="data-table">
           <thead>
-            <tr><th>Title</th><th>Message</th><th>Type</th><th>Recipient</th><th>Sent</th></tr>
+            <tr><th>Title</th><th>Message</th><th>Type</th><th>Recipient</th><th>Deep Link</th><th>Sent</th></tr>
           </thead>
           <tbody>
             {notifications.length === 0 ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '48px 0' }}>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '48px 0' }}>
                   <Bell size={32} style={{ opacity: 0.2, marginBottom: 12, display: 'block', margin: '0 auto 12px' }} />
                   <div className="text-secondary">No notifications sent yet.</div>
                 </td>
@@ -169,6 +170,7 @@ export default function AdminNotifications() {
                   <td className="text-secondary" style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.message}</td>
                   <td><span className={`chip ${typeColor(n.type)}`} style={{ textTransform: 'capitalize' }}>{n.type}</span></td>
                   <td className="text-secondary" style={{ fontSize: 13 }}>{recipientName}</td>
+                  <td className="text-secondary" style={{ fontSize: 13 }}>{n.link || '—'}</td>
                   <td className="text-secondary" style={{ fontSize: 13 }}>{new Date(n.createdAt).toLocaleDateString()}</td>
                 </tr>
               )
@@ -239,6 +241,11 @@ export default function AdminNotifications() {
               <div className="flex flex-col gap-8">
                 <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>TITLE *</label>
                 <input required className="input-field" placeholder="e.g. New Offer!" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+              </div>
+
+              <div className="flex flex-col gap-8">
+                <label style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.12em', fontWeight: 600 }}>DEEP LINK (OPTIONAL)</label>
+                <input className="input-field" placeholder="e.g. /customer/subscriptions" value={form.link} onChange={e => setForm({ ...form, link: e.target.value })} />
               </div>
 
               <div className="flex flex-col gap-8">

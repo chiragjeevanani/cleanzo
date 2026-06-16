@@ -1121,9 +1121,10 @@ export const getAdminNotifications = asyncHandler(async (req, res) => {
 
 // ─── NOTIFICATIONS BROADCAST ─────────────────────
 export const broadcastNotification = asyncHandler(async (req, res) => {
-  const { title, message, type, target } = req.body; // target: 'all' | 'customers' | 'cleaners' | 'society'
+  const { title, message, type, target, link } = req.body; // target: 'all' | 'customers' | 'cleaners' | 'society'
   const trimmedTitle = (title || '').trim();
   const trimmedMessage = (message || '').trim();
+  const trimmedLink = (link || '').trim();
   if (!trimmedTitle || !trimmedMessage) throw new ApiError(400, 'Title and message required');
   if (!/[a-zA-Z0-9]/.test(trimmedTitle)) throw new ApiError(400, 'Title must contain at least one letter or digit');
   if (!/[a-zA-Z0-9]/.test(trimmedMessage)) throw new ApiError(400, 'Message must contain at least one letter or digit');
@@ -1146,7 +1147,14 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
   const processCursor = async (cursor, recipientModel) => {
     let batch = [];
     for await (const doc of cursor) {
-      batch.push({ recipient: doc._id, recipientModel, type: type || 'system', title: trimmedTitle, message: trimmedMessage });
+      batch.push({
+        recipient: doc._id,
+        recipientModel,
+        type: type || 'system',
+        title: trimmedTitle,
+        message: trimmedMessage,
+        link: trimmedLink || null
+      });
       // Collect FCM tokens for push delivery
       if (doc.fcmTokens?.length) allFcmTokens.push(...doc.fcmTokens);
       if (batch.length >= BATCH_SIZE) {
@@ -1176,7 +1184,7 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
       tokenBatches.push(uniqueFcmTokens.slice(i, i + 500));
     }
     await Promise.allSettled(tokenBatches.map(tokens =>
-      sendPushNotification(tokens, { title: trimmedTitle, body: trimmedMessage, data: { type: type || 'system', link: '/' } })
+      sendPushNotification(tokens, { title: trimmedTitle, body: trimmedMessage, data: { type: type || 'system', link: trimmedLink || '/' } })
     ));
   }
 
@@ -1184,7 +1192,7 @@ export const broadcastNotification = asyncHandler(async (req, res) => {
     type: 'system',
     message: `Admin broadcasted "${title}" to ${target}`,
     performer: req.user._id,
-    metadata: { title, target, recipients: totalSent, pushTokens: allFcmTokens.length }
+    metadata: { title, target, recipients: totalSent, pushTokens: allFcmTokens.length, link: trimmedLink || null }
   });
 
   // The per-recipient notifications list is cached (cacheMiddleware 120s). Without

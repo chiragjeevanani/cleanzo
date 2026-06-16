@@ -13,12 +13,17 @@ export default function Notifications() {
   const { notifications, loading: dataLoading, refreshNotifications } = useCustomerData()
   const error = ''
   
-  const handleMarkRead = async (id) => {
+  const handleMarkRead = async (id, link) => {
     try {
       await apiClient.put(`/customer/notifications/${id}/read`)
       refreshNotifications()
+      if (link) {
+        navigate(link)
+      }
     } catch {
-      // non-critical
+      if (link) {
+        navigate(link)
+      }
     }
   }
 
@@ -68,8 +73,14 @@ export default function Notifications() {
             <div
               key={n._id}
               className="glass"
-              style={{ padding: '16px 20px', display: 'flex', gap: 14, opacity: n.read ? 0.6 : 1, cursor: n.read ? 'default' : 'pointer' }}
-              onClick={() => !n.read && handleMarkRead(n._id)}
+              style={{ padding: '16px 20px', display: 'flex', gap: 14, opacity: n.read ? 0.6 : 1, cursor: 'pointer' }}
+              onClick={() => {
+                if (!n.read) {
+                  handleMarkRead(n._id, n.link)
+                } else if (n.link) {
+                  navigate(n.link)
+                }
+              }}
             >
               <div style={{ width: 40, height: 40, borderRadius: 'var(--radius)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Icon size={18} style={{ color: n.type === 'offer' ? 'var(--accent-lime)' : 'var(--primary-blue)' }} />

@@ -46,153 +46,265 @@ export default function Receipt() {
     )
   }
 
+  const formatDateSpacing = (dateString) => {
+    if (!dateString) return 'DD / MM / YYYY'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'DD / MM / YYYY'
+    const day = String(date.getDate()).padStart(2, '0')
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const year = date.getFullYear()
+    return `${day} / ${month} / ${year}`
+  }
+
+  const formatAmount = (num) => {
+    return `₹ ${Number(num).toFixed(2)}`
+  }
+
+  const formatPhone = (phoneStr) => {
+    if (!phoneStr) return 'XXXXX XXXXX'
+    let clean = phoneStr.replace(/^\+?91/, '').trim()
+    if (clean.length === 10) {
+      return `${clean.slice(0, 5)} ${clean.slice(5)}`
+    }
+    return phoneStr
+  }
+
   const subtotal = payment.package?.price || payment.amount / 100
   const priorityFee = payment.subscription?.priorityFee || 0
-  const discount = payment.subscription?.referralDiscountAmount || 0 
-  const total = subtotal + priorityFee - discount
+  const discount = (payment.subscription?.couponDiscount || 0) + (payment.subscription?.referralDiscountAmount || 0)
+  const total = payment.amount ? (payment.amount / 100) : (subtotal + priorityFee - discount)
+
+  const customerName = payment.customer?.firstName
+    ? `${payment.customer.firstName} ${payment.customer.lastName || ''}`.trim()
+    : 'Customer Name'
+  const customerPhone = formatPhone(payment.customer?.phone)
+  const customerEmail = payment.customer?.email || 'customer@email.com'
+
+  const societyName = payment.subscription?.society?.name || payment.customer?.addresses?.[0]?.societyName || 'Society Name'
+  const blockTower = payment.vehicle?.blockTower || payment.customer?.addresses?.[0]?.tower || 'Tower X'
+  const flatNumber = payment.vehicle?.flatNumber || payment.customer?.addresses?.[0]?.flat || 'Flat XXX'
+  
+  const city = payment.subscription?.society?.city || payment.customer?.addresses?.[0]?.city || payment.customer?.city || 'Noida'
+  const state = payment.subscription?.society?.state || payment.customer?.addresses?.[0]?.state || 'Uttar Pradesh'
+  const cityState = `${city}, ${state}`
+
+  const invoiceYear = payment.createdAt ? new Date(payment.createdAt).getFullYear() : '2026'
+  const invoiceSeq = payment.paymentId ? payment.paymentId.slice(-3).toUpperCase() : '001'
+  const invoiceNo = `CZ-${invoiceYear}-${invoiceSeq}`
+  const invoiceDate = formatDateSpacing(payment.createdAt)
+
+  const paymentDate = formatDateSpacing(payment.createdAt)
+  const paymentMode = payment.method || 'UPI / Card'
+  const transactionId = payment.paymentId || 'XXXXXXXXXXXXXXXX'
+
+  const planName = payment.package?.name
+    ? `${payment.package.name} — Monthly Subscription`
+    : 'Sedan Plan — Monthly Subscription'
+
+  const vehicleCategory = payment.vehicle?.category
+    ? payment.vehicle.category.charAt(0).toUpperCase() + payment.vehicle.category.slice(1)
+    : 'Sedan'
+  const vehicleBrand = payment.vehicle?.brand
+  const vehicleModel = payment.vehicle?.model
+  const vehicleType = vehicleBrand && vehicleModel
+    ? `${vehicleCategory} (e.g. ${vehicleBrand} ${vehicleModel})`
+    : `${vehicleCategory} (e.g. Honda City, Maruti Ciaz, Hyundai Verna)`
+  const vehicleNumber = payment.vehicle?.number || 'XX 00 XX 0000'
+
+  const planStartDate = formatDateSpacing(payment.subscription?.startDate)
+  const planEndDate = formatDateSpacing(payment.subscription?.endDate)
+  const totalDays = payment.subscription?.totalDays || 30
+  const planEndDateText = `${planEndDate} (${totalDays} days from start date)`
+
+  const serviceSchedule = 'Daily — 7 days a week'
 
   return (
     <div className="receipt-page" style={{ background: '#FAFBF8', minHeight: '100vh', color: '#1A1A1A', padding: '40px 20px', fontFamily: "'Inter', sans-serif" }}>
       {/* Action Buttons (Hidden during printing) */}
-      <div className="no-print" style={{ maxWidth: 700, margin: '0 auto 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="no-print" style={{ maxWidth: 750, margin: '0 auto 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button 
           onClick={() => navigate(-1)} 
           className="btn" 
-          style={{ background: '#EAECE6', color: '#1A1A1A', padding: '10px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}
+          style={{ background: '#EAECE6', color: '#1A1A1A', padding: '10px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer', border: 'none' }}
         >
           <ArrowLeft size={16} /> Back
         </button>
         <button 
           onClick={handlePrint} 
           className="btn" 
-          style={{ background: '#0056B3', color: '#FFFFFF', padding: '10px 20px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700 }}
+          style={{ background: '#1A4FDF', color: '#FFFFFF', padding: '10px 20px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer', border: 'none' }}
         >
           <Printer size={16} /> Print / Save PDF
         </button>
       </div>
 
-      {/* Invoice Layout */}
-      <div className="invoice-container" style={{ maxWidth: 700, margin: '0 auto', background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 24, padding: 48, boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+      {/* Invoice Container */}
+      <div className="invoice-container" style={{ maxWidth: 750, margin: '0 auto', background: '#FFFFFF', padding: '0px', boxSizing: 'border-box' }}>
         
-        {/* Invoice Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 40 }}>
-          <div>
-            {/* Cleanzo Premium Branding */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#0056B3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: '#FFFFFF', fontFamily: "'Outfit', sans-serif", fontSize: 20, fontWeight: 900 }}>C</span>
-              </div>
-              <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, fontWeight: 800, color: '#0A0A0A', letterSpacing: '-0.02em' }}>Cleanzo</span>
+        {/* Logo Header Box */}
+        <div style={{ display: 'grid', gridTemplateColumns: '70% 30%', border: '1.5px solid #000000', marginBottom: '24px' }}>
+          <div style={{ padding: '15px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <img src="/logo.png" alt="Cleanzo Logo" style={{ height: '40px', objectFit: 'contain', alignSelf: 'flex-start' }} />
+            <div style={{ color: '#00A854', fontStyle: 'italic', fontWeight: 'bold', fontSize: '13px', marginTop: '6px' }}>
+              Redefining Urban Car Care!
             </div>
-            <p style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.4 }}>
-              Premium Doorstep Car Clean Services<br />
-              support@cleanzo.in • www.cleanzo.in
-            </p>
+            <div style={{ color: '#666', fontSize: '11px', marginTop: '4px' }}>
+              {cityState} &middot; www.trycleanzo.com
+            </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 32, fontWeight: 800, color: '#111827', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Receipt</h1>
-            <p style={{ fontSize: 13, color: '#4B5563', marginTop: 6, fontWeight: 600 }}>Invoice #: INV-{payment.paymentId?.slice(-6).toUpperCase()}</p>
-            <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Date: {new Date(payment.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-          </div>
-        </div>
-
-        <div style={{ height: 1, background: '#F3F4F6', width: '100%', marginBottom: 32 }} />
-
-        {/* Customer & Transaction Info Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginBottom: 40 }}>
-          <div>
-            <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#9CA3AF', letterSpacing: '1px', marginBottom: 12 }}>Billed To:</h3>
-            <p style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
-              {payment.customer?.firstName ? `${payment.customer.firstName} ${payment.customer.lastName || ''}`.trim() : 'Cleanzo Customer'}
-            </p>
-            <p style={{ fontSize: 13, color: '#4B5563', marginTop: 4 }}>{payment.customer?.email}</p>
-            <p style={{ fontSize: 13, color: '#4B5563', marginTop: 2 }}>+91 {payment.customer?.phone}</p>
-          </div>
-          <div>
-            <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: '#9CA3AF', letterSpacing: '1px', marginBottom: 12 }}>Vehicle Details:</h3>
-            <p style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
-              {payment.vehicle?.brand} {payment.vehicle?.model}
-            </p>
-            <p style={{ fontSize: 13, color: '#4B5563', marginTop: 4, textTransform: 'uppercase', fontFamily: 'monospace', fontWeight: 600, background: '#F3F4F6', padding: '3px 8px', borderRadius: 6, display: 'inline-block' }}>
-              {payment.vehicle?.number}
-            </p>
+          <div style={{ background: '#1A4FDF', color: '#FFFFFF', padding: '15px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', borderLeft: '1.5px solid #000000' }}>
+            <h2 style={{ margin: 0, fontSize: '28px', fontWeight: '900', letterSpacing: '1px' }}>INVOICE</h2>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', marginTop: '6px' }}>
+              Invoice No: <span style={{ fontFamily: 'monospace' }}>{invoiceNo}</span>
+            </div>
+            <div style={{ fontSize: '11px', marginTop: '4px' }}>
+              Invoice Date: {invoiceDate}
+            </div>
           </div>
         </div>
 
-        {/* Billing Particulars Table */}
-        <div style={{ border: '1px solid #E5E7EB', borderRadius: 16, overflow: 'hidden', marginBottom: 32 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-                <th style={{ padding: '16px 20px', fontSize: 11, fontWeight: 700, color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Item Description</th>
-                <th style={{ padding: '16px 20px', fontSize: 11, fontWeight: 700, color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right' }}>Validity</th>
-                <th style={{ padding: '16px 20px', fontSize: 11, fontWeight: 700, color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right' }}>Amount</th>
-              </tr>
-            </thead>
+        {/* Billed To & Payment Details */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1.5px solid #000000', marginBottom: '24px' }}>
+          {/* Headers */}
+          <div style={{ padding: '8px 12px', fontWeight: 'bold', fontSize: '13px', borderBottom: '1.5px solid #000000', borderRight: '1.5px solid #000000' }}>
+            BILLED TO
+          </div>
+          <div style={{ padding: '8px 12px', fontWeight: 'bold', fontSize: '13px', borderBottom: '1.5px solid #000000' }}>
+            PAYMENT DETAILS
+          </div>
+          {/* Contents */}
+          <div style={{ padding: '15px 12px', borderRight: '1.5px solid #000000', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1A4FDF', marginBottom: '6px' }}>
+              {customerName}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#333' }}>
+              <span>📱</span> +91 {customerPhone}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#333' }}>
+              <span>✉</span> {customerEmail}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#333' }}>
+              <span>🏢</span> <span>{societyName}, {blockTower}, {flatNumber}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#888', fontSize: '11px', marginTop: '4px' }}>
+              <span>📍</span> {cityState}
+            </div>
+          </div>
+          <div style={{ padding: '15px 12px', background: '#F4F7FC', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div>
+              <div style={{ color: '#666', fontWeight: 'bold', fontSize: '11px' }}>Payment Date</div>
+              <div style={{ color: '#000', fontSize: '12px', marginTop: '2px' }}>{paymentDate}</div>
+            </div>
+            <div>
+              <div style={{ color: '#666', fontWeight: 'bold', fontSize: '11px' }}>Payment Mode</div>
+              <div style={{ color: '#000', fontSize: '12px', marginTop: '2px' }}>{paymentMode}</div>
+            </div>
+            <div>
+              <div style={{ color: '#666', fontWeight: 'bold', fontSize: '11px' }}>Transaction / Reference ID</div>
+              <div style={{ color: '#000', fontSize: '12px', marginTop: '2px', wordBreak: 'break-all', fontFamily: 'monospace' }}>{transactionId}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Subscription Details Table */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ background: '#1A4FDF', color: '#FFFFFF', padding: '6px 12px', fontWeight: 'bold', fontSize: '12px', border: '1.5px solid #000000', borderBottom: 'none', display: 'inline-block', letterSpacing: '0.5px' }}>
+            SUBSCRIPTION DETAILS
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000000' }}>
             <tbody>
-              <tr style={{ borderBottom: '1px solid #F3F4F6' }}>
-                <td style={{ padding: '20px', fontSize: 14 }}>
-                  <div style={{ fontWeight: 700, color: '#111827' }}>{payment.package?.name || 'Subscription Plan'} Extension</div>
-                  <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>Dynamic doorstep car cleaning subscription</div>
-                </td>
-                <td style={{ padding: '20px', fontSize: 13, color: '#4B5563', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  30 Service Days
-                </td>
-                <td style={{ padding: '20px', fontSize: 14, fontWeight: 700, color: '#111827', textAlign: 'right' }}>
-                  {formatINR(subtotal)}
-                </td>
+              <tr style={{ borderBottom: '1px solid #000000' }}>
+                <td style={{ width: '30%', background: '#F2F2F2', padding: '6px 12px', fontWeight: 'bold', fontSize: '12px', borderRight: '1px solid #000000' }}>Plan Name</td>
+                <td style={{ padding: '6px 12px', fontSize: '12px' }}>{planName}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #000000' }}>
+                <td style={{ background: '#F2F2F2', padding: '6px 12px', fontWeight: 'bold', fontSize: '12px', borderRight: '1px solid #000000' }}>Vehicle Type</td>
+                <td style={{ padding: '6px 12px', fontSize: '12px' }}>{vehicleType}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #000000' }}>
+                <td style={{ background: '#F2F2F2', padding: '6px 12px', fontWeight: 'bold', fontSize: '12px', borderRight: '1px solid #000000' }}>Vehicle Number</td>
+                <td style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 'bold' }}>{vehicleNumber}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #000000' }}>
+                <td style={{ background: '#F2F2F2', padding: '6px 12px', fontWeight: 'bold', fontSize: '12px', borderRight: '1px solid #000000' }}>Plan Start Date</td>
+                <td style={{ padding: '6px 12px', fontSize: '12px' }}>{planStartDate}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #000000' }}>
+                <td style={{ background: '#F2F2F2', padding: '6px 12px', fontWeight: 'bold', fontSize: '12px', borderRight: '1px solid #000000' }}>Plan End Date</td>
+                <td style={{ padding: '6px 12px', fontSize: '12px' }}>{planEndDateText}</td>
+              </tr>
+              <tr>
+                <td style={{ background: '#F2F2F2', padding: '6px 12px', fontWeight: 'bold', fontSize: '12px', borderRight: '1px solid #000000' }}>Service Schedule</td>
+                <td style={{ padding: '6px 12px', fontSize: '12px' }}>{serviceSchedule}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Pricing Summary Breakdown */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 40 }}>
-          <div style={{ width: 280 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, color: '#4B5563' }}>
-              <span>Base Package Price</span>
-              <span>{formatINR(subtotal)}</span>
+        {/* Amount Summary Table */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ background: '#1A4FDF', color: '#FFFFFF', padding: '6px 12px', fontWeight: 'bold', fontSize: '12px', border: '1.5px solid #000000', borderBottom: 'none', display: 'inline-block', letterSpacing: '0.5px' }}>
+            AMOUNT SUMMARY
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000000' }}>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid #000000' }}>
+                <td style={{ padding: '8px 12px', fontSize: '13px', color: '#000' }}>Subscription Plan Amount</td>
+                <td style={{ padding: '8px 12px', fontSize: '13px', color: '#000', borderLeft: '1px solid #000000', textAlign: 'right', width: '20%', fontWeight: 'bold' }}>{formatAmount(subtotal)}</td>
+              </tr>
+              {priorityFee > 0 && (
+                <tr style={{ borderBottom: '1px solid #000000' }}>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#000' }}>Premium Priority Fee</td>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#000', borderLeft: '1px solid #000000', textAlign: 'right', fontWeight: 'bold' }}>{formatAmount(priorityFee)}</td>
+                </tr>
+              )}
+              {discount > 0 && (
+                <tr style={{ borderBottom: '1px solid #000000' }}>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#000' }}>Referral / Coupon Discount</td>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', borderLeft: '1px solid #000000', textAlign: 'right', fontWeight: 'bold', color: '#d32f2f' }}>-{formatAmount(discount)}</td>
+                </tr>
+              )}
+              <tr style={{ borderBottom: '1px solid #000000' }}>
+                <td style={{ padding: '8px 12px', fontSize: '11px', color: '#666' }}>
+                  GST <span style={{ color: '#888', fontStyle: 'italic' }}>(Registration in progress &mdash; not applicable currently)</span>
+                </td>
+                <td style={{ padding: '8px 12px', fontSize: '12px', color: '#666', borderLeft: '1px solid #000000', textAlign: 'right' }}>₹ 0.00</td>
+              </tr>
+              <tr style={{ background: '#1A4FDF', color: '#FFFFFF', fontWeight: 'bold' }}>
+                <td style={{ padding: '10px 12px', fontSize: '14px', letterSpacing: '0.5px' }}>TOTAL AMOUNT PAID</td>
+                <td style={{ padding: '10px 12px', fontSize: '15px', borderLeft: '1px solid #000000', textAlign: 'right' }}>{formatAmount(total)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Customer Support & Thank You note */}
+        <div style={{ display: 'grid', gridTemplateColumns: '35% 65%', border: '1.5px solid #000000', marginBottom: '20px' }}>
+          <div style={{ padding: '12px', borderRight: '1.5px solid #000000', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
+            <div style={{ color: '#1A4FDF', fontWeight: 'bold', fontSize: '11px', marginBottom: '4px' }}>CUSTOMER SUPPORT</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>📞</span> +91 95586 03622
             </div>
-            {priorityFee > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, color: '#4B5563' }}>
-                <span>Premium Priority Fee</span>
-                <span>+{formatINR(priorityFee)}</span>
-              </div>
-            )}
-            {discount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, color: '#10B981', fontWeight: 600 }}>
-                <span>Referral Discount</span>
-                <span>-{formatINR(discount)}</span>
-              </div>
-            )}
-            <div style={{ height: 1, background: '#E5E7EB', margin: '12px 0' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 16, fontWeight: 800, color: '#111827' }}>
-              <span>Total Paid</span>
-              <span style={{ fontSize: 20, color: '#0056B3' }}>{formatINR(total)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>✉</span> hello@trycleanzo.com
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🌐</span> www.trycleanzo.com
+            </div>
+          </div>
+          <div style={{ padding: '15px', background: '#F4F7FC', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ color: '#1A4FDF', fontWeight: 'bold', fontSize: '15px', marginBottom: '6px' }}>
+              Thank you for choosing Cleanzo! 🚗✨
+            </div>
+            <div style={{ color: '#555', fontStyle: 'italic', fontSize: '11px', lineHeight: '1.4' }}>
+              Your car is in great hands. We show up every morning so you never have to worry about a dirty car again.
             </div>
           </div>
         </div>
 
-        {/* Payment Gateway details */}
-        <div className="glass" style={{ border: '1px solid #D1D5DB', borderRadius: 16, padding: '16px 20px', background: '#F9FAFB', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ShieldCheck size={20} color="#10B981" strokeWidth={3} />
-          </div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Payment Secured via Razorpay</div>
-            <div style={{ fontSize: 12, color: '#4B5563', marginTop: 2 }}>
-              Method: <b>{payment.method || 'Online'}</b> • Source: <b>{payment.payVia || 'Razorpay'}</b> • Payment ID: <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{payment.paymentId}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{ textAlign: 'center', marginTop: 48 }}>
-          <p style={{ fontSize: 12, color: '#9CA3AF', lineHeight: 1.4 }}>
-            Cleanzo is a registered trademark of Cleanzo Inc.<br />
-            This is a computer-generated tax invoice and requires no physical signature.<br />
-            Thank you for your business!
-          </p>
+        {/* Terms fine print */}
+        <div style={{ textAlign: 'center', fontSize: '9px', color: '#888', fontStyle: 'italic', marginTop: '20px', lineHeight: '1.4', padding: '0 10px' }}>
+          Terms: This invoice is valid for the subscription period stated above. For cancellations, plan changes, or disputes, please contact us within 7 days of the invoice date. Cleanzo is an early-stage startup. GST registration is in progress and will be updated on future invoices once obtained.
         </div>
 
       </div>
@@ -200,9 +312,14 @@ export default function Receipt() {
       {/* Styled print CSS block */}
       <style>{`
         @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           body {
             background: #FFFFFF !important;
             padding: 0 !important;
+            margin: 0 !important;
             color: #000000 !important;
           }
           .receipt-page {
@@ -219,12 +336,6 @@ export default function Receipt() {
           }
           .no-print {
             display: none !important;
-          }
-          table {
-            border-color: #000000 !important;
-          }
-          th, td {
-            border-color: #000000 !important;
           }
         }
       `}</style>

@@ -10,7 +10,7 @@ export default function AdminContent() {
   const [activeTab, setActiveTab] = useState('banners')
   
   // Notification State
-  const [notification, setNotification] = useState({ title: '', body: '', audience: 'All Users' })
+  const [notification, setNotification] = useState({ title: '', body: '', audience: 'All Users', link: '' })
   const [sendingNotif, setSendingNotif] = useState(false)
   
   // Banner State
@@ -105,9 +105,10 @@ export default function AdminContent() {
         title: notification.title,
         message: notification.body,
         target: audienceToTarget[notification.audience] || 'all',
+        link: notification.link,
       })
       showToast('Notification broadcasted successfully!', 'success')
-      setNotification({ ...notification, title: '', body: '' })
+      setNotification({ ...notification, title: '', body: '', link: '' })
     } catch (err) {
       showToast(err?.message || 'Failed to send notification', 'error')
     } finally {
@@ -314,6 +315,12 @@ export default function AdminContent() {
                 placeholder="Notification Title" 
                 value={notification.title} 
                 onChange={e => setNotification({...notification, title: e.target.value})} 
+              />
+              <input 
+                className="input-field" 
+                placeholder="Deep Link (e.g. /customer/subscriptions)" 
+                value={notification.link} 
+                onChange={e => setNotification({...notification, link: e.target.value})} 
               />
               <textarea 
                 className="input-field" 
