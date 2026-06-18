@@ -227,6 +227,23 @@ export default function PackageSelect() {
 
       // 3. Configure Razorpay options
       const _apiBase = import.meta.env.VITE_API_URL || ''
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      const useRedirect = isMobile || _apiBase.startsWith('https://')
+
+      const getCallbackUrl = (base) => {
+        const origin = window.location.origin;
+        let cleanBase = base;
+        if (cleanBase && !cleanBase.startsWith('http')) {
+          if (!cleanBase.startsWith('/')) {
+            cleanBase = '/' + cleanBase;
+          }
+          cleanBase = origin + cleanBase;
+        }
+        if (cleanBase.endsWith('/')) {
+          cleanBase = cleanBase.slice(0, -1);
+        }
+        return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
+      }
 
       const options = {
         key: razorpayKey,
@@ -235,12 +252,11 @@ export default function PackageSelect() {
         name: 'Cleanzo',
         description: `Plan Extension for ${activeSubForVehicle.vehicle?.model}`,
         order_id: order.id,
-        // Use redirect mode ONLY when the backend is publicly reachable (HTTPS / production).
-        // In development (HTTP / localhost), Razorpay's servers can't reach the callback URL,
-        // so we always use the inline modal handler which works on both desktop and mobile.
-        ...(_apiBase.startsWith('https://') ? {
+        // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
+        // (which browsers block inside standard iframe modals).
+        ...(useRedirect ? {
           redirect: true,
-          callback_url: `${_apiBase}/payment/callback?frontendOrigin=${encodeURIComponent(window.location.origin)}`,
+          callback_url: getCallbackUrl(_apiBase),
         } : {}),
         handler: completeExtension,
         prefill: {
@@ -327,6 +343,23 @@ export default function PackageSelect() {
       })
       const order = orderRes.order
       const _apiBase = import.meta.env.VITE_API_URL || ''
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      const useRedirect = isMobile || _apiBase.startsWith('https://')
+
+      const getCallbackUrl = (base) => {
+        const origin = window.location.origin;
+        let cleanBase = base;
+        if (cleanBase && !cleanBase.startsWith('http')) {
+          if (!cleanBase.startsWith('/')) {
+            cleanBase = '/' + cleanBase;
+          }
+          cleanBase = origin + cleanBase;
+        }
+        if (cleanBase.endsWith('/')) {
+          cleanBase = cleanBase.slice(0, -1);
+        }
+        return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
+      }
 
       const options = {
         key: keyRes.key,
@@ -335,9 +368,11 @@ export default function PackageSelect() {
         name: 'Cleanzo',
         description: `Upgrade to ${targetPkg.name} for ${activeSubForVehicle.vehicle?.model}`,
         order_id: order.id,
-        ...(_apiBase.startsWith('https://') ? {
+        // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
+        // (which browsers block inside standard iframe modals).
+        ...(useRedirect ? {
           redirect: true,
-          callback_url: `${_apiBase}/payment/callback?frontendOrigin=${encodeURIComponent(window.location.origin)}`,
+          callback_url: getCallbackUrl(_apiBase),
         } : {}),
         handler: completeUpgrade,
         prefill: {

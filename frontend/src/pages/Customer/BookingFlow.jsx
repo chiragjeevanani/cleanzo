@@ -463,6 +463,23 @@ export default function BookingFlow() {
 
       const order   = orderRes.order
       const apiBase = import.meta.env.VITE_API_URL || ''
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      const useRedirect = isMobile || apiBase.startsWith('https://')
+
+      const getCallbackUrl = (base) => {
+        const origin = window.location.origin;
+        let cleanBase = base;
+        if (cleanBase && !cleanBase.startsWith('http')) {
+          if (!cleanBase.startsWith('/')) {
+            cleanBase = '/' + cleanBase;
+          }
+          cleanBase = origin + cleanBase;
+        }
+        if (cleanBase.endsWith('/')) {
+          cleanBase = cleanBase.slice(0, -1);
+        }
+        return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
+      }
 
       const options = {
         key: keyRes.key,
@@ -471,12 +488,11 @@ export default function BookingFlow() {
         name: 'Cleanzo',
         description: `${selectedPkg.name} for ${selectedVehicle.model}`,
         order_id: order.id,
-        // Use redirect mode ONLY when the backend is publicly reachable (HTTPS / production).
-        // In development (HTTP / localhost), Razorpay's servers can't reach the callback URL,
-        // so we always use the inline modal handler which works on both desktop and mobile.
-        ...(apiBase.startsWith('https://') ? {
+        // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
+        // (which browsers block inside standard iframe modals).
+        ...(useRedirect ? {
           redirect: true,
-          callback_url: `${apiBase}/payment/callback?frontendOrigin=${encodeURIComponent(window.location.origin)}`,
+          callback_url: getCallbackUrl(apiBase),
         } : {}),
         handler: completeBooking,
         prefill: {

@@ -22,6 +22,18 @@ export default function SubscriptionDetail() {
   })
 
   useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('status') === 'success') {
+      if (query.get('upgraded') === 'true') {
+        showToast('Plan upgraded successfully! 🎉', 'success');
+      } else if (query.get('extended') === 'true') {
+        showToast('Plan extended successfully! 🎉', 'success');
+      }
+      navigate(window.location.pathname, { replace: true });
+    }
+  }, [showToast, navigate]);
+
+  useEffect(() => {
     const fetchSub = async () => {
       try {
         const res = await apiClient.get('/customer/subscriptions')
