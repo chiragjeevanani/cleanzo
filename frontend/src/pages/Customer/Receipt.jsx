@@ -171,17 +171,20 @@ export default function Receipt() {
       }}>
         
         {/* Logo Header Box */}
-        <div style={{ display: 'grid', gridTemplateColumns: '70% 30%', border: '1.5px solid #000000', marginBottom: '20px' }}>
-          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <img src="/logo.png" alt="Cleanzo Logo" style={{ height: '36px', objectFit: 'contain', alignSelf: 'flex-start' }} />
-            <div style={{ color: '#00A854', fontStyle: 'italic', fontWeight: 'bold', fontSize: '12px', marginTop: '6px' }}>
+        <div className="logo-header-box" style={{ display: 'grid', gridTemplateColumns: '70% 30%', border: '1.5px solid #000000', marginBottom: '20px' }}>
+          <div className="logo-header-left" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', alignSelf: 'flex-start' }}>
+              <img src="/logo.png" alt="Cleanzo Logo" style={{ height: '36px', objectFit: 'contain' }} />
+              <span className="brand-name" style={{ fontSize: '24px', fontWeight: '900', color: '#1A4FDF', fontFamily: "'Inter', sans-serif", letterSpacing: '0.5px' }}>Cleanzo</span>
+            </div>
+            <div style={{ color: '#00A854', fontStyle: 'italic', fontWeight: 'bold', fontSize: '12px', marginTop: '2px' }}>
               Redefining Urban Car Care!
             </div>
             <div style={{ color: '#666', fontSize: '11px', marginTop: '2px' }}>
               Noida, Uttar Pradesh &middot; www.trycleanzo.com
             </div>
           </div>
-          <div style={{ background: '#1A4FDF', color: '#FFFFFF', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', borderLeft: '1.5px solid #000000' }}>
+          <div className="logo-header-right" style={{ background: '#1A4FDF', color: '#FFFFFF', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', borderLeft: '1.5px solid #000000' }}>
             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '900', letterSpacing: '1px' }}>INVOICE</h2>
             <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '6px' }}>
               Invoice No: <span style={{ fontFamily: 'monospace' }}>{invoiceNo}</span>
@@ -193,16 +196,16 @@ export default function Receipt() {
         </div>
 
         {/* Billed To & Payment Details */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1.5px solid #000000', marginBottom: '20px' }}>
+        <div className="billed-payment-box" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1.5px solid #000000', marginBottom: '20px' }}>
           {/* Headers */}
-          <div style={{ padding: '10px 14px', fontWeight: 'bold', fontSize: '12px', borderBottom: '1.5px solid #000000', borderRight: '1.5px solid #000000' }}>
+          <div className="section-subheader-left" style={{ padding: '10px 14px', fontWeight: 'bold', fontSize: '12px', borderBottom: '1.5px solid #000000', borderRight: '1.5px solid #000000' }}>
             BILLED TO
           </div>
-          <div style={{ padding: '10px 14px', fontWeight: 'bold', fontSize: '12px', borderBottom: '1.5px solid #000000' }}>
+          <div className="section-subheader-right" style={{ padding: '10px 14px', fontWeight: 'bold', fontSize: '12px', borderBottom: '1.5px solid #000000' }}>
             PAYMENT DETAILS
           </div>
           {/* Contents */}
-          <div style={{ padding: '16px 20px', borderRight: '1.5px solid #000000', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <div className="billed-to-content" style={{ padding: '16px 20px', borderRight: '1.5px solid #000000', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
             <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1A4FDF', marginBottom: '4px' }}>
               {customerName}
             </div>
@@ -223,7 +226,7 @@ export default function Receipt() {
               <span>📍</span> {city}, {state} {pincode && `- ${pincode}`}
             </div>
           </div>
-          <div style={{ padding: '16px 20px', background: '#F4F7FC', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="payment-details-content" style={{ padding: '16px 20px', background: '#F4F7FC', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div>
               <div style={{ color: '#666', fontWeight: 'bold', fontSize: '10px' }}>Payment Date</div>
               <div style={{ color: '#000', fontSize: '11px', marginTop: '1px' }}>{paymentDate}</div>
@@ -240,7 +243,7 @@ export default function Receipt() {
         </div>
 
         {/* Subscription Details Table */}
-        <div style={{ marginBottom: '20px' }}>
+        <div className="subscription-details-box" style={{ marginBottom: '20px' }}>
           <div style={{ background: '#1A4FDF', color: '#FFFFFF', padding: '8px 14px', fontWeight: 'bold', fontSize: '11px', border: '1.5px solid #000000', borderBottom: 'none', display: 'inline-block', letterSpacing: '0.5px' }}>
             SUBSCRIPTION DETAILS
           </div>
@@ -275,7 +278,7 @@ export default function Receipt() {
         </div>
 
         {/* Amount Summary Table */}
-        <div style={{ marginBottom: '20px' }}>
+        <div className="amount-summary-box" style={{ marginBottom: '20px' }}>
           <div style={{ background: '#1A4FDF', color: '#FFFFFF', padding: '8px 14px', fontWeight: 'bold', fontSize: '11px', border: '1.5px solid #000000', borderBottom: 'none', display: 'inline-block', letterSpacing: '0.5px' }}>
             AMOUNT SUMMARY
           </div>
@@ -312,8 +315,8 @@ export default function Receipt() {
         </div>
 
         {/* Customer Support & Thank You note */}
-        <div style={{ display: 'grid', gridTemplateColumns: '35% 65%', border: '1.5px solid #000000', marginBottom: '20px' }}>
-          <div style={{ padding: '12px 14px', borderRight: '1.5px solid #000000', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '10px' }}>
+        <div className="support-thanks-box" style={{ display: 'grid', gridTemplateColumns: '35% 65%', border: '1.5px solid #000000', marginBottom: '20px' }}>
+          <div className="support-left" style={{ padding: '12px 14px', borderRight: '1.5px solid #000000', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '10px' }}>
             <div style={{ color: '#1A4FDF', fontWeight: 'bold', fontSize: '10px', marginBottom: '2px' }}>CUSTOMER SUPPORT</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span>📞</span> +91 95586 03622
@@ -325,7 +328,7 @@ export default function Receipt() {
               <span>🌐</span> www.trycleanzo.com
             </div>
           </div>
-          <div style={{ padding: '12px 14px', background: '#F4F7FC', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+          <div className="thanks-right" style={{ padding: '12px 14px', background: '#F4F7FC', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
             <div style={{ color: '#1A4FDF', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>
               Thank you for choosing Cleanzo! 🚗✨
             </div>
@@ -336,7 +339,7 @@ export default function Receipt() {
         </div>
 
         {/* Terms fine print */}
-        <div style={{ textAlign: 'center', fontSize: '8px', color: '#888', fontStyle: 'italic', marginTop: '12px', lineHeight: '1.3', padding: '0 8px' }}>
+        <div className="terms-box" style={{ textAlign: 'center', fontSize: '8px', color: '#888', fontStyle: 'italic', marginTop: '12px', lineHeight: '1.3', padding: '0 8px' }}>
           Terms: This invoice is valid for the subscription period stated above. For cancellations, plan changes, or disputes, please contact us within 7 days of the invoice date. Cleanzo is an early-stage startup. GST registration is in progress and will be updated on future invoices once obtained.
         </div>
 
@@ -347,7 +350,7 @@ export default function Receipt() {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 0;
+            margin: 6mm 10mm;
           }
           * {
             -webkit-print-color-adjust: exact !important;
@@ -368,7 +371,7 @@ export default function Receipt() {
           .invoice-container {
             border: none !important;
             box-shadow: none !important;
-            padding: 24px !important;
+            padding: 10px !important;
             margin: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
@@ -376,6 +379,39 @@ export default function Receipt() {
           }
           .no-print {
             display: none !important;
+          }
+          /* Compact spacing for single page print */
+          .logo-header-box,
+          .billed-payment-box,
+          .subscription-details-box,
+          .amount-summary-box,
+          .support-thanks-box {
+            margin-bottom: 12px !important;
+          }
+          .logo-header-left {
+            padding: 10px 14px !important;
+          }
+          .logo-header-right {
+            padding: 10px !important;
+          }
+          .section-subheader-left,
+          .section-subheader-right {
+            padding: 6px 10px !important;
+          }
+          .billed-to-content,
+          .payment-details-content {
+            padding: 10px 14px !important;
+          }
+          .invoice-container table td,
+          .invoice-container table th {
+            padding: 5px 10px !important;
+          }
+          .support-left,
+          .thanks-right {
+            padding: 8px 10px !important;
+          }
+          .terms-box {
+            margin-top: 8px !important;
           }
         }
       `}</style>
