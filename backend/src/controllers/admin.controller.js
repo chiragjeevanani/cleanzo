@@ -1045,7 +1045,7 @@ export const getAllSubscriptions = asyncHandler(async (req, res) => {
       .populate('customer', 'firstName lastName phone')
       .populate('vehicle', 'model number')
       .populate('package', 'name price')
-      .populate('society', 'name city')
+      .populate('society', 'name city area')
       .sort('-createdAt').skip(skip).limit(limit),
     Subscription.countDocuments(filter),
   ]);

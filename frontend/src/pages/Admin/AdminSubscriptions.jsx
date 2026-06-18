@@ -696,20 +696,30 @@ export default function AdminSubscriptions() {
               return (
                 <tr key={s._id} style={isOverride ? { background: 'rgba(255, 149, 0, 0.02)', borderLeft: '3.5px solid #FF9500' } : {}}>
                   <td style={{ fontWeight: 600 }}>
-                    <div className="flex flex-col">
-                      {s.customer ? (
-                        <Link 
+                    <div className="flex flex-col gap-6">
+                      <span>{customerName}</span>
+                      <span className="text-[10px] text-tertiary font-bold uppercase">
+                        {s.society?.name || 'No Society'}
+                        {(s.society?.area || s.society?.city)
+                          ? ` · ${[s.society?.area, s.society?.city].filter(Boolean).join(', ')}`
+                          : ''}
+                      </span>
+                      {s.customer && (
+                        <Link
                           to={`/admin/users/${s.customer._id}`}
-                          className="flex items-center gap-4 hover:text-primary-blue transition-colors"
-                          style={{ color: 'var(--text-primary)', textDecoration: 'none', width: 'fit-content' }}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            width: 'fit-content', marginTop: 2,
+                            padding: '7px 14px', borderRadius: 10,
+                            background: 'linear-gradient(135deg, #007AFF, #0056CC)',
+                            color: '#fff', fontSize: 12, fontWeight: 700,
+                            textDecoration: 'none',
+                            boxShadow: '0 2px 10px rgba(0,122,255,0.3)',
+                          }}
                         >
-                          <span>{customerName}</span>
-                          <Eye size={12} className="text-tertiary" />
+                          <Eye size={14} /> View Details
                         </Link>
-                      ) : (
-                        <span>{customerName}</span>
                       )}
-                      <span className="text-[10px] text-tertiary font-bold uppercase">{s.society?.name || 'No Society'}{s.society?.city ? ` · ${s.society.city}` : ''}</span>
                     </div>
                   </td>
                   <td className="text-secondary">{vehicleName}</td>
