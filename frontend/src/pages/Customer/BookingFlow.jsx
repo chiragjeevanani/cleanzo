@@ -232,7 +232,14 @@ export default function BookingFlow() {
     if (dataLoading.vehicles || dataLoading.packages || dataLoading.societies) return
     if (societies.length > 0 && !selectedSociety) {
       const rs = restored?.societyId ? societies.find(s => s._id === restored.societyId) : null
-      setSelectedSociety(rs || societies[0])
+      if (rs) {
+        setSelectedSociety(rs)
+      } else {
+        const defaultAddr = user?.addresses?.find(a => a.isDefault) || user?.addresses?.[0]
+        const userSocId = defaultAddr?.society?._id || defaultAddr?.society
+        const userSoc = userSocId ? societies.find(s => s._id === userSocId.toString()) : null
+        setSelectedSociety(userSoc || societies[0])
+      }
     }
     if (vehicles.length > 0 && !selectedVehicle) {
       const rv = restored?.vehicleId ? vehicles.find(v => v._id === restored.vehicleId) : null

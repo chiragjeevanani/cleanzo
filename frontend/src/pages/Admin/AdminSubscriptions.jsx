@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { UserPlus, CheckCircle, Clock, ShieldCheck, User, Download, RefreshCw, AlertTriangle, X, Users } from 'lucide-react'
+import { useSearchParams, Link } from 'react-router-dom'
+import { UserPlus, CheckCircle, Clock, ShieldCheck, User, Download, RefreshCw, AlertTriangle, X, Users, Eye } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 import { exportToExcel } from '../../utils/excelExporter'
@@ -697,7 +697,18 @@ export default function AdminSubscriptions() {
                 <tr key={s._id} style={isOverride ? { background: 'rgba(255, 149, 0, 0.02)', borderLeft: '3.5px solid #FF9500' } : {}}>
                   <td style={{ fontWeight: 600 }}>
                     <div className="flex flex-col">
-                      <span>{customerName}</span>
+                      {s.customer ? (
+                        <Link 
+                          to={`/admin/users/${s.customer._id}`}
+                          className="flex items-center gap-4 hover:text-primary-blue transition-colors"
+                          style={{ color: 'var(--text-primary)', textDecoration: 'none', width: 'fit-content' }}
+                        >
+                          <span>{customerName}</span>
+                          <Eye size={12} className="text-tertiary" />
+                        </Link>
+                      ) : (
+                        <span>{customerName}</span>
+                      )}
                       <span className="text-[10px] text-tertiary font-bold uppercase">{s.society?.name || 'No Society'}{s.society?.city ? ` · ${s.society.city}` : ''}</span>
                     </div>
                   </td>

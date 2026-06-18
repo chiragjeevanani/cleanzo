@@ -236,7 +236,13 @@ export default function AdminUserDetails() {
         <button
           className="btn btn-primary btn-sm flex items-center gap-8"
           onClick={() => {
-            setSubForm({ ...emptySub, vehicleId: vehicles?.[0]?._id || '' })
+            const defaultAddr = user?.addresses?.find(a => a.isDefault) || user?.addresses?.[0]
+            const userSocId = defaultAddr?.society?._id || defaultAddr?.society || ''
+            setSubForm({ 
+              ...emptySub, 
+              vehicleId: vehicles?.[0]?._id || '',
+              societyId: userSocId ? userSocId.toString() : ''
+            })
             setShowSubModal(true)
           }}
           disabled={!vehicles?.length}
