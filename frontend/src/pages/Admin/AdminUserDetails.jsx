@@ -139,10 +139,10 @@ export default function AdminUserDetails() {
         <div className="glass" style={{ padding: 24, borderRadius: 16 }}>
           <div className="flex items-center gap-16" style={{ marginBottom: 24 }}>
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-blue), var(--accent-lime))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: '#0A0A0A' }}>
-              {user.firstName ? user.firstName[0].toUpperCase() : <User size={32} />}
+              {user.firstName ? user.firstName.trim().charAt(0).toUpperCase() : (user.name ? user.name.trim().charAt(0).toUpperCase() : <User size={32} />)}
             </div>
             <div>
-              <h2 style={{ fontSize: 20, fontWeight: 700 }}>{user.firstName} {user.lastName}</h2>
+              <h2 style={{ fontSize: 20, fontWeight: 700 }}>{user.firstName || user.name || 'User'} {user.lastName || ''}</h2>
               <span className={`chip mt-4 ${user.isActive !== false ? 'chip-success' : 'chip-error'}`}>
                 {user.isActive !== false ? 'Active' : 'Inactive'}
               </span>
@@ -164,7 +164,7 @@ export default function AdminUserDetails() {
               </div>
             )}
             <div className="flex items-center gap-12 text-secondary">
-              <Calendar size={16} /> <span>Joined {new Date(user.createdAt).toLocaleDateString()}</span>
+              <Calendar size={16} /> <span>Joined {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</span>
             </div>
           </div>
         </div>
@@ -254,9 +254,9 @@ export default function AdminUserDetails() {
                 <div className={`chip ${s.status === 'Active' ? 'chip-success' : s.status === 'Cancelled' ? 'chip-error' : 'chip-ghost'}`}>{s.status}</div>
               </div>
               <div className="text-sm text-secondary flex flex-col gap-4">
-                <div>Vehicle: {s.vehicle?.brand} {s.vehicle?.model} ({s.vehicle?.number})</div>
-                <div>Expires: {new Date(s.endDate).toLocaleDateString()}</div>
-                <div>Amount: ₹{s.amount}</div>
+                <div>Vehicle: {s.vehicle?.brand || s.vehicle?.model ? `${s.vehicle.brand || ''} ${s.vehicle.model || ''}`.trim() : 'N/A'} ({s.vehicle?.number || 'N/A'})</div>
+                <div>Expires: {s.endDate ? new Date(s.endDate).toLocaleDateString() : 'N/A'}</div>
+                <div>Amount: ₹{s.amount ?? 'N/A'}</div>
               </div>
               {s.status === 'Active' && (
                 <button
@@ -287,8 +287,8 @@ export default function AdminUserDetails() {
                 <div className={`chip ${o.status === 'Delivered' ? 'chip-success' : o.status === 'Cancelled' ? 'chip-error' : 'chip-warning'}`}>{o.status}</div>
               </div>
               <div className="text-sm text-secondary flex flex-col gap-4">
-                <div>Date: {new Date(o.createdAt).toLocaleDateString()}</div>
-                <div>Items: {o.items.map(i => `${i.product?.name} (x${i.quantity})`).join(', ')}</div>
+                <div>Date: {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : 'N/A'}</div>
+                <div>Items: {(o.items || []).map(i => `${i?.product?.name || 'Unknown Product'} (x${i?.quantity || 0})`).join(', ')}</div>
                 <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 4 }}>Total: ₹{o.totalAmount}</div>
               </div>
             </div>

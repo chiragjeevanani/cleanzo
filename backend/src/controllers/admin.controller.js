@@ -433,7 +433,7 @@ export const getUsers = asyncHandler(async (req, res) => {
 export const getUserById = asyncHandler(async (req, res) => {
   const user = await Customer.findById(req.params.id);
   if (!user) throw new ApiError(404, 'User not found');
-  const subs = await Subscription.find({ customer: user._id }).populate('package', 'name').populate('vehicle', 'model number');
+  const subs = await Subscription.find({ customer: user._id }).populate('package', 'name').populate('vehicle', 'brand model number');
   const vehicles = await Vehicle.find({ customer: user._id, isActive: true });
   const orders = await Order.find({ customer: user._id }).populate('items.product', 'name');
   res.json({ success: true, user, subscriptions: subs, vehicles, orders });

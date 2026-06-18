@@ -60,7 +60,7 @@ export default function PricingSection() {
           <h2 className="section-title-premium">SUBSCRIPTION<br />PRICING.</h2>
         </div>
 
-        <div className="pricing-grid-premium reveal">
+        <div className={`pricing-grid-premium plans-${loading ? 3 : packages.length} reveal`}>
           {loading ? (
             [1, 2, 3].map((i) => (
               <div key={i} className="skeleton-card" style={{ border: '1px solid var(--border-glass)' }}>
@@ -106,7 +106,7 @@ export default function PricingSection() {
                 <p className="tier-discount-note">{pricing.note}</p>
               )}
 
-              <Link to="/login" className={`btn btn-lg pricing-btn ${pkg.popular ? 'btn-primary' : 'btn-glass'}`}>
+              <Link to="/login" className={`btn btn-lg pricing-btn ${pkg.popular ? 'btn-primary' : 'btn-blue'}`}>
                 {pkg.popular ? 'GET STARTED' : 'START SUBSCRIPTION'}
               </Link>
 

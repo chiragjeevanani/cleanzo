@@ -5,9 +5,87 @@
 
 .pricing-grid-premium {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
   margin-top: 64px;
+}
+
+/* Dynamic layouts based on plan count */
+
+/* 1 Plan */
+.pricing-grid-premium.plans-1 {
+  grid-template-columns: minmax(0, 380px);
+  justify-content: center;
+}
+
+/* 2 Plans */
+.pricing-grid-premium.plans-2 {
+  grid-template-columns: repeat(2, minmax(0, 380px));
+  justify-content: center;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 3 Plans */
+.pricing-grid-premium.plans-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* 4 Plans: Divide into 2 rows (2x2 grid) */
+.pricing-grid-premium.plans-4 {
+  grid-template-columns: repeat(2, minmax(0, 380px));
+  justify-content: center;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 5 Plans: 3 on first row, 2 centered on second row */
+.pricing-grid-premium.plans-5 {
+  grid-template-columns: repeat(6, 1fr);
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.pricing-grid-premium.plans-5 > :nth-child(1),
+.pricing-grid-premium.plans-5 > :nth-child(2),
+.pricing-grid-premium.plans-5 > :nth-child(3) {
+  grid-column: span 2;
+}
+.pricing-grid-premium.plans-5 > :nth-child(4) {
+  grid-column: 2 / span 2;
+}
+.pricing-grid-premium.plans-5 > :nth-child(5) {
+  grid-column: 4 / span 2;
+}
+
+/* 6 Plans: 3 columns, 2 rows */
+.pricing-grid-premium.plans-6 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* 7 Plans: 4 on first row, 3 centered on second row (24-column grid layout) */
+.pricing-grid-premium.plans-7 {
+  grid-template-columns: repeat(24, 1fr);
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.pricing-grid-premium.plans-7 > :nth-child(1),
+.pricing-grid-premium.plans-7 > :nth-child(2),
+.pricing-grid-premium.plans-7 > :nth-child(3),
+.pricing-grid-premium.plans-7 > :nth-child(4) {
+  grid-column: span 6;
+}
+.pricing-grid-premium.plans-7 > :nth-child(5) {
+  grid-column: 4 / span 6;
+}
+.pricing-grid-premium.plans-7 > :nth-child(6) {
+  grid-column: 10 / span 6;
+}
+.pricing-grid-premium.plans-7 > :nth-child(7) {
+  grid-column: 16 / span 6;
 }
 
 .pricing-card-premium {
@@ -158,19 +236,62 @@
 }
 
 @media (max-width: 1024px) {
-  .pricing-grid-premium {
+  .pricing-grid-premium,
+  .pricing-grid-premium.plans-1,
+  .pricing-grid-premium.plans-2,
+  .pricing-grid-premium.plans-3,
+  .pricing-grid-premium.plans-4,
+  .pricing-grid-premium.plans-5,
+  .pricing-grid-premium.plans-6,
+  .pricing-grid-premium.plans-7 {
+    grid-template-columns: repeat(2, 1fr) !important;
     gap: 20px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .pricing-grid-premium.plans-1 {
+    grid-template-columns: minmax(0, 380px) !important;
   }
   .pricing-card-premium {
     padding: 32px;
   }
+
+  /* Reset spans for uneven layouts */
+  .pricing-grid-premium.plans-5 > *,
+  .pricing-grid-premium.plans-7 > * {
+    grid-column: auto / auto !important;
+  }
+  .pricing-grid-premium.plans-5 > :nth-child(5) {
+    grid-column: span 2 !important;
+    max-width: 380px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .pricing-grid-premium.plans-7 > :nth-child(7) {
+    grid-column: span 2 !important;
+    max-width: 380px;
+    margin: 0 auto;
+    width: 100%;
+  }
 }
 
 @media (max-width: 960px) {
-  .pricing-grid-premium {
-    grid-template-columns: 1fr;
+  .pricing-grid-premium,
+  .pricing-grid-premium.plans-1,
+  .pricing-grid-premium.plans-2,
+  .pricing-grid-premium.plans-3,
+  .pricing-grid-premium.plans-4,
+  .pricing-grid-premium.plans-5,
+  .pricing-grid-premium.plans-6,
+  .pricing-grid-premium.plans-7 {
+    grid-template-columns: 1fr !important;
     max-width: 480px;
     margin: 64px auto 0;
+  }
+  .pricing-grid-premium.plans-5 > *,
+  .pricing-grid-premium.plans-7 > * {
+    grid-column: auto / auto !important;
   }
 }
 

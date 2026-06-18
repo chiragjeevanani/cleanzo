@@ -50,7 +50,7 @@ export default function AdminCleanerDetails() {
               <img src={cleaner.avatar} alt="Avatar" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-glass)' }} />
             ) : (
               <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-blue), var(--accent-lime))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, color: '#0A0A0A' }}>
-                {cleaner.name ? cleaner.name[0].toUpperCase() : <User size={32} />}
+                {cleaner.name ? cleaner.name.trim().charAt(0).toUpperCase() : <User size={32} />}
               </div>
             )}
             <div>
@@ -76,7 +76,7 @@ export default function AdminCleanerDetails() {
               </div>
             )}
             <div className="flex items-center gap-12 text-secondary">
-              <Calendar size={16} /> <span>Joined {new Date(cleaner.createdAt).toLocaleDateString()}</span>
+              <Calendar size={16} /> <span>Joined {cleaner.createdAt ? new Date(cleaner.createdAt).toLocaleDateString() : 'N/A'}</span>
             </div>
           </div>
         </div>
@@ -143,7 +143,7 @@ export default function AdminCleanerDetails() {
             <tbody>
               {recentTasks.map(t => (
                 <tr key={t._id}>
-                  <td>{new Date(t.date).toLocaleDateString()}</td>
+                  <td>{t.date ? new Date(t.date).toLocaleDateString() : 'N/A'}</td>
                   <td>{t.customer ? `${t.customer.firstName} ${t.customer.lastName}` : 'N/A'}</td>
                   <td>{t.vehicle ? `${t.vehicle.brand} ${t.vehicle.model} (${t.vehicle.number})` : 'N/A'}</td>
                   <td>
@@ -177,7 +177,7 @@ export default function AdminCleanerDetails() {
                 </div>
               </div>
               {r.feedback && <div className="text-sm text-secondary italic">"{r.feedback}"</div>}
-              <div className="text-xs text-tertiary mt-8">{new Date(r.createdAt).toLocaleDateString()}</div>
+              <div className="text-xs text-tertiary mt-8">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 'N/A'}</div>
             </div>
           ))}
         </div>

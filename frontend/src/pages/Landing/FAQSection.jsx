@@ -27,7 +27,7 @@ const FALLBACK_FAQS = [
 ]
 
 export default function FAQSection() {
-  const [openIdx, setOpenIdx] = useState(0)
+  const [openIdx, setOpenIdx] = useState(-1)
   const [faqs, setFaqs] = useState([])
   const [loading, setLoading] = useState(true)
 

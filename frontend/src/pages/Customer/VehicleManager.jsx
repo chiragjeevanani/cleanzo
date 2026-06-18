@@ -256,7 +256,7 @@ export default function VehicleManager() {
       setError('Brand, model, plate number, flat number, block/tower, and color are required'); return
     }
     const plateClean = form.number.replace(/\s/g, '').toUpperCase()
-    if (!/^[A-Z]{2}\d{2}[A-Z]{1,3}\d{1,4}$/.test(plateClean)) {
+    if (!/^[A-Z]{2}\d{1,2}[A-Z]{1,3}\d{1,4}$/.test(plateClean)) {
       setError('Enter a valid vehicle registration number (e.g. MH01AB1234)'); return
     }
     if (!/^[a-zA-Z0-9\s-]+$/.test(form.blockTower.trim())) {
