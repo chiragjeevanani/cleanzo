@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, User, Phone, Mail, MapPin, Calendar, Car, Box, ShoppingBag, Plus, X, Loader2, Ban } from 'lucide-react'
+import { ArrowLeft, User, Phone, Mail, MapPin, Calendar, Car, Box, ShoppingBag, Plus, X, Loader2, Ban, Pencil, Trash2 } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import PageLoader from '../../components/PageLoader'
 import { useToast } from '../../context/ToastContext'
@@ -31,6 +31,13 @@ export default function AdminUserDetails() {
   const emptySub = { vehicleId: '', packageId: '', societyId: '', slotId: '', startDate: '', durationDays: 30, amount: '', assignedCleanerId: '' }
   const [vehicleForm, setVehicleForm] = useState(emptyVehicle)
   const [subForm, setSubForm] = useState(emptySub)
+
+  // Address management
+  const emptyAddress = { label: '', line1: '', line2: '', societyName: '', tower: '', flat: '', city: '', state: '', pincode: '', isDefault: false }
+  const [showAddressModal, setShowAddressModal] = useState(false)
+  const [addressForm, setAddressForm] = useState(emptyAddress)
+  const [editingAddressId, setEditingAddressId] = useState(null) // null = adding new
+  const [confirmDeleteAddrId, setConfirmDeleteAddrId] = useState(null)
 
   const fetchDetails = async () => {
     try {
@@ -114,6 +121,63 @@ export default function AdminUserDetails() {
     }
   }
 
+  const openAddAddress = () => {
+    setEditingAddressId(null)
+    setAddressForm(emptyAddress)
+    setShowAddressModal(true)
+  }
+
+  const openEditAddress = (a) => {
+    setEditingAddressId(a._id)
+    setAddressForm({
+      label: a.label || '', line1: a.line1 || '', line2: a.line2 || '',
+      societyName: a.societyName || '', tower: a.tower || '', flat: a.flat || '',
+      city: a.city || '', state: a.state || '', pincode: a.pincode || '',
+      isDefault: !!a.isDefault,
+    })
+    setShowAddressModal(true)
+  }
+
+  const handleSaveAddress = async (e) => {
+    e.preventDefault()
+    if (!addressForm.line1 && !addressForm.societyName) {
+      showToast('Add at least an address line or society name', 'error')
+      return
+    }
+    setSubmitting(true)
+    try {
+      if (editingAddressId) {
+        await apiClient.put(`/admin/users/${id}/addresses/${editingAddressId}`, addressForm)
+        showToast('Address updated', 'success')
+      } else {
+        await apiClient.post(`/admin/users/${id}/addresses`, addressForm)
+        showToast('Address added', 'success')
+      }
+      setShowAddressModal(false)
+      setAddressForm(emptyAddress)
+      setEditingAddressId(null)
+      fetchDetails()
+    } catch (err) {
+      showToast(err.message || 'Failed to save address', 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDeleteAddress = async (addressId) => {
+    setSubmitting(true)
+    try {
+      await apiClient.delete(`/admin/users/${id}/addresses/${addressId}`)
+      showToast('Address deleted', 'success')
+      setConfirmDeleteAddrId(null)
+      fetchDetails()
+    } catch (err) {
+      showToast(err.message || 'Failed to delete address', 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (loading) return <PageLoader />
   if (error) return <div className="p-4 text-error">{error}</div>
   if (!data?.user) return <div className="p-4">User not found</div>
@@ -171,16 +235,42 @@ export default function AdminUserDetails() {
 
         {/* Addresses */}
         <div className="glass" style={{ padding: 24, borderRadius: 16 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <MapPin size={18} className="text-secondary" /> Saved Addresses
-          </h3>
+          <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <MapPin size={18} className="text-secondary" /> Saved Addresses
+            </h3>
+            <button className="btn btn-glass btn-sm flex items-center gap-6" onClick={openAddAddress}>
+              <Plus size={14} /> Add
+            </button>
+          </div>
           {user.addresses?.length > 0 ? (
             <div className="flex flex-col gap-12">
               {user.addresses.map(a => (
                 <div key={a._id} style={{ padding: 12, borderRadius: 12, border: '1px solid var(--border-glass)' }}>
-                  <div style={{ fontWeight: 600 }}>{a.label} {a.isDefault && <span className="chip chip-lime ml-8">Default</span>}</div>
-                  <div className="text-secondary text-sm mt-4">{a.line1}, {a.line2}</div>
-                  <div className="text-secondary text-sm">{a.city} - {a.pincode}</div>
+                  <div className="flex justify-between items-start gap-8">
+                    <div style={{ fontWeight: 600 }}>{a.label || 'Address'} {a.isDefault && <span className="chip chip-lime ml-8">Default</span>}</div>
+                    <div className="flex items-center gap-4" style={{ flexShrink: 0 }}>
+                      <button
+                        className="btn-icon btn-glass"
+                        style={{ width: 30, height: 30 }}
+                        title="Edit address"
+                        onClick={() => openEditAddress(a)}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        className="btn-icon btn-glass"
+                        style={{ width: 30, height: 30, color: 'var(--error)' }}
+                        title="Delete address"
+                        onClick={() => setConfirmDeleteAddrId(a._id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-secondary text-sm mt-4">{[a.flat, a.tower, a.societyName].filter(Boolean).join(', ')}</div>
+                  <div className="text-secondary text-sm">{[a.line1, a.line2].filter(Boolean).join(', ')}</div>
+                  <div className="text-secondary text-sm">{[a.city, a.state].filter(Boolean).join(', ')}{a.pincode ? ` - ${a.pincode}` : ''}</div>
                 </div>
               ))}
             </div>
@@ -467,6 +557,96 @@ export default function AdminUserDetails() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ── Add / Edit Address Modal ── */}
+      {showAddressModal && (
+        <div style={overlayStyle} onClick={() => !submitting && setShowAddressModal(false)}>
+          <form
+            onSubmit={handleSaveAddress}
+            onClick={e => e.stopPropagation()}
+            className="glass-solid"
+            style={{ maxWidth: 460, width: '100%', borderRadius: 20, padding: 28, position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}
+          >
+            <button type="button" onClick={() => setShowAddressModal(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={20} /></button>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 20 }}>{editingAddressId ? 'Edit Address' : 'Add Address'}</h3>
+
+            <div className="flex flex-col gap-16">
+              <div className="flex flex-col gap-4">
+                <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Label</label>
+                <input className="input-field" value={addressForm.label} onChange={e => setAddressForm({ ...addressForm, label: e.target.value })} placeholder="e.g. Home, Office" />
+              </div>
+              <div className="grid-2 gap-12">
+                <div className="flex flex-col gap-4">
+                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Flat / House No.</label>
+                  <input className="input-field" value={addressForm.flat} onChange={e => setAddressForm({ ...addressForm, flat: e.target.value })} placeholder="e.g. B-204" />
+                </div>
+                <div className="flex flex-col gap-4">
+                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Tower / Block</label>
+                  <input className="input-field" value={addressForm.tower} onChange={e => setAddressForm({ ...addressForm, tower: e.target.value })} placeholder="e.g. Tower A" />
+                </div>
+              </div>
+              <div className="flex flex-col gap-4">
+                <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Society Name</label>
+                <input className="input-field" value={addressForm.societyName} onChange={e => setAddressForm({ ...addressForm, societyName: e.target.value })} placeholder="e.g. Greenfield Society" />
+              </div>
+              <div className="flex flex-col gap-4">
+                <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Address Line 1</label>
+                <input className="input-field" value={addressForm.line1} onChange={e => setAddressForm({ ...addressForm, line1: e.target.value })} placeholder="Street / area" />
+              </div>
+              <div className="flex flex-col gap-4">
+                <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Address Line 2</label>
+                <input className="input-field" value={addressForm.line2} onChange={e => setAddressForm({ ...addressForm, line2: e.target.value })} placeholder="Landmark (optional)" />
+              </div>
+              <div className="grid-3 gap-12">
+                <div className="flex flex-col gap-4">
+                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>City</label>
+                  <input className="input-field" value={addressForm.city} onChange={e => setAddressForm({ ...addressForm, city: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-4">
+                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>State</label>
+                  <input className="input-field" value={addressForm.state} onChange={e => setAddressForm({ ...addressForm, state: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-4">
+                  <label className="text-label" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Pincode</label>
+                  <input className="input-field" value={addressForm.pincode} onChange={e => setAddressForm({ ...addressForm, pincode: e.target.value })} />
+                </div>
+              </div>
+              <label className="flex items-center gap-8" style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={addressForm.isDefault} onChange={e => setAddressForm({ ...addressForm, isDefault: e.target.checked })} style={{ accentColor: 'var(--accent-lime)', width: 16, height: 16 }} />
+                Set as default address
+              </label>
+            </div>
+
+            <div className="flex gap-12" style={{ marginTop: 24 }}>
+              <button type="button" className="btn btn-glass" style={{ flex: 1 }} onClick={() => setShowAddressModal(false)}>Cancel</button>
+              <button type="submit" className="btn btn-primary flex items-center justify-center gap-8" style={{ flex: 1.5 }} disabled={submitting}>
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />} {editingAddressId ? 'Save Changes' : 'Add Address'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Delete Address Confirmation ── */}
+      {confirmDeleteAddrId && (
+        <div style={overlayStyle} onClick={() => !submitting && setConfirmDeleteAddrId(null)}>
+          <div onClick={e => e.stopPropagation()} className="glass-solid" style={{ maxWidth: 380, width: '100%', borderRadius: 20, padding: 28 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,85,85,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Trash2 size={24} color="#ff5555" />
+            </div>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Delete Address?</h3>
+            <p className="text-secondary text-sm" style={{ lineHeight: 1.6, marginBottom: 24 }}>
+              This will permanently remove this saved address from the user's profile.
+            </p>
+            <div className="flex gap-12">
+              <button className="btn btn-glass" style={{ flex: 1 }} onClick={() => setConfirmDeleteAddrId(null)} disabled={submitting}>Cancel</button>
+              <button className="btn btn-primary flex items-center justify-center gap-8" style={{ flex: 1, background: 'var(--error)', borderColor: 'var(--error)' }} onClick={() => handleDeleteAddress(confirmDeleteAddrId)} disabled={submitting}>
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

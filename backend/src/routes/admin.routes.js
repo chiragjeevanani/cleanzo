@@ -24,6 +24,9 @@ router.delete('/users/:id', ctrl.deleteUser);
 // Admin acting on behalf of a user
 router.post('/users/:id/vehicles', upload.array('photos', 5), ctrl.createUserVehicle);
 router.post('/users/:id/subscriptions', ctrl.createUserSubscription);
+router.post('/users/:id/addresses', ctrl.addUserAddress);
+router.put('/users/:id/addresses/:addressId', ctrl.updateUserAddress);
+router.delete('/users/:id/addresses/:addressId', ctrl.deleteUserAddress);
 
 router.get('/cleaners', ctrl.getCleaners);
 router.post('/cleaners', ctrl.addCleaner);

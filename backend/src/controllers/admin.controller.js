@@ -552,6 +552,95 @@ export const createUserVehicle = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, vehicle });
 });
 
+// ─── ADMIN-ON-BEHALF: ADDRESSES ──────────────────────────────────
+// Admin manages a user's saved addresses from the user-details page.
+const ADDRESS_FIELDS = ['label', 'line1', 'line2', 'societyName', 'tower', 'flat', 'city', 'state', 'pincode'];
+
+// Build a clean address payload from req.body, keeping only known fields.
+const pickAddress = (body) => {
+  const out = {};
+  ADDRESS_FIELDS.forEach(f => { if (body[f] !== undefined) out[f] = body[f]; });
+  if (body.society) out.society = body.society; // optional ObjectId ref
+  return out;
+};
+
+// If the given address is being made default, clear the flag on all others.
+const applyDefaultFlag = (user, targetId, makeDefault) => {
+  if (!makeDefault) return;
+  user.addresses.forEach(a => { a.isDefault = String(a._id) === String(targetId); });
+};
+
+export const addUserAddress = asyncHandler(async (req, res) => {
+  const user = await Customer.findById(req.params.id);
+  if (!user) throw new ApiError(404, 'User not found');
+
+  const address = pickAddress(req.body);
+  // First address is default by default; otherwise honour the flag.
+  address.isDefault = user.addresses.length === 0 ? true : !!req.body.isDefault;
+  user.addresses.push(address);
+  applyDefaultFlag(user, user.addresses[user.addresses.length - 1]._id, address.isDefault);
+  await user.save();
+
+  await logActivity({
+    type: 'user_updated',
+    message: `Admin added an address for ${user.firstName} ${user.lastName}`,
+    performer: req.user._id,
+    metadata: { userId: user._id }
+  });
+
+  await clearCache(`cache:${user._id}:*`);
+  res.status(201).json({ success: true, addresses: user.addresses });
+});
+
+export const updateUserAddress = asyncHandler(async (req, res) => {
+  const user = await Customer.findById(req.params.id);
+  if (!user) throw new ApiError(404, 'User not found');
+
+  const address = user.addresses.id(req.params.addressId);
+  if (!address) throw new ApiError(404, 'Address not found');
+
+  Object.assign(address, pickAddress(req.body));
+  if (req.body.isDefault !== undefined) {
+    address.isDefault = !!req.body.isDefault;
+    applyDefaultFlag(user, address._id, address.isDefault);
+  }
+  await user.save();
+
+  await logActivity({
+    type: 'user_updated',
+    message: `Admin updated an address for ${user.firstName} ${user.lastName}`,
+    performer: req.user._id,
+    metadata: { userId: user._id }
+  });
+
+  await clearCache(`cache:${user._id}:*`);
+  res.json({ success: true, addresses: user.addresses });
+});
+
+export const deleteUserAddress = asyncHandler(async (req, res) => {
+  const user = await Customer.findById(req.params.id);
+  if (!user) throw new ApiError(404, 'User not found');
+
+  const address = user.addresses.id(req.params.addressId);
+  if (!address) throw new ApiError(404, 'Address not found');
+
+  const wasDefault = address.isDefault;
+  address.deleteOne();
+  // If we removed the default, promote the first remaining address.
+  if (wasDefault && user.addresses.length > 0) user.addresses[0].isDefault = true;
+  await user.save();
+
+  await logActivity({
+    type: 'user_updated',
+    message: `Admin deleted an address for ${user.firstName} ${user.lastName}`,
+    performer: req.user._id,
+    metadata: { userId: user._id }
+  });
+
+  await clearCache(`cache:${user._id}:*`);
+  res.json({ success: true, addresses: user.addresses });
+});
+
 // Admin creates a subscription for a user's vehicle — full booking flow
 // (society + slot + capacity) with a manually set duration and no payment.
 export const createUserSubscription = asyncHandler(async (req, res) => {
