@@ -1131,8 +1131,8 @@ export const getAllSubscriptions = asyncHandler(async (req, res) => {
 
   const [subs, total] = await Promise.all([
     Subscription.find(filter)
-      .populate('customer', 'firstName lastName phone')
-      .populate('vehicle', 'model number')
+      .populate('customer', 'firstName lastName phone addresses')
+      .populate('vehicle', 'model number parking flatNumber blockTower slotPillar')
       .populate('package', 'name price')
       .populate('society', 'name city area')
       .sort('-createdAt').skip(skip).limit(limit),

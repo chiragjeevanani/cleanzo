@@ -127,9 +127,9 @@ export default function PricingSection() {
         <div className="pricing-note-container reveal">
           <span className="pricing-note-asterisk">*</span>
           <span>
-            Pricing varies by vehicle category. One-day trial available for{' '}
+            Pricing varies by vehicle category. One-day trial starting from{' '}
             <strong className="highlight">
-              ₹{trialPrice !== null ? trialPrice : '—'}
+              ₹20
             </strong>
             . <strong className="highlight">Skip days</strong> extend subscription validity.
           </span>

@@ -180,6 +180,27 @@ export default function AdminSubscriptions() {
     }
   }
 
+  // The address the cleaner actually sees: where the vehicle is parked
+  // (vehicle parking spot) + the customer's saved address.
+  const getParkingSpot = (s) => {
+    if (s.vehicle?.parking) return s.vehicle.parking
+    return [
+      s.vehicle?.blockTower && `Block/Tower: ${s.vehicle.blockTower}`,
+      s.vehicle?.slotPillar && `Slot/Pillar: ${s.vehicle.slotPillar}`,
+      s.vehicle?.flatNumber && `Flat: ${s.vehicle.flatNumber}`,
+    ].filter(Boolean).join(' · ')
+  }
+
+  const getSavedAddress = (s) => {
+    const addrs = s.customer?.addresses || []
+    const a = addrs.find(x => x.isDefault) || addrs[0]
+    if (!a) return ''
+    return [
+      a.flat, a.tower, a.societyName, a.line1, a.line2, a.city,
+      a.pincode ? `- ${a.pincode}` : '',
+    ].filter(Boolean).join(', ').replace(', -', ' -')
+  }
+
   const getDisplayStatus = (s) => {
     const remaining = s.remainingDays ?? (s.totalDays - s.completedDays)
     let displayStatus = s.status || 'Active'
@@ -698,12 +719,29 @@ export default function AdminSubscriptions() {
                   <td style={{ fontWeight: 600 }}>
                     <div className="flex flex-col gap-6">
                       <span>{customerName}</span>
-                      <span className="text-[10px] text-tertiary font-bold uppercase">
-                        {s.society?.name || 'No Society'}
-                        {(s.society?.area || s.society?.city)
-                          ? ` · ${[s.society?.area, s.society?.city].filter(Boolean).join(', ')}`
-                          : ''}
-                      </span>
+                      {(() => {
+                        const parking = getParkingSpot(s)
+                        const saved = getSavedAddress(s)
+                        return (
+                          <div className="flex flex-col" style={{ gap: 2, maxWidth: 260 }}>
+                            {parking && (
+                              <span className="text-[10px] text-secondary font-semibold" style={{ lineHeight: 1.3 }}>
+                                🅿️ {parking}
+                              </span>
+                            )}
+                            {saved ? (
+                              <span className="text-[10px] text-tertiary font-bold" style={{ lineHeight: 1.3 }}>
+                                📍 {saved}
+                              </span>
+                            ) : !parking && (
+                              <span className="text-[10px] text-tertiary font-bold uppercase">
+                                {s.society?.name || 'No address'}
+                                {s.society?.area ? ` · ${s.society.area}` : ''}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
                       {s.customer && (
                         <Link
                           to={`/admin/users/${s.customer._id}`}
