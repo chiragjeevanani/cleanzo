@@ -32,7 +32,11 @@ export default function PackageSelect() {
   const extensionPricing = activeSubForVehicle
     ? getPackagePricing(activeSubForVehicle.package, activeSubForVehicle.vehicle, discounts)
     : null
-  const baseExtensionAmount = extensionPricing
+  // Prefer the live discounted package price, but fall back to the subscription's
+  // own stored amount when the package pricing yields 0 — e.g. subscriptions that
+  // have no linked `package` (package === null) would otherwise extend at ₹0,
+  // which the backend rejects with "Amount is required".
+  const baseExtensionAmount = (extensionPricing && extensionPricing.effectivePrice > 0)
     ? extensionPricing.effectivePrice
     : (activeSubForVehicle?.amount || activeSubForVehicle?.package?.price || 0)
   const extensionCouponDiscount = appliedCoupon ? Math.min(appliedCoupon.discountAmount, baseExtensionAmount) : 0
@@ -136,23 +140,32 @@ export default function PackageSelect() {
     }
   }, [extensionStep, navigate])
 
-  // Load Razorpay script
+  // Load Razorpay script.
+  // Only mark ready once `window.Razorpay` actually exists — not merely when the
+  // <script> tag is present. On slower devices (notably iOS Safari) the tag can exist
+  // before the SDK has parsed, and opening then throws "Failed to initiate payment".
   useEffect(() => {
-    if (window.Razorpay) {
-      setRazorpayReady(true)
-      return
+    if (window.Razorpay) { setRazorpayReady(true); return }
+    const SRC = 'https://checkout.razorpay.com/v1/checkout.js'
+    const markReady = () => { if (window.Razorpay) setRazorpayReady(true) }
+    let poll = null
+    const startPoll = () => {
+      poll = setInterval(() => { if (window.Razorpay) { clearInterval(poll); setRazorpayReady(true) } }, 200)
+      setTimeout(() => poll && clearInterval(poll), 10000)
     }
-    const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
-    if (existingScript) {
-      setRazorpayReady(true)
-      return
+    let script = document.querySelector(`script[src="${SRC}"]`)
+    if (script) {
+      script.addEventListener('load', markReady)
+      startPoll()
+      return () => { script.removeEventListener('load', markReady); poll && clearInterval(poll) }
     }
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script = document.createElement('script')
+    script.src = SRC
     script.async = true
-    script.onload = () => setRazorpayReady(true)
+    script.onload = markReady
     script.onerror = () => setPaymentError('Failed to load payment gateway. Please refresh.')
     document.body.appendChild(script)
+    return () => { poll && clearInterval(poll) }
   }, [])
 
   const handleExtensionPayment = async () => {
@@ -268,6 +281,10 @@ export default function PackageSelect() {
         }
       }
 
+      if (!window.Razorpay) {
+        failExtension('Payment gateway is still loading. Please wait a moment and tap Pay again.')
+        return
+      }
       const rzp = new window.Razorpay(options)
       rzp.on('payment.failed', function (response) {
         failExtension(`Payment failed: ${response.error.description}`)
@@ -382,6 +399,10 @@ export default function PackageSelect() {
         modal: { ondismiss: () => setProcessing(false) }
       }
 
+      if (!window.Razorpay) {
+        failUpgrade('Payment gateway is still loading. Please wait a moment and tap Pay again.')
+        return
+      }
       const rzp = new window.Razorpay(options)
       rzp.on('payment.failed', function (response) {
         failUpgrade(`Payment failed: ${response.error.description}`)
@@ -547,7 +568,7 @@ export default function PackageSelect() {
                   </div>
 
                   <button
-                    className="btn btn-primary w-full"
+                    className={`btn btn-primary w-full ${processing ? 'is-loading' : ''}`}
                     style={{ padding: 16, borderRadius: 16, fontWeight: 800 }}
                     disabled={processing || !razorpayReady}
                     onClick={() => handleUpgradePayment(pkg)}
@@ -775,10 +796,10 @@ export default function PackageSelect() {
 
             <div className="flex gap-16" style={{ marginTop: 8 }}>
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 20, padding: 18 }} onClick={() => setExtensionStep(1)}>Back</button>
-              <button 
+              <button
                 disabled={processing || !razorpayReady}
-                className="btn btn-primary" 
-                style={{ flex: 2, borderRadius: 20, fontWeight: 800, fontSize: 18, padding: 18, boxShadow: '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' }} 
+                className={`btn btn-primary ${processing ? 'is-loading' : ''}`}
+                style={{ flex: 2, borderRadius: 20, fontWeight: 800, fontSize: 18, padding: 18, boxShadow: '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' }}
                 onClick={handleExtensionPayment}
               >
                 {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${extensionAmount}`}

@@ -573,6 +573,88 @@ body {
   border-radius: var(--radius);
 }
 
+/* === Page Loader (Suspense / route fallback) ===
+   PageLoader.jsx renders `.loader-overlay > .loader`; these were previously
+   undefined, so the fallback rendered an invisible empty div. A branded ring
+   spinner on the theme background, with a soft fade so it never hard-flashes
+   on sub-100ms loads. */
+.loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  animation: fadeIn 200ms var(--ease-out) both;
+}
+.loader {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid var(--border-glass);
+  border-top-color: var(--bg-accent);
+  animation: spin 0.7s linear infinite;
+}
+
+/* === Route view transition ===
+   Keyed on pathname in the app shell so each navigation re-enters: a quiet
+   rise + de-blur (transitions.dev page-slide vocabulary: ~8px, 3px blur,
+   smooth ease-out). Masks lazy-route load time without feeling heavy. */
+.route-view {
+  animation: routeEnter 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  min-height: 0;
+}
+@keyframes routeEnter {
+  from { opacity: 0; transform: translateY(8px); filter: blur(3px); }
+  to   { opacity: 1; transform: translateY(0);   filter: blur(0); }
+}
+
+/* === Button micro-interactions ===
+   Sub-100ms press feedback (UX skill: touch feedback < 100ms) + a reusable
+   inline loading state that hides the label without any layout shift. */
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:disabled,
+.btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
+/* Hide the label with font-size:0 (not color:transparent) so the spinner's
+   currentColor stays the real text color and contrasts on every variant. */
+.btn.is-loading { font-size: 0 !important; pointer-events: none; }
+.btn.is-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.9;
+  animation: spin 0.6s linear infinite;
+}
+
+/* Bottom-nav tap feedback */
+.bottom-nav-item:active { transform: scale(0.92); }
+
+/* === Reduced motion ===
+   Honor the OS-level "reduce motion" setting app-wide. Required by both the
+   UX and transitions guidance: keep state changes instant, drop looping and
+   transform-based motion, but preserve opacity fades for legibility. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton { animation: none !important; }
+  .loader { animation: spin 0.7s linear infinite !important; } /* a spinner with no motion reads as broken */
+  .route-view { animation: fadeIn 0.01ms both !important; filter: none !important; transform: none !important; }
+}
+
 /* === Theme Toggle === */
 .theme-toggle {
   width: 40px;

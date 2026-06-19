@@ -1,5 +1,6 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import asyncHandler from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import Payment from '../models/Payment.js';
@@ -363,6 +364,11 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
       return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Invalid%20order%20metadata`);
     }
 
+    // Trials carry no real packageId — older clients sent the literal string
+    // 'trial'. Never let a non-ObjectId value reach an ObjectId field: it would
+    // throw a CastError and fail the whole callback *after* money was deducted.
+    const safePackageId = mongoose.Types.ObjectId.isValid(packageId) ? packageId : null;
+
     // 3. Mark payment as verified inside DB
     const existing = await Payment.findOne({ paymentId: razorpay_payment_id });
     if (!existing) {
@@ -373,7 +379,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
         signature: razorpay_signature,
         amount: order.amount,
         status: 'verified',
-        package: packageId || null,
+        package: safePackageId,
         vehicle: vehicleId || null,
         type: 'purchase'
       });
@@ -389,7 +395,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
     const mockReq = {
       body: {
         vehicleId,
-        packageId: packageId || null,
+        packageId: safePackageId,
         paymentId: razorpay_payment_id,
         societyId,
         slotId,

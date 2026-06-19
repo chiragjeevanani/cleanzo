@@ -50,6 +50,8 @@ export default function CustomerApp() {
 
       <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
+        {/* Keyed on pathname so each navigation replays the route-enter transition */}
+        <div className="route-view" key={location.pathname}>
         <Routes>
           <Route index element={<CustomerHome />} />
           <Route path="subscriptions" element={<SubscriptionDetail />} />
@@ -71,6 +73,7 @@ export default function CustomerApp() {
           <Route path="auth" element={<CustomerAuth />} />
           <Route path="*" element={<Navigate to="/customer" replace />} />
         </Routes>
+        </div>
       </Suspense>
       </ErrorBoundary>
 

@@ -227,6 +227,19 @@ export default function BookingFlow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
+  // Constrain society choices to the customer's own city so a Noida customer can't
+  // accidentally book a society in another city (the society's city drives the admin
+  // city filter and the cleaner pool — a cross-city society leaves them unserviceable).
+  const bookingCity = (
+    (user?.addresses?.find(a => a.isDefault) || user?.addresses?.[0])?.city || user?.city || ''
+  ).trim().toLowerCase()
+  const citySocieties = bookingCity
+    ? societies.filter(s => (s.city || '').trim().toLowerCase() === bookingCity)
+    : societies
+  // Fall back to the full list only if the customer's city has no societies yet,
+  // so they're never hard-blocked from booking.
+  const societyOptions = citySocieties.length > 0 ? citySocieties : societies
+
   // Auto-select default society + vehicle on data load (restored snapshot takes priority)
   useEffect(() => {
     if (dataLoading.vehicles || dataLoading.packages || dataLoading.societies) return
@@ -238,7 +251,7 @@ export default function BookingFlow() {
         const defaultAddr = user?.addresses?.find(a => a.isDefault) || user?.addresses?.[0]
         const userSocId = defaultAddr?.society?._id || defaultAddr?.society
         const userSoc = userSocId ? societies.find(s => s._id === userSocId.toString()) : null
-        setSelectedSociety(userSoc || societies[0])
+        setSelectedSociety(userSoc || societyOptions[0])
       }
     }
     if (vehicles.length > 0 && !selectedVehicle) {
@@ -304,17 +317,33 @@ export default function BookingFlow() {
     }
   }, [step, selectedVehicle, selectedPkg, selectedSociety, selectedSlot, selectedTrialDate, specialInstructions, appliedCoupon])
 
-  // Load Razorpay script
+  // Load Razorpay script.
+  // IMPORTANT: only mark ready once `window.Razorpay` actually exists — not merely
+  // when the <script> tag is present. On slower devices (notably iOS Safari) the tag
+  // can exist before the SDK has parsed; opening then throws "Failed to initiate
+  // payment". We wait for the real load event and poll as a safety net.
   useEffect(() => {
     if (window.Razorpay) { setRazorpayReady(true); return }
-    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
-    if (existing) { setRazorpayReady(true); return }
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    const SRC = 'https://checkout.razorpay.com/v1/checkout.js'
+    const markReady = () => { if (window.Razorpay) setRazorpayReady(true) }
+    let poll = null
+    const startPoll = () => {
+      poll = setInterval(() => { if (window.Razorpay) { clearInterval(poll); setRazorpayReady(true) } }, 200)
+      setTimeout(() => poll && clearInterval(poll), 10000)
+    }
+    let script = document.querySelector(`script[src="${SRC}"]`)
+    if (script) {
+      script.addEventListener('load', markReady)
+      startPoll() // in case 'load' already fired before this listener attached
+      return () => { script.removeEventListener('load', markReady); poll && clearInterval(poll) }
+    }
+    script = document.createElement('script')
+    script.src = SRC
     script.async = true
-    script.onload = () => setRazorpayReady(true)
+    script.onload = markReady
     script.onerror = () => setPaymentError('Failed to load payment gateway. Please refresh.')
     document.body.appendChild(script)
+    return () => { poll && clearInterval(poll) }
   }, [])
 
   // ── Pricing ────────────────────────────────────────────────────────────────
@@ -455,7 +484,7 @@ export default function BookingFlow() {
       const orderRes = await apiClient.post('/payment/create-order', {
         amount: finalAmount,
         currency: 'INR',
-        packageId: selectedPkg._id || 'trial',
+        packageId: selectedPkg._id || null,
         vehicleId: selectedVehicle._id,
         societyId: selectedSociety._id,
         slotId: selectedSlot.slotId,
@@ -515,6 +544,10 @@ export default function BookingFlow() {
         modal: { ondismiss: () => setProcessing(false) },
       }
 
+      if (!window.Razorpay) {
+        failBooking('Payment gateway is still loading. Please wait a moment and tap Pay again.')
+        return
+      }
       const rzp = new window.Razorpay(options)
       rzp.on('payment.failed', (r) => failBooking(`Payment failed: ${r.error.description}`))
       rzp.open()
@@ -713,7 +746,7 @@ export default function BookingFlow() {
                       }
                     }}
                   >
-                    {societies.map(s => (
+                    {societyOptions.map(s => (
                       <option key={s._id} value={s._id}>{s.name} ({s.city})</option>
                     ))}
                   </select>
@@ -1154,7 +1187,7 @@ export default function BookingFlow() {
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 18, padding: 18 }} onClick={() => setStep(1)}>Back</button>
               <button
                 disabled={processing || !razorpayReady}
-                className="btn btn-primary"
+                className={`btn btn-primary ${processing ? 'is-loading' : ''}`}
                 style={{ flex: 2, borderRadius: 22, fontWeight: 800, fontSize: 18, padding: 20, boxShadow: '0 0 24px rgba(var(--bg-accent-rgb),0.25)' }}
                 onClick={handlePayment}
               >

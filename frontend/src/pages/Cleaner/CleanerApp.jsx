@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { NavLink, Routes, Route, Navigate } from 'react-router-dom'
+import { NavLink, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, ClipboardList, Clock, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
@@ -25,6 +25,7 @@ const tabs = [
 
 export default function CleanerApp() {
   const { user, loading } = useAuth()
+  const location = useLocation()
   const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function CleanerApp() {
     <div className="app-shell">
       <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
+        <div className="route-view" key={location.pathname}>
         <Routes>
           <Route path="kyc" element={<CleanerKYC />} />
           {kycPending || kycRejected ? (
@@ -66,6 +68,7 @@ export default function CleanerApp() {
             </>
           )}
         </Routes>
+        </div>
       </Suspense>
       </ErrorBoundary>
 

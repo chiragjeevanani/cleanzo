@@ -1,5 +1,5 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
-import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useSocietyAuth } from '../../context/SocietyAuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { LayoutDashboard, CreditCard, User, LogOut, Moon, Sun, Menu, X, ShieldCheck, Loader2 } from 'lucide-react'
@@ -20,6 +20,7 @@ const navItems = [
 export default function SocietyApp() {
   const { societyUser, societyLoading, societyLogout } = useSocietyAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
@@ -126,12 +127,14 @@ export default function SocietyApp() {
         <main className="admin-content-area">
           <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>
+              <div className="route-view" key={location.pathname}>
               <Routes>
                 <Route path="dashboard" element={<SocietyDashboard />} />
                 <Route path="commissions" element={<SocietyCommissions />} />
                 <Route path="profile" element={<SocietyProfile />} />
                 <Route path="*" element={<Navigate to="dashboard" replace />} />
               </Routes>
+              </div>
             </Suspense>
           </ErrorBoundary>
         </main>
