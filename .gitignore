@@ -94,3 +94,6 @@ credentials*.json
 *.pfx
 *.p12
 *.key
+# Local agent skill installs (machine-specific, not project code)
+.agents/
+skills-lock.json
