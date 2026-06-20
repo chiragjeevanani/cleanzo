@@ -41,7 +41,7 @@ export default function CustomerApp() {
   if (!user) return <Navigate to="/login" replace />
 
   // Hide nav on specific sub-pages/detail pages
-  const hideNavPaths = ['/customer/vehicles', '/customer/booking', '/customer/skip', '/customer/notifications', '/customer/grievance']
+  const hideNavPaths = ['/customer/vehicles', '/customer/booking', '/customer/skip', '/customer/notifications', '/customer/grievance', '/customer/history', '/customer/addresses', '/customer/terms', '/customer/privacy', '/customer/help']
   const shouldHideNav = hideNavPaths.includes(location.pathname) || location.pathname.startsWith('/customer/plan/') || location.pathname.startsWith('/customer/receipt/')
 
   return (

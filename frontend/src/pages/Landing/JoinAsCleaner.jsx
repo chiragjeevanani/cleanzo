@@ -73,8 +73,22 @@ const JoinAsCleaner = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const formRef = useRef(null);
+  const selfieInputRef = useRef(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+
+  // iOS blocks getUserMedia inside in-app/embedded webviews, so fall back to the
+  // native camera via a file input there. Android handles the overlay fine.
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  const handleSelfieCapture = () => {
+    if (isIOS) {
+      selfieInputRef.current?.click();
+    } else {
+      startCamera();
+    }
+  };
 
   // Fields restricted to letters/spaces, and fields restricted to a 10-digit phone.
   const NAME_FIELDS = ['name', 'fatherName', 'referenceName'];
@@ -506,7 +520,7 @@ const JoinAsCleaner = () => {
                       <div style={{ width: '100%', height: '100%' }}>
                         <img src={previews.livePhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
-                          <button onClick={startCamera} style={{ padding: '8px 16px', borderRadius: 12, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <button type="button" onClick={handleSelfieCapture} style={{ padding: '8px 16px', borderRadius: 12, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                             <RotateCcw size={14} /> Retake
                           </button>
                           <button 
@@ -523,7 +537,7 @@ const JoinAsCleaner = () => {
                         </div>
                       </div>
                     ) : (
-                      <div onClick={startCamera} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, cursor: 'pointer', padding: 20 }}>
+                      <div onClick={handleSelfieCapture} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, cursor: 'pointer', padding: 20 }}>
                         <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(var(--bg-accent-rgb),0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Camera size={28} color="var(--text-accent)" />
                         </div>
@@ -531,6 +545,16 @@ const JoinAsCleaner = () => {
                       </div>
                     )}
                   </div>
+                  {/* iOS native camera fallback — opens the system camera (front-facing) directly */}
+                  <input
+                    ref={selfieInputRef}
+                    type="file"
+                    name="livePhoto"
+                    accept="image/*"
+                    capture="user"
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }}
+                  />
                 </div>
 
                 {/* Identity Cards */}

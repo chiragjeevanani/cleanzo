@@ -1,18 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Check, Car, ShieldCheck, Clock, X, ChevronRight, MapPin, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Check, ShieldCheck, Clock, X, ChevronRight, MapPin, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { useTheme } from '../../context/ThemeContext'
 import { getPackagePricing } from '../../utils/pricing'
-import { sortPackagesByTier } from '../../utils/helpers'
 import { FEATURES } from '../../config/features'
 import { isIOSStandalone, openCheckoutInSafari } from '../../utils/iosPwaPayment'
 import ExternalPaymentWaiting from '../../components/ExternalPaymentWaiting'
-
-// ─── Step labels ──────────────────────────────────────────────────────────────
-const STEPS = ['Plan', 'Slot', 'Pay']
 
 // sessionStorage key — lets a page refresh stay on the current wizard step
 const WIZARD_KEY = 'cleanzo_booking_wizard'
@@ -139,11 +135,11 @@ export default function BookingFlow() {
     if (initialStatus === 'success' || initialStatus === 'payment_return') return 3
     if (initialStatus === 'failed') return 4
     if (restored && (restored.step === 1 || restored.step === 2)) return restored.step
-    // Arrived via "Subscribe"/"Try It Out" on a specific plan — the plan (and usually
-    // vehicle) are already chosen, so skip straight to slot selection instead of
-    // re-showing Step 0.
-    if (initialPackageId || initialTrial) return 1
-    return 0
+    // Plan + vehicle are chosen on the previous screen. A trial still needs a
+    // lightweight first step to pick its date (Step 0); a paid plan has nothing
+    // left to configure, so it goes straight to slot selection (now Step 1).
+    if (initialTrial) return 0
+    return 1
   })
   const [countdown, setCountdown] = useState(5)
 
@@ -200,6 +196,16 @@ export default function BookingFlow() {
       return () => clearInterval(t)
     }
   }, [step, navigate])
+
+  // No booking context at all (e.g. a stale/bookmarked /customer/booking link):
+  // there's no plan or trial to configure, so send the user to plan selection.
+  useEffect(() => {
+    if (!initialStatus && !initialTrial && !initialPackageId &&
+        !restored?.packageId && !restored?.isTrial && !restored?.step) {
+      navigate('/customer/packages', { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Handle initial page load when arriving via Razorpay redirect
   useEffect(() => {
@@ -267,6 +273,23 @@ export default function BookingFlow() {
   // Fall back to the full list only if the customer's city has no societies yet,
   // so they're never hard-blocked from booking.
   const societyOptions = citySocieties.length > 0 ? citySocieties : societies
+
+  // Distinct societies drawn from the customer's own saved addresses. The society
+  // normally comes implicitly from the address, so we only surface a picker when the
+  // customer actually has addresses across more than one society.
+  const addressSocieties = (user?.addresses || [])
+    .map(a => {
+      const id = (a.society?._id || a.society)?.toString()
+      let soc = id ? societies.find(s => s._id === id) : null
+      if (!soc && a.societyName) {
+        const wanted = a.societyName.trim().toLowerCase()
+        soc = societies.find(s => s.name?.trim().toLowerCase() === wanted)
+      }
+      return soc
+    })
+    .filter(Boolean)
+  const societyChoices = [...new Map(addressSocieties.map(s => [s._id, s])).values()]
+  const hasMultipleSocieties = societyChoices.length > 1
 
   // Auto-select default society + vehicle on data load (restored snapshot takes priority)
   useEffect(() => {
@@ -695,15 +718,13 @@ export default function BookingFlow() {
     </div>
   )
 
-  // ── Eligible vehicles/packages for current selection ───────────────────────
-  const eligibleVehicles = selectedPkg
-    ? vehicles.filter(v => isVehicleEligibleForPackage(v, selectedPkg))
-    : vehicles
-  const eligiblePackages = sortPackagesByTier(
-    vehicles.length > 0 && selectedVehicle
-      ? packages.filter(p => isVehicleEligibleForPackage(selectedVehicle, p))
-      : packages
-  )
+  // ── Wizard steps ───────────────────────────────────────────────────────────
+  // Trials keep a date-picker first step; paid plans go straight to slot selection.
+  const isTrialFlow = selectedPkg?.isTrial ?? initialTrial
+  const wizardSteps = isTrialFlow
+    ? [{ i: 0, label: 'Trial' }, { i: 1, label: 'Slot' }, { i: 2, label: 'Pay' }]
+    : [{ i: 1, label: 'Slot' }, { i: 2, label: 'Pay' }]
+  const minStep = isTrialFlow ? 0 : 1
 
   return (
     <div className="app-shell animate-fade-in" style={{ paddingBottom: 120 }}>
@@ -745,7 +766,7 @@ export default function BookingFlow() {
       {step < 3 && (
         <div className="app-header" style={{ background: 'transparent', border: 'none' }}>
           <button
-            onClick={() => step > 0 ? setStep(step - 1) : navigate(-1)}
+            onClick={() => step > minStep ? setStep(step - 1) : navigate(-1)}
             className="btn-icon glass" style={{ borderRadius: 14 }}
           >
             <ArrowLeft size={20} />
@@ -758,29 +779,29 @@ export default function BookingFlow() {
       )}
 
       <div className="container">
-        {/* ── Step indicator (3 steps) ──────────────────────────────────── */}
+        {/* ── Step indicator ────────────────────────────────────────────── */}
         {step < 3 && (
           <div className="flex items-center gap-12" style={{ margin: '12px 0 28px' }}>
-            {STEPS.map((label, i) => (
-              <div key={i} className="flex items-center gap-12" style={{ flex: i < STEPS.length - 1 ? 1 : 'none' }}>
+            {wizardSteps.map((s, j) => (
+              <div key={s.i} className="flex items-center gap-12" style={{ flex: j < wizardSteps.length - 1 ? 1 : 'none' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                   <div style={{
                     width: 32, height: 32, borderRadius: 12, display: 'flex', alignItems: 'center',
                     justifyContent: 'center', fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-display)',
-                    background: i <= step ? 'var(--bg-accent)' : 'var(--bg-glass)',
-                    color: i <= step ? 'var(--text-on-accent)' : 'var(--text-tertiary)',
-                    border: `1px solid ${i <= step ? 'transparent' : 'var(--border-glass)'}`,
-                    boxShadow: i === step ? '0 0 20px rgba(var(--bg-accent-rgb),0.3)' : 'none',
+                    background: s.i <= step ? 'var(--bg-accent)' : 'var(--bg-glass)',
+                    color: s.i <= step ? 'var(--text-on-accent)' : 'var(--text-tertiary)',
+                    border: `1px solid ${s.i <= step ? 'transparent' : 'var(--border-glass)'}`,
+                    boxShadow: s.i === step ? '0 0 20px rgba(var(--bg-accent-rgb),0.3)' : 'none',
                     transition: 'all 0.3s var(--ease-out)',
                   }}>
-                    {i < step ? <Check size={15} strokeWidth={3} /> : i + 1}
+                    {s.i < step ? <Check size={15} strokeWidth={3} /> : j + 1}
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: i === step ? 'var(--text-accent)' : 'var(--text-tertiary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                    {label}
+                  <span style={{ fontSize: 9, fontWeight: 700, color: s.i === step ? 'var(--text-accent)' : 'var(--text-tertiary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                    {s.label}
                   </span>
                 </div>
-                {i < STEPS.length - 1 && (
-                  <div style={{ flex: 1, height: 3, background: i < step ? 'var(--bg-accent)' : 'var(--divider)', borderRadius: 4, marginBottom: 16, transition: 'background 0.4s' }} />
+                {j < wizardSteps.length - 1 && (
+                  <div style={{ flex: 1, height: 3, background: s.i < step ? 'var(--bg-accent)' : 'var(--divider)', borderRadius: 4, marginBottom: 16, transition: 'background 0.4s' }} />
                 )}
               </div>
             ))}
@@ -792,246 +813,59 @@ export default function BookingFlow() {
         ══════════════════════════════════════════════════════════════════ */}
         {step === 0 && (
           <div className="flex flex-col gap-24 animate-fade-in-up">
+            <div>
+              <h3 className="text-headline-sm" style={{ marginBottom: 4 }}>Schedule Your Trial</h3>
+              <p className="text-secondary text-body-sm">
+                {selectedVehicle
+                  ? `1-Day Trial for your ${selectedVehicle.brand} ${selectedVehicle.model}`
+                  : 'Pick a date for your 1-Day Trial'}
+              </p>
+            </div>
 
-            {/* Vehicle selector — compact chips */}
-            {vehicles.length > 0 && (
-              <div>
-                <p className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 10, paddingLeft: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>
-                  SELECT VEHICLE
-                </p>
-                <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
-                  {vehicles.map(v => {
-                    const hasSub   = activeSubscriptions.some(s => s.vehicle?._id === v._id && s.status === 'Active')
-                    const isChosen = selectedVehicle?._id === v._id
+            {/* Trial date picker */}
+            <div className="flex flex-col gap-10">
+              <p className="text-label" style={{ color: 'var(--text-tertiary)', fontSize: 10, paddingLeft: 4, fontWeight: 700, letterSpacing: '0.06em' }}>
+                CHOOSE TRIAL DATE
+              </p>
+              <div style={{ display: 'flex', gap: 12 }}>
+                {(() => {
+                  const today = new Date()
+                  return [1, 2].map(daysAhead => {
+                    const d = new Date(); d.setDate(today.getDate() + daysAhead)
+                    const val = getLocalDateString(d)
+                    const label = daysAhead === 1 ? 'Tomorrow' : 'Day After'
+                    const dateStr = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+                    const isSel = selectedTrialDate === val
                     return (
                       <button
-                        key={v._id}
-                        disabled={hasSub}
-                        onClick={() => {
-                          setSelectedVehicle(v)
-                          // Clear plan if it's no longer eligible for the new vehicle
-                          if (selectedPkg && !selectedPkg.isTrial && !isVehicleEligibleForPackage(v, selectedPkg)) {
-                            setSelectedPkg(null)
-                          }
-                        }}
+                        key={val}
+                        onClick={() => setSelectedTrialDate(val)}
+                        className="glass"
                         style={{
-                          flexShrink: 0, padding: '10px 16px', borderRadius: 14, cursor: hasSub ? 'default' : 'pointer',
-                          border: `1.5px solid ${isChosen ? 'var(--text-accent)' : 'var(--border-glass)'}`,
-                          background: isChosen ? 'rgba(var(--bg-accent-rgb),0.08)' : 'var(--bg-glass)',
-                          opacity: hasSub ? 0.45 : 1,
-                          display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s',
+                          flex: 1, padding: '14px', borderRadius: 16, textAlign: 'center',
+                          borderColor: isSel ? 'var(--text-accent)' : 'var(--border-glass)',
+                          background: isSel ? 'rgba(var(--bg-accent-rgb),0.08)' : 'var(--bg-glass)',
+                          boxShadow: isSel ? '0 0 20px rgba(var(--bg-accent-rgb),0.2)' : 'none',
+                          transition: 'all 0.25s',
                         }}
                       >
-                        <div style={{
-                          width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-                          background: isChosen ? 'var(--bg-accent)' : 'rgba(255,255,255,0.06)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <Car size={16} color={isChosen ? 'var(--text-on-accent)' : 'var(--text-secondary)'} />
-                        </div>
-                        <div style={{ textAlign: 'left' }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>{v.brand} {v.model}</div>
-                          <div style={{ fontSize: 10, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
-                            {hasSub ? 'Subscribed' : v.number}
-                          </div>
-                        </div>
-                        {isChosen && <Check size={14} color="var(--text-accent)" strokeWidth={3} />}
+                        <div style={{ fontWeight: 800, fontSize: 14, color: isSel ? 'var(--text-accent)' : 'var(--text-primary)' }}>{label}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>{dateStr}</div>
                       </button>
                     )
-                  })}
-                </div>
+                  })
+                })()}
               </div>
-            )}
+            </div>
 
-            {/* Society Selector */}
-            {vehicles.length > 0 && societies.length > 0 && (
-              <div>
-                <p className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 10, paddingLeft: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>
-                  SELECT SOCIETY
-                </p>
-                <div style={{ position: 'relative' }}>
-                  <select 
-                    className="input-field" 
-                    style={{ width: '100%', boxSizing: 'border-box', appearance: 'none', cursor: 'pointer', paddingRight: 36, fontWeight: 700 }} 
-                    value={selectedSociety?._id || ''} 
-                    onChange={e => {
-                      const soc = societies.find(s => s._id === e.target.value)
-                      if (soc) {
-                        setSelectedSociety(soc)
-                        setSelectedSlot(null) // clear selected slot since slots belong to society
-                      }
-                    }}
-                  >
-                    {societyOptions.map(s => (
-                      <option key={s._id} value={s._id}>{s.name} ({s.city})</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={16} style={{ position: 'absolute', right: 14, bottom: 14, opacity: 0.4, pointerEvents: 'none' }} />
-                </div>
-              </div>
-            )}
-
-            {vehicles.length === 0 && (
-              <div className="glass" style={{ padding: 40, textAlign: 'center', borderRadius: 28 }}>
-                <Car size={36} className="text-tertiary" style={{ margin: '0 auto 12px' }} />
-                <p className="text-secondary" style={{ marginBottom: 20 }}>No vehicles in your profile.</p>
-                <button className="btn btn-primary w-full" style={{ borderRadius: 16 }} onClick={() => navigate('/customer/profile')}>
-                  Add Your First Vehicle
-                </button>
-              </div>
-            )}
-
-            {/* Plans section */}
-            {vehicles.length > 0 && (
-              <>
-                <div>
-                  <h3 className="text-headline-sm" style={{ marginBottom: 4 }}>Choose Plan</h3>
-                  <p className="text-secondary text-body-sm">
-                    {selectedVehicle
-                      ? `Best for your ${selectedVehicle.brand} ${selectedVehicle.model}`
-                      : 'Select a plan to get started'}
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-14">
-                  {eligiblePackages.length === 0 && !hasUsedTrial && (
-                    <div className="glass" style={{ padding: 28, textAlign: 'center', borderRadius: 24 }}>
-                      <p className="text-secondary text-body-sm">No monthly plans available for this vehicle yet.</p>
-                    </div>
-                  )}
-
-                  {eligiblePackages.map((p, i) => {
-                    const isChosen = selectedPkg?._id === p._id
-                    const pPricing = getPackagePricing(p, selectedVehicle, discounts)
-                    return (
-                      <button
-                        key={p._id}
-                        className="glass"
-                        onClick={() => setSelectedPkg(p)}
-                        style={{
-                          padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          textAlign: 'left', borderRadius: 24,
-                          borderColor: isChosen ? 'var(--text-accent)' : 'var(--border-glass)',
-                          background: isChosen ? 'rgba(var(--bg-accent-rgb),0.06)' : 'var(--bg-glass)',
-                          boxShadow: isChosen ? '0 0 24px rgba(var(--bg-accent-rgb),0.2)' : 'none',
-                          animationDelay: `${i * 80}ms`,
-                        }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                            <span style={{ fontWeight: 800, fontSize: 17 }}>{p.name}</span>
-                            {p.popular && <span className="chip chip-lime" style={{ fontSize: 9 }}>BEST VALUE</span>}
-                          </div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                            {p.features?.slice(0, 3).map((f, idx) => (
-                              <span key={idx} style={{ fontSize: 10, color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 6 }}>{f}</span>
-                            ))}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 16 }}>
-                          {pPricing.hasDiscount && (
-                            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textDecoration: 'line-through' }}>₹{pPricing.originalPrice}</div>
-                          )}
-                          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>₹{pPricing.effectivePrice}</div>
-                          <div style={{ fontSize: 9, color: pPricing.hasDiscount ? 'var(--success)' : 'var(--text-tertiary)', fontWeight: 700 }}>
-                            {pPricing.hasDiscount ? `${pPricing.percent}% OFF` : 'PER MONTH'}
-                          </div>
-                          {isChosen && <Check size={16} color="var(--text-accent)" strokeWidth={3} style={{ marginTop: 6 }} />}
-                        </div>
-                      </button>
-                    )
-                  })}
-
-                  {/* Trial option */}
-                  {!hasUsedTrial && (
-                    <>
-                      {eligiblePackages.length > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
-                          <div style={{ flex: 1, height: 1, background: 'var(--divider)' }} />
-                          <span style={{ fontSize: 10, color: 'var(--text-tertiary)', fontWeight: 700, whiteSpace: 'nowrap' }}>OR TRY FIRST</span>
-                          <div style={{ flex: 1, height: 1, background: 'var(--divider)' }} />
-                        </div>
-                      )}
-                      <button
-                        className="glass"
-                        onClick={() => {
-                          setSelectedPkg({ isTrial: true, name: '1-Day Trial', price: trialPrice, _id: null })
-                          const tm = new Date(); tm.setDate(tm.getDate() + 1)
-                          setSelectedTrialDate(getLocalDateString(tm))
-                        }}
-                        style={{
-                          padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          borderRadius: 20,
-                          borderColor: selectedPkg?.isTrial ? 'var(--text-accent)' : 'var(--border-glass)',
-                          background: selectedPkg?.isTrial ? 'rgba(var(--bg-accent-rgb),0.06)' : 'transparent',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <div style={{ width: 38, height: 38, background: 'rgba(var(--bg-accent-rgb),0.1)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Clock size={18} color="var(--text-accent)" />
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 800, fontSize: 15 }}>1-Day Trial</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Try Cleanzo, no commitment</div>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18 }}>₹{trialPrice}</span>
-                          {selectedPkg?.isTrial && <Check size={16} color="var(--text-accent)" strokeWidth={3} />}
-                        </div>
-                      </button>
-
-                      {/* Trial date picker inline */}
-                      {selectedPkg?.isTrial && (
-                        <div className="animate-slide-up flex flex-col gap-10" style={{ marginTop: 20 }}>
-                          <p className="text-label" style={{ color: 'var(--text-tertiary)', fontSize: 10, paddingLeft: 4, fontWeight: 700, letterSpacing: '0.06em' }}>
-                            CHOOSE TRIAL DATE
-                          </p>
-                          <div style={{ display: 'flex', gap: 12 }}>
-                            {(() => {
-                              const today = new Date()
-                              return [1, 2].map(daysAhead => {
-                                const d = new Date(); d.setDate(today.getDate() + daysAhead)
-                                const val = getLocalDateString(d)
-                                const label = daysAhead === 1 ? 'Tomorrow' : 'Day After'
-                                const dateStr = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
-                                const isSel = selectedTrialDate === val
-                                return (
-                                  <button
-                                    key={val}
-                                    onClick={() => setSelectedTrialDate(val)}
-                                    className="glass"
-                                    style={{
-                                      flex: 1, padding: '14px', borderRadius: 16, textAlign: 'center',
-                                      borderColor: isSel ? 'var(--text-accent)' : 'var(--border-glass)',
-                                      background: isSel ? 'rgba(var(--bg-accent-rgb),0.08)' : 'var(--bg-glass)',
-                                      boxShadow: isSel ? '0 0 20px rgba(var(--bg-accent-rgb),0.2)' : 'none',
-                                      transition: 'all 0.25s',
-                                    }}
-                                  >
-                                    <div style={{ fontWeight: 800, fontSize: 14, color: isSel ? 'var(--text-accent)' : 'var(--text-primary)' }}>{label}</div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>{dateStr}</div>
-                                  </button>
-                                )
-                              })
-                            })()}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                <button
-                  disabled={!selectedPkg || !selectedVehicle || (selectedPkg?.isTrial && !selectedTrialDate)}
-                  className="btn btn-primary w-full"
-                  style={{ marginTop: 8, padding: 18, borderRadius: 18, fontWeight: 800, fontSize: 16 }}
-                  onClick={() => setStep(1)}
-                >
-                  Choose Time Slot <ChevronRight size={18} style={{ marginLeft: 4 }} />
-                </button>
-              </>
-            )}
+            <button
+              disabled={!selectedTrialDate || !selectedVehicle || !selectedSociety}
+              className="btn btn-primary w-full"
+              style={{ marginTop: 8, padding: 18, borderRadius: 18, fontWeight: 800, fontSize: 16 }}
+              onClick={() => setStep(1)}
+            >
+              Choose Time Slot <ChevronRight size={18} style={{ marginLeft: 4 }} />
+            </button>
           </div>
         )}
 
@@ -1047,6 +881,34 @@ export default function BookingFlow() {
                 <span style={{ fontWeight: 700, color: 'var(--text-accent)' }}>{selectedSociety?.name}</span>?
               </p>
             </div>
+
+            {/* Society picker — only when the customer has saved addresses in >1 society */}
+            {hasMultipleSocieties && (
+              <div>
+                <p className="text-label" style={{ color: 'var(--text-tertiary)', marginBottom: 10, paddingLeft: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>
+                  SELECT SOCIETY
+                </p>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    className="input-field"
+                    style={{ width: '100%', boxSizing: 'border-box', appearance: 'none', cursor: 'pointer', paddingRight: 36, fontWeight: 700 }}
+                    value={selectedSociety?._id || ''}
+                    onChange={e => {
+                      const soc = societies.find(s => s._id === e.target.value)
+                      if (soc) {
+                        setSelectedSociety(soc)
+                        setSelectedSlot(null) // clear selected slot since slots belong to society
+                      }
+                    }}
+                  >
+                    {societyChoices.map(s => (
+                      <option key={s._id} value={s._id}>{s.name} ({s.city})</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} style={{ position: 'absolute', right: 14, bottom: 14, opacity: 0.4, pointerEvents: 'none' }} />
+                </div>
+              </div>
+            )}
 
             {selectedSociety && (
               <>
@@ -1103,7 +965,7 @@ export default function BookingFlow() {
             )}
 
             <div className="flex gap-12 mt-24">
-              <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 16 }} onClick={() => setStep(0)}>Back</button>
+              <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 16 }} onClick={() => isTrialFlow ? setStep(0) : navigate(-1)}>Back</button>
               <button
                 disabled={!selectedSlot || (activeOverride && !overrideReason.trim())}
                 className="btn btn-primary"
@@ -1373,7 +1235,7 @@ export default function BookingFlow() {
               <button className="btn btn-ghost w-full" style={{ borderRadius: 18, padding: 16 }} onClick={() => navigate('/customer')}>
                 Dashboard
               </button>
-              <button className="btn btn-primary w-full" style={{ borderRadius: 18, padding: 16, fontWeight: 800 }} onClick={() => { setStep(0); setPaymentError('') }}>
+              <button className="btn btn-primary w-full" style={{ borderRadius: 18, padding: 16, fontWeight: 800 }} onClick={() => { setStep(minStep); setPaymentError('') }}>
                 Try Again
               </button>
             </div>

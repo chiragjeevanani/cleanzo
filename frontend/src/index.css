@@ -361,6 +361,8 @@ body {
 }
 
 /* === Bottom Navigation (Mobile Apps) === */
+/* Hide bottom nav on sub-views that live under a tab route (e.g. Billing) */
+body.hide-bottom-nav .bottom-nav { display: none !important; }
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -694,9 +696,10 @@ body {
   position: sticky;
   top: 0;
   z-index: var(--z-nav);
-  background: var(--nav-bg);
-  backdrop-filter: blur(var(--blur));
-  -webkit-backdrop-filter: blur(var(--blur));
+  /* Solid, theme-aware background so scrolled content never shows through.
+     backdrop-filter blur is unreliable in mobile webviews (esp. iOS), which
+     left the header transparent over scrolling content. */
+  background: var(--bg-primary);
 }
 
 /* === Utility === */

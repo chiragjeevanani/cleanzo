@@ -311,7 +311,7 @@ export default function CustomerHome() {
               } : {
                 icon: Calendar,
                 label: 'New Booking',
-                to: '/customer/booking',
+                to: '/customer/packages',
                 color: 'var(--text-accent)',
                 bg: 'rgba(var(--bg-accent-rgb), 0.1)',
                 disabled: false

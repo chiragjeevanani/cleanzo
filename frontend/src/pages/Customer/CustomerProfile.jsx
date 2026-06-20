@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
@@ -27,6 +27,14 @@ export default function CustomerProfile() {
   })
 
   const [view, setView] = useState('profile')
+
+  // Billing is a sub-view under the /customer/profile tab route, so hide the
+  // bottom nav while it's open (route-based hiding can't target it).
+  useEffect(() => {
+    if (view !== 'billing') return
+    document.body.classList.add('hide-bottom-nav')
+    return () => document.body.classList.remove('hide-bottom-nav')
+  }, [view])
   const [payments, setPayments] = useState([])
   const [loadingPayments, setLoadingPayments] = useState(false)
   const [selectedPaymentId, setSelectedPaymentId] = useState(null)
