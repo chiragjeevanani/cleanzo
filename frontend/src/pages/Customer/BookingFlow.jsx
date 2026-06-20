@@ -565,8 +565,15 @@ export default function BookingFlow() {
 
     const { key, order } = preparedOrder
     const apiBase  = import.meta.env.VITE_API_URL || ''
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    const useRedirect = isMobile || apiBase.startsWith('https://')
+    const ua = navigator.userAgent
+    const isIOS = /iPhone|iPad|iPod/i.test(ua)
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+    // Redirect mode is required on Android (Chrome blocks UPI app-intent handoff
+    // from inside the checkout iframe) but BREAKS iOS: the first tap on a UPI app
+    // (PayTM/GPay) silently fails to launch the app, forcing the user to cancel
+    // and tap Pay again. iOS launches the app reliably from the standard in-page
+    // checkout, so never use redirect mode there.
+    const useRedirect = !isIOS && (isMobile || apiBase.startsWith('https://'))
 
     const getCallbackUrl = (base) => {
       const origin = window.location.origin;

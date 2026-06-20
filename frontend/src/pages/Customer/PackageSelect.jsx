@@ -4,12 +4,14 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Check, ArrowRight, ChevronRight, Car, Bike, X, ShoppingBag, Crown, RefreshCw, Clock } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
+import { useAuth } from '../../context/AuthContext'
 import { getPackagePricing } from '../../utils/pricing'
 import { sortPackagesByTier, tierRank } from '../../utils/helpers'
 import { FEATURES } from '../../config/features'
 
 export default function PackageSelect() {
   const { packages, subscriptions, vehicles, discounts, settings, loading: dataLoading, refreshAll } = useCustomerData()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const queryParams = new URLSearchParams(location.search)
@@ -17,6 +19,16 @@ export default function PackageSelect() {
 
   const activeSub = (subscriptions || []).find(s => s.status === 'Active') || null
   const activeSubForVehicle = (subscriptions || []).find(s => s.status === 'Active' && s.vehicle?._id === selectedVehicleId) || null
+
+  // Razorpay skips its "Contact details" screen only when a valid contact is
+  // prefilled — otherwise it asks the user to type their phone before showing
+  // payment methods. Prefer the logged-in user's phone (they're the one paying).
+  const prefillContact = (() => {
+    const phone = user?.phone || activeSubForVehicle?.customer?.phone
+    if (!phone) return ''
+    const d = String(phone).replace(/\D/g, '')
+    return d.length === 10 ? `+91${d}` : String(phone).startsWith('+') ? String(phone) : `+91${phone}`
+  })()
 
   // Coupon state (extension flow)
   const [couponInput, setCouponInput] = useState('')
@@ -278,8 +290,15 @@ export default function PackageSelect() {
 
     const { key, order } = preparedExtensionOrder
     const _apiBase = import.meta.env.VITE_API_URL || ''
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    const useRedirect = isMobile || _apiBase.startsWith('https://')
+    const ua = navigator.userAgent
+    const isIOS = /iPhone|iPad|iPod/i.test(ua)
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+    // Redirect mode is required on Android (Chrome blocks UPI app-intent handoff
+    // from inside the checkout iframe) but BREAKS iOS: the first tap on a UPI app
+    // (PayTM/GPay) silently fails to launch the app, forcing the user to cancel
+    // and tap Pay again. iOS launches the app reliably from the standard in-page
+    // checkout, so never use redirect mode there.
+    const useRedirect = !isIOS && (isMobile || _apiBase.startsWith('https://'))
 
     const getCallbackUrl = (base) => {
       const origin = window.location.origin;
@@ -313,6 +332,7 @@ export default function PackageSelect() {
       prefill: {
         name: activeSubForVehicle.customer?.firstName ? `${activeSubForVehicle.customer.firstName} ${activeSubForVehicle.customer.lastName || ''}` : '',
         email: activeSubForVehicle.customer?.email || '',
+        contact: prefillContact,
       },
       modal: {
         ondismiss: () => setProcessing(false)
@@ -389,8 +409,15 @@ export default function PackageSelect() {
 
     const { key, order } = prepared
     const _apiBase = import.meta.env.VITE_API_URL || ''
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    const useRedirect = isMobile || _apiBase.startsWith('https://')
+    const ua = navigator.userAgent
+    const isIOS = /iPhone|iPad|iPod/i.test(ua)
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+    // Redirect mode is required on Android (Chrome blocks UPI app-intent handoff
+    // from inside the checkout iframe) but BREAKS iOS: the first tap on a UPI app
+    // (PayTM/GPay) silently fails to launch the app, forcing the user to cancel
+    // and tap Pay again. iOS launches the app reliably from the standard in-page
+    // checkout, so never use redirect mode there.
+    const useRedirect = !isIOS && (isMobile || _apiBase.startsWith('https://'))
 
     const getCallbackUrl = (base) => {
       const origin = window.location.origin;
@@ -424,6 +451,7 @@ export default function PackageSelect() {
       prefill: {
         name: activeSubForVehicle.customer?.firstName ? `${activeSubForVehicle.customer.firstName} ${activeSubForVehicle.customer.lastName || ''}` : '',
         email: activeSubForVehicle.customer?.email || '',
+        contact: prefillContact,
       },
       modal: { ondismiss: () => setProcessing(false) },
     }
