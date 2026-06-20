@@ -163,6 +163,15 @@ export default function BookingFlow() {
   const [processing, setProcessing]       = useState(false)
   const [paymentError, setPaymentError]   = useState('')
 
+  // Order is pre-created while the user is still reviewing the summary so that
+  // tapping "Pay" can call rzp.open() synchronously with zero network calls in
+  // between — any await before opening checkout risks losing the click's "user
+  // gesture" status on mobile, which is what blocks UPI apps (PayTM, GPay, etc.)
+  // from being launched via intent on the first tap.
+  const [preparedOrder, setPreparedOrder] = useState(null) // { key, order, amount }
+  const [preparingOrder, setPreparingOrder] = useState(false)
+  const preparingOrderRef = useRef(false)
+
   // Coupon state
   const [couponInput, setCouponInput]   = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState(null) // { code, discountAmount }
@@ -393,6 +402,46 @@ export default function BookingFlow() {
   const couponDiscount  = appliedCoupon ? Math.min(appliedCoupon.discountAmount, amountBeforeCoupon) : 0
   const finalAmount     = amountBeforeCoupon - couponDiscount
 
+  // Pre-create the Razorpay order as soon as the Pay step is showing a final amount,
+  // so the "Pay" tap itself never has to await a network call (see note above).
+  // Re-runs whenever the amount changes (coupon applied/removed, priority override).
+  useEffect(() => {
+    if (step !== 2) return
+    if (!selectedPkg || !selectedVehicle || !selectedSociety || !selectedSlot) return
+    if (!finalAmount || finalAmount < 1) return
+    if (preparedOrder?.amount === finalAmount) return
+    if (preparingOrderRef.current) return
+
+    preparingOrderRef.current = true
+    setPreparingOrder(true)
+    ;(async () => {
+      try {
+        const keyRes = await apiClient.get('/payment/key')
+        const orderRes = await apiClient.post('/payment/create-order', {
+          amount: finalAmount,
+          currency: 'INR',
+          packageId: selectedPkg._id || null,
+          vehicleId: selectedVehicle._id,
+          societyId: selectedSociety._id,
+          slotId: selectedSlot.slotId,
+          specialInstructions: specialInstructions || '',
+          isTrial: selectedPkg.isTrial || false,
+          startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
+          isPremiumOverride: activeOverride,
+          overrideReason: activeOverride ? overrideReason : undefined,
+          couponCode: appliedCoupon?.code || undefined,
+          frontendOrigin: window.location.origin,
+        })
+        setPreparedOrder({ key: keyRes.key, order: orderRes.order, amount: finalAmount })
+      } catch (err) {
+        setPaymentError(err.message || 'Failed to prepare payment. Please try again.')
+      } finally {
+        preparingOrderRef.current = false
+        setPreparingOrder(false)
+      }
+    })()
+  }, [step, selectedPkg?._id, selectedPkg?.isTrial, selectedVehicle?._id, selectedSociety?._id, selectedSlot?.slotId, finalAmount])
+
   // Clear any applied coupon when the chosen plan/vehicle changes (it may no longer be valid)
   useEffect(() => {
     setAppliedCoupon(null)
@@ -429,9 +478,15 @@ export default function BookingFlow() {
   }
 
   // ── Payment handler ────────────────────────────────────────────────────────
-  const handlePayment = async () => {
+  // Deliberately synchronous (no awaits before rzp.open()) — the order is already
+  // pre-created by the effect above, so tapping Pay opens checkout immediately as
+  // a direct response to the click, which UPI app-intent handoff depends on.
+  const handlePayment = () => {
     if (!selectedPkg || !selectedVehicle || !selectedSociety || !selectedSlot) return
-    setProcessing(true)
+    if (!preparedOrder || preparedOrder.amount !== finalAmount) {
+      setPaymentError('Still preparing your payment — please wait a moment and tap Pay again.')
+      return
+    }
     setPaymentError('')
 
     // Activate the subscription once a paymentId exists (Razorpay-verified or
@@ -501,85 +556,66 @@ export default function BookingFlow() {
       couponCode: appliedCoupon?.code || undefined,
     }))
 
-    try {
-      const keyRes = await apiClient.get('/payment/key')
-
-      const orderRes = await apiClient.post('/payment/create-order', {
-        amount: finalAmount,
-        currency: 'INR',
-        packageId: selectedPkg._id || null,
-        vehicleId: selectedVehicle._id,
-        societyId: selectedSociety._id,
-        slotId: selectedSlot.slotId,
-        specialInstructions: specialInstructions || '',
-        isTrial: selectedPkg.isTrial || false,
-        startDate: selectedPkg.isTrial ? selectedTrialDate : undefined,
-        isPremiumOverride: activeOverride,
-        overrideReason: activeOverride ? overrideReason : undefined,
-        couponCode: appliedCoupon?.code || undefined,
-        frontendOrigin: window.location.origin,
-      })
-
-      const order   = orderRes.order
-      const apiBase = import.meta.env.VITE_API_URL || ''
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      const useRedirect = isMobile || apiBase.startsWith('https://')
-
-      const getCallbackUrl = (base) => {
-        const origin = window.location.origin;
-        let cleanBase = base;
-        if (cleanBase && !cleanBase.startsWith('http')) {
-          if (!cleanBase.startsWith('/')) {
-            cleanBase = '/' + cleanBase;
-          }
-          cleanBase = origin + cleanBase;
-        }
-        if (cleanBase.endsWith('/')) {
-          cleanBase = cleanBase.slice(0, -1);
-        }
-        return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
-      }
-
-      const options = {
-        key: keyRes.key,
-        amount: order.amount,
-        currency: order.currency,
-        name: 'Cleanzo',
-        description: `${selectedPkg.name} for ${selectedVehicle.model}`,
-        order_id: order.id,
-        // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
-        // (which browsers block inside standard iframe modals).
-        ...(useRedirect ? {
-          redirect: true,
-          callback_url: getCallbackUrl(apiBase),
-        } : {}),
-        handler: completeBooking,
-        prefill: {
-          name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',
-          contact: (() => {
-            if (!user?.phone) return ''
-            const d = user.phone.replace(/\D/g, '')
-            return d.length === 10 ? `+91${d}` : user.phone.startsWith('+') ? user.phone : `+91${user.phone}`
-          })(),
-          email: user?.email || '',
-        },
-        theme: { color: theme === 'light' ? '#0056B3' : '#DFFF00' },
-        modal: { ondismiss: () => setProcessing(false) },
-        // Skip Razorpay's "recommended/last-used method" shortcut screen and show
-        // every payment method (UPI, cards, netbanking, wallets) up front.
-        config: { display: { preferences: { show_default_blocks: false } } },
-      }
-
-      if (!window.Razorpay) {
-        failBooking('Payment gateway is still loading. Please wait a moment and tap Pay again.')
-        return
-      }
-      const rzp = new window.Razorpay(options)
-      rzp.on('payment.failed', (r) => failBooking(`Payment failed: ${r.error.description}`))
-      rzp.open()
-    } catch (err) {
-      failBooking(err.message || 'Failed to initiate payment. Please try again.')
+    if (!window.Razorpay) {
+      failBooking('Payment gateway is still loading. Please wait a moment and tap Pay again.')
+      return
     }
+
+    setProcessing(true)
+
+    const { key, order } = preparedOrder
+    const apiBase  = import.meta.env.VITE_API_URL || ''
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const useRedirect = isMobile || apiBase.startsWith('https://')
+
+    const getCallbackUrl = (base) => {
+      const origin = window.location.origin;
+      let cleanBase = base;
+      if (cleanBase && !cleanBase.startsWith('http')) {
+        if (!cleanBase.startsWith('/')) {
+          cleanBase = '/' + cleanBase;
+        }
+        cleanBase = origin + cleanBase;
+      }
+      if (cleanBase.endsWith('/')) {
+        cleanBase = cleanBase.slice(0, -1);
+      }
+      return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
+    }
+
+    const options = {
+      key,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'Cleanzo',
+      description: `${selectedPkg.name} for ${selectedVehicle.model}`,
+      order_id: order.id,
+      // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
+      // (which browsers block inside standard iframe modals).
+      ...(useRedirect ? {
+        redirect: true,
+        callback_url: getCallbackUrl(apiBase),
+      } : {}),
+      handler: completeBooking,
+      prefill: {
+        name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',
+        contact: (() => {
+          if (!user?.phone) return ''
+          const d = user.phone.replace(/\D/g, '')
+          return d.length === 10 ? `+91${d}` : user.phone.startsWith('+') ? user.phone : `+91${user.phone}`
+        })(),
+        email: user?.email || '',
+      },
+      theme: { color: theme === 'light' ? '#0056B3' : '#DFFF00' },
+      modal: { ondismiss: () => setProcessing(false) },
+      // Skip Razorpay's "recommended/last-used method" shortcut screen and show
+      // every payment method (UPI, cards, netbanking, wallets) up front.
+      config: { display: { preferences: { show_default_blocks: false } } },
+    }
+
+    const rzp = new window.Razorpay(options)
+    rzp.on('payment.failed', (r) => failBooking(`Payment failed: ${r.error.description}`))
+    rzp.open()
   }
 
   // ── Loading skeleton ───────────────────────────────────────────────────────
@@ -1212,12 +1248,12 @@ export default function BookingFlow() {
             <div className="flex gap-14">
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 18, padding: 18 }} onClick={() => setStep(1)}>Back</button>
               <button
-                disabled={processing || !razorpayReady}
+                disabled={processing || !razorpayReady || preparingOrder || preparedOrder?.amount !== finalAmount}
                 className={`btn btn-primary ${processing ? 'is-loading' : ''}`}
                 style={{ flex: 2, borderRadius: 22, fontWeight: 800, fontSize: 18, padding: 20, boxShadow: '0 0 24px rgba(var(--bg-accent-rgb),0.25)' }}
                 onClick={handlePayment}
               >
-                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${finalAmount}`}
+                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : (preparingOrder || preparedOrder?.amount !== finalAmount) ? 'Preparing…' : `Pay ₹${finalAmount}`}
               </button>
             </div>
           </div>

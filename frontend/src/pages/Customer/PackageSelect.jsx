@@ -1,5 +1,5 @@
 import PageLoader from '../../components/PageLoader'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Check, ArrowRight, ChevronRight, Car, Bike, X, ShoppingBag, Crown, RefreshCw, Clock } from 'lucide-react'
 import apiClient from '../../services/apiClient'
@@ -60,6 +60,18 @@ export default function PackageSelect() {
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+
+  // Orders are pre-created while the user is reviewing the summary so tapping "Pay"
+  // calls rzp.open() with zero network calls in between — any await before opening
+  // checkout risks losing the click's "user gesture" status on mobile, which is what
+  // blocks UPI apps (PayTM, GPay, etc.) from launching via intent on the first tap.
+  const [preparedExtensionOrder, setPreparedExtensionOrder] = useState(null) // { key, order, amount }
+  const [preparingExtensionOrder, setPreparingExtensionOrder] = useState(false)
+  const preparingExtensionOrderRef = useRef(false)
+
+  const [preparedUpgradeOrders, setPreparedUpgradeOrders] = useState({}) // { [packageId]: { key, order, amount } }
+  const [preparingUpgradeIds, setPreparingUpgradeIds] = useState({})
+  const preparingUpgradeIdsRef = useRef({})
 
   // Clear any applied coupon / upgrade selection when the selected vehicle changes
   useEffect(() => {
@@ -168,12 +180,52 @@ export default function PackageSelect() {
     return () => { poll && clearInterval(poll) }
   }, [])
 
-  const handleExtensionPayment = async () => {
-    if (!activeSubForVehicle) return
-    setProcessing(true)
-    setPaymentError('')
+  // Pre-create the extension's Razorpay order as soon as the "Overview & Pay" screen
+  // is showing a final amount. Re-runs whenever the amount changes (coupon applied).
+  useEffect(() => {
+    if (extensionStep !== 2 || !activeSubForVehicle) return
+    if (!extensionAmount || extensionAmount < 1) return
+    if (preparedExtensionOrder?.amount === extensionAmount) return
+    if (preparingExtensionOrderRef.current) return
 
-    const amount = extensionAmount;
+    preparingExtensionOrderRef.current = true
+    setPreparingExtensionOrder(true)
+    ;(async () => {
+      try {
+        const keyRes = await apiClient.get('/payment/key')
+        const orderRes = await apiClient.post('/payment/create-order', {
+          amount: extensionAmount,
+          currency: 'INR',
+          packageId: activeSubForVehicle.package?._id,
+          vehicleId: activeSubForVehicle.vehicle?._id,
+          societyId: activeSubForVehicle.society?._id || activeSubForVehicle.society,
+          slotId: activeSubForVehicle.slot,
+          type: 'extension',
+          subscriptionId: activeSubForVehicle._id,
+          couponCode: appliedCoupon?.code || undefined,
+          frontendOrigin: window.location.origin,
+        })
+        setPreparedExtensionOrder({ key: keyRes.key, order: orderRes.order, amount: extensionAmount })
+      } catch (err) {
+        const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to prepare payment. Please try again.'
+        setPaymentError(errMsg)
+      } finally {
+        preparingExtensionOrderRef.current = false
+        setPreparingExtensionOrder(false)
+      }
+    })()
+  }, [extensionStep, activeSubForVehicle?._id, extensionAmount])
+
+  // Deliberately synchronous (no awaits before rzp.open()) — the order is already
+  // pre-created by the effect above, so tapping Pay opens checkout immediately as
+  // a direct response to the click, which UPI app-intent handoff depends on.
+  const handleExtensionPayment = () => {
+    if (!activeSubForVehicle) return
+    if (!preparedExtensionOrder || preparedExtensionOrder.amount !== extensionAmount) {
+      setPaymentError('Still preparing your payment — please wait a moment and tap Pay again.')
+      return
+    }
+    setPaymentError('')
 
     // Extend the subscription once a paymentId exists (Razorpay-verified or a
     // Pay-to-Cleaner record). Shared by both checkout paths.
@@ -217,96 +269,79 @@ export default function PackageSelect() {
       }
     }
 
-    try {
-      // 1. Get Razorpay key
-      const keyRes = await apiClient.get('/payment/key')
-      const razorpayKey = keyRes.key
-
-      // 2. Create Order
-      const orderRes = await apiClient.post('/payment/create-order', {
-        amount,
-        currency: 'INR',
-        packageId: activeSubForVehicle.package?._id,
-        vehicleId: activeSubForVehicle.vehicle?._id,
-        societyId: activeSubForVehicle.society?._id || activeSubForVehicle.society,
-        slotId: activeSubForVehicle.slot,
-        type: 'extension',
-        subscriptionId: activeSubForVehicle._id,
-        couponCode: appliedCoupon?.code || undefined,
-        frontendOrigin: window.location.origin,
-      })
-
-      const order = orderRes.order
-
-      // 3. Configure Razorpay options
-      const _apiBase = import.meta.env.VITE_API_URL || ''
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      const useRedirect = isMobile || _apiBase.startsWith('https://')
-
-      const getCallbackUrl = (base) => {
-        const origin = window.location.origin;
-        let cleanBase = base;
-        if (cleanBase && !cleanBase.startsWith('http')) {
-          if (!cleanBase.startsWith('/')) {
-            cleanBase = '/' + cleanBase;
-          }
-          cleanBase = origin + cleanBase;
-        }
-        if (cleanBase.endsWith('/')) {
-          cleanBase = cleanBase.slice(0, -1);
-        }
-        return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
-      }
-
-      const options = {
-        key: razorpayKey,
-        amount: order.amount,
-        currency: order.currency,
-        name: 'Cleanzo',
-        description: `Plan Extension for ${activeSubForVehicle.vehicle?.model}`,
-        order_id: order.id,
-        // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
-        // (which browsers block inside standard iframe modals).
-        ...(useRedirect ? {
-          redirect: true,
-          callback_url: getCallbackUrl(_apiBase),
-        } : {}),
-        handler: completeExtension,
-        prefill: {
-          name: activeSubForVehicle.customer?.firstName ? `${activeSubForVehicle.customer.firstName} ${activeSubForVehicle.customer.lastName || ''}` : '',
-          email: activeSubForVehicle.customer?.email || '',
-        },
-        modal: {
-          ondismiss: () => setProcessing(false)
-        },
-        // Skip Razorpay's "recommended/last-used method" shortcut screen and show
-        // every payment method (UPI, cards, netbanking, wallets) up front.
-        config: { display: { preferences: { show_default_blocks: false } } },
-      }
-
-      if (!window.Razorpay) {
-        failExtension('Payment gateway is still loading. Please wait a moment and tap Pay again.')
-        return
-      }
-      const rzp = new window.Razorpay(options)
-      rzp.on('payment.failed', function (response) {
-        failExtension(`Payment failed: ${response.error.description}`)
-      })
-      rzp.open()
-
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to initiate payment. Please try again.'
-      failExtension(errMsg)
+    if (!window.Razorpay) {
+      failExtension('Payment gateway is still loading. Please wait a moment and tap Pay again.')
+      return
     }
+
+    setProcessing(true)
+
+    const { key, order } = preparedExtensionOrder
+    const _apiBase = import.meta.env.VITE_API_URL || ''
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const useRedirect = isMobile || _apiBase.startsWith('https://')
+
+    const getCallbackUrl = (base) => {
+      const origin = window.location.origin;
+      let cleanBase = base;
+      if (cleanBase && !cleanBase.startsWith('http')) {
+        if (!cleanBase.startsWith('/')) {
+          cleanBase = '/' + cleanBase;
+        }
+        cleanBase = origin + cleanBase;
+      }
+      if (cleanBase.endsWith('/')) {
+        cleanBase = cleanBase.slice(0, -1);
+      }
+      return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
+    }
+
+    const options = {
+      key,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'Cleanzo',
+      description: `Plan Extension for ${activeSubForVehicle.vehicle?.model}`,
+      order_id: order.id,
+      // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
+      // (which browsers block inside standard iframe modals).
+      ...(useRedirect ? {
+        redirect: true,
+        callback_url: getCallbackUrl(_apiBase),
+      } : {}),
+      handler: completeExtension,
+      prefill: {
+        name: activeSubForVehicle.customer?.firstName ? `${activeSubForVehicle.customer.firstName} ${activeSubForVehicle.customer.lastName || ''}` : '',
+        email: activeSubForVehicle.customer?.email || '',
+      },
+      modal: {
+        ondismiss: () => setProcessing(false)
+      },
+      // Skip Razorpay's "recommended/last-used method" shortcut screen and show
+      // every payment method (UPI, cards, netbanking, wallets) up front.
+      config: { display: { preferences: { show_default_blocks: false } } },
+    }
+
+    const rzp = new window.Razorpay(options)
+    rzp.on('payment.failed', function (response) {
+      failExtension(`Payment failed: ${response.error.description}`)
+    })
+    rzp.open()
   }
 
   // ── Upgrade payment ─────────────────────────────────────────────────────────
-  const handleUpgradePayment = async (targetPkg) => {
+  // Deliberately synchronous (no awaits before rzp.open()) — the order is already
+  // pre-created by the effect above, so tapping Upgrade opens checkout immediately
+  // as a direct response to the click, which UPI app-intent handoff depends on.
+  const handleUpgradePayment = (targetPkg) => {
     if (!activeSubForVehicle || !targetPkg) return
     const targetPricing = getPackagePricing(targetPkg, activeSubForVehicle.vehicle, discounts)
     const amount = targetPricing.hasDiscount ? targetPricing.effectivePrice : targetPkg.price
-
-    setProcessing(true)
+    const prepared = preparedUpgradeOrders[targetPkg._id]
+    if (!prepared || prepared.amount !== amount) {
+      setPaymentError('Still preparing your payment — please wait a moment and tap Upgrade again.')
+      return
+    }
     setPaymentError('')
 
     // Apply the upgrade once a paymentId exists (Razorpay-verified or a
@@ -348,76 +383,62 @@ export default function PackageSelect() {
       }
     }
 
-    try {
-      const keyRes = await apiClient.get('/payment/key')
-      const orderRes = await apiClient.post('/payment/create-order', {
-        amount,
-        currency: 'INR',
-        packageId: targetPkg._id,
-        vehicleId: activeSubForVehicle.vehicle?._id,
-        societyId: activeSubForVehicle.society?._id || activeSubForVehicle.society,
-        slotId: activeSubForVehicle.slot,
-        type: 'upgrade',
-        subscriptionId: activeSubForVehicle._id,
-        frontendOrigin: window.location.origin,
-      })
-      const order = orderRes.order
-      const _apiBase = import.meta.env.VITE_API_URL || ''
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      const useRedirect = isMobile || _apiBase.startsWith('https://')
-
-      const getCallbackUrl = (base) => {
-        const origin = window.location.origin;
-        let cleanBase = base;
-        if (cleanBase && !cleanBase.startsWith('http')) {
-          if (!cleanBase.startsWith('/')) {
-            cleanBase = '/' + cleanBase;
-          }
-          cleanBase = origin + cleanBase;
-        }
-        if (cleanBase.endsWith('/')) {
-          cleanBase = cleanBase.slice(0, -1);
-        }
-        return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
-      }
-
-      const options = {
-        key: keyRes.key,
-        amount: order.amount,
-        currency: order.currency,
-        name: 'Cleanzo',
-        description: `Upgrade to ${targetPkg.name} for ${activeSubForVehicle.vehicle?.model}`,
-        order_id: order.id,
-        // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
-        // (which browsers block inside standard iframe modals).
-        ...(useRedirect ? {
-          redirect: true,
-          callback_url: getCallbackUrl(_apiBase),
-        } : {}),
-        handler: completeUpgrade,
-        prefill: {
-          name: activeSubForVehicle.customer?.firstName ? `${activeSubForVehicle.customer.firstName} ${activeSubForVehicle.customer.lastName || ''}` : '',
-          email: activeSubForVehicle.customer?.email || '',
-        },
-        modal: { ondismiss: () => setProcessing(false) },
-        // Skip Razorpay's "recommended/last-used method" shortcut screen and show
-        // every payment method (UPI, cards, netbanking, wallets) up front.
-        config: { display: { preferences: { show_default_blocks: false } } },
-      }
-
-      if (!window.Razorpay) {
-        failUpgrade('Payment gateway is still loading. Please wait a moment and tap Pay again.')
-        return
-      }
-      const rzp = new window.Razorpay(options)
-      rzp.on('payment.failed', function (response) {
-        failUpgrade(`Payment failed: ${response.error.description}`)
-      })
-      rzp.open()
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to initiate payment. Please try again.'
-      failUpgrade(errMsg)
+    if (!window.Razorpay) {
+      failUpgrade('Payment gateway is still loading. Please wait a moment and tap Pay again.')
+      return
     }
+
+    setProcessing(true)
+
+    const { key, order } = prepared
+    const _apiBase = import.meta.env.VITE_API_URL || ''
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const useRedirect = isMobile || _apiBase.startsWith('https://')
+
+    const getCallbackUrl = (base) => {
+      const origin = window.location.origin;
+      let cleanBase = base;
+      if (cleanBase && !cleanBase.startsWith('http')) {
+        if (!cleanBase.startsWith('/')) {
+          cleanBase = '/' + cleanBase;
+        }
+        cleanBase = origin + cleanBase;
+      }
+      if (cleanBase.endsWith('/')) {
+        cleanBase = cleanBase.slice(0, -1);
+      }
+      return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
+    }
+
+    const options = {
+      key,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'Cleanzo',
+      description: `Upgrade to ${targetPkg.name} for ${activeSubForVehicle.vehicle?.model}`,
+      order_id: order.id,
+      // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
+      // (which browsers block inside standard iframe modals).
+      ...(useRedirect ? {
+        redirect: true,
+        callback_url: getCallbackUrl(_apiBase),
+      } : {}),
+      handler: completeUpgrade,
+      prefill: {
+        name: activeSubForVehicle.customer?.firstName ? `${activeSubForVehicle.customer.firstName} ${activeSubForVehicle.customer.lastName || ''}` : '',
+        email: activeSubForVehicle.customer?.email || '',
+      },
+      modal: { ondismiss: () => setProcessing(false) },
+      // Skip Razorpay's "recommended/last-used method" shortcut screen and show
+      // every payment method (UPI, cards, netbanking, wallets) up front.
+      config: { display: { preferences: { show_default_blocks: false } } },
+    }
+
+    const rzp = new window.Razorpay(options)
+    rzp.on('payment.failed', function (response) {
+      failUpgrade(`Payment failed: ${response.error.description}`)
+    })
+    rzp.open()
   }
 
   useEffect(() => {
@@ -431,43 +452,9 @@ export default function PackageSelect() {
     }
   }, [vehicles, selectedVehicleId])
 
-
-
-  // Success/failure screens don't need any data — skip the loading skeleton
-  if (loading && extensionStep < 3) return (
-    <div className="app-shell">
-      <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
-        <div className="skeleton" style={{ width: 150, height: 24, borderRadius: 8 }} />
-      </div>
-      <div className="container" style={{ padding: '0 20px' }}>
-        <div className="flex flex-col gap-12 mt-12">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="glass" style={{ padding: 24, borderRadius: 28, marginBottom: 16 }}>
-              <div className="flex justify-between items-start mb-20">
-                <div>
-                  <div className="skeleton" style={{ width: 120, height: 22, borderRadius: 6, marginBottom: 8 }} />
-                  <div className="skeleton" style={{ width: 80, height: 12, borderRadius: 4 }} />
-                </div>
-                <div className="skeleton" style={{ width: 60, height: 24, borderRadius: 8 }} />
-              </div>
-              <div className="flex flex-col gap-10 mb-24">
-                {[1, 2, 3].map(j => (
-                  <div key={j} className="flex items-center gap-10">
-                    <div className="skeleton" style={{ width: 16, height: 16, borderRadius: 4 }} />
-                    <div className="skeleton" style={{ width: 180, height: 12, borderRadius: 4 }} />
-                  </div>
-                ))}
-              </div>
-              <div className="skeleton" style={{ height: 52, borderRadius: 18 }} />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-  
-  if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
-
+  // NOTE: the following consts/effect must stay above the loading/error early
+  // returns below — anything declared after them (including hooks) would only
+  // run once `loading` flips to false, changing the hook count between renders.
   const selectedVehicle = vehicles?.find(v => v._id === selectedVehicleId) || null
 
   const isVehicleEligibleForPackage = (vehicle, pkg) => {
@@ -503,6 +490,83 @@ export default function PackageSelect() {
     if (any) return any.trialPrice
     return settings.trialPrice || 30
   })()
+
+  // Pre-create a Razorpay order for each higher-tier plan shown on the Upgrade
+  // screen, so tapping "Upgrade for ₹X" opens checkout with zero network calls
+  // in between (same reasoning as the extension order above).
+  useEffect(() => {
+    if (!isUpgrade || !activeSubForVehicle) return
+    const currentRank = tierRank(activeSubForVehicle.package)
+    const targets = displayPackages.filter(p => tierRank(p) > currentRank)
+    targets.forEach(pkg => {
+      const pricing = getPackagePricing(pkg, activeSubForVehicle.vehicle, discounts)
+      const amount = pricing.hasDiscount ? pricing.effectivePrice : pkg.price
+      if (!amount || amount < 1) return
+      if (preparedUpgradeOrders[pkg._id]?.amount === amount) return
+      if (preparingUpgradeIdsRef.current[pkg._id]) return
+
+      preparingUpgradeIdsRef.current[pkg._id] = true
+      setPreparingUpgradeIds(prev => ({ ...prev, [pkg._id]: true }))
+      ;(async () => {
+        try {
+          const keyRes = await apiClient.get('/payment/key')
+          const orderRes = await apiClient.post('/payment/create-order', {
+            amount,
+            currency: 'INR',
+            packageId: pkg._id,
+            vehicleId: activeSubForVehicle.vehicle?._id,
+            societyId: activeSubForVehicle.society?._id || activeSubForVehicle.society,
+            slotId: activeSubForVehicle.slot,
+            type: 'upgrade',
+            subscriptionId: activeSubForVehicle._id,
+            frontendOrigin: window.location.origin,
+          })
+          setPreparedUpgradeOrders(prev => ({ ...prev, [pkg._id]: { key: keyRes.key, order: orderRes.order, amount } }))
+        } catch (err) {
+          const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to prepare payment. Please try again.'
+          setPaymentError(errMsg)
+        } finally {
+          preparingUpgradeIdsRef.current[pkg._id] = false
+          setPreparingUpgradeIds(prev => ({ ...prev, [pkg._id]: false }))
+        }
+      })()
+    })
+  }, [isUpgrade, activeSubForVehicle?._id, displayPackages, discounts])
+
+  // Success/failure screens don't need any data — skip the loading skeleton
+  if (loading && extensionStep < 3) return (
+    <div className="app-shell">
+      <div className="app-header" style={{ padding: '16px var(--margin-side)', background: 'transparent' }}>
+        <div className="skeleton" style={{ width: 150, height: 24, borderRadius: 8 }} />
+      </div>
+      <div className="container" style={{ padding: '0 20px' }}>
+        <div className="flex flex-col gap-12 mt-12">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="glass" style={{ padding: 24, borderRadius: 28, marginBottom: 16 }}>
+              <div className="flex justify-between items-start mb-20">
+                <div>
+                  <div className="skeleton" style={{ width: 120, height: 22, borderRadius: 6, marginBottom: 8 }} />
+                  <div className="skeleton" style={{ width: 80, height: 12, borderRadius: 4 }} />
+                </div>
+                <div className="skeleton" style={{ width: 60, height: 24, borderRadius: 8 }} />
+              </div>
+              <div className="flex flex-col gap-10 mb-24">
+                {[1, 2, 3].map(j => (
+                  <div key={j} className="flex items-center gap-10">
+                    <div className="skeleton" style={{ width: 16, height: 16, borderRadius: 4 }} />
+                    <div className="skeleton" style={{ width: 180, height: 12, borderRadius: 4 }} />
+                  </div>
+                ))}
+              </div>
+              <div className="skeleton" style={{ height: 52, borderRadius: 18 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+  
+  if (error) return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--error)' }}>{error}</div>
 
   // ── Upgrade view ────────────────────────────────────────────────────────────
   if (isUpgrade && activeSubForVehicle) {
@@ -589,10 +653,10 @@ export default function PackageSelect() {
                   <button
                     className={`btn btn-primary w-full ${processing ? 'is-loading' : ''}`}
                     style={{ padding: 16, borderRadius: 16, fontWeight: 800 }}
-                    disabled={processing || !razorpayReady}
+                    disabled={processing || !razorpayReady || preparingUpgradeIds[pkg._id] || preparedUpgradeOrders[pkg._id]?.amount !== pricing.effectivePrice}
                     onClick={() => handleUpgradePayment(pkg)}
                   >
-                    {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Upgrade for ₹${pricing.effectivePrice}`}
+                    {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : (preparingUpgradeIds[pkg._id] || preparedUpgradeOrders[pkg._id]?.amount !== pricing.effectivePrice) ? 'Preparing…' : `Upgrade for ₹${pricing.effectivePrice}`}
                   </button>
                 </div>
               )
@@ -816,12 +880,12 @@ export default function PackageSelect() {
             <div className="flex gap-16" style={{ marginTop: 8 }}>
               <button className="btn btn-ghost" style={{ flex: 1, borderRadius: 20, padding: 18 }} onClick={() => setExtensionStep(1)}>Back</button>
               <button
-                disabled={processing || !razorpayReady}
+                disabled={processing || !razorpayReady || preparingExtensionOrder || preparedExtensionOrder?.amount !== extensionAmount}
                 className={`btn btn-primary ${processing ? 'is-loading' : ''}`}
                 style={{ flex: 2, borderRadius: 20, fontWeight: 800, fontSize: 18, padding: 18, boxShadow: '0 0 30px rgba(var(--bg-accent-rgb), 0.25)' }}
                 onClick={handleExtensionPayment}
               >
-                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : `Pay ₹${extensionAmount}`}
+                {processing ? 'Processing…' : !razorpayReady ? 'Loading…' : (preparingExtensionOrder || preparedExtensionOrder?.amount !== extensionAmount) ? 'Preparing…' : `Pay ₹${extensionAmount}`}
               </button>
             </div>
           </div>
