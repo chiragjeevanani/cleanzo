@@ -8,6 +8,8 @@ import { useTheme } from '../../context/ThemeContext'
 import { getPackagePricing } from '../../utils/pricing'
 import { sortPackagesByTier } from '../../utils/helpers'
 import { FEATURES } from '../../config/features'
+import { isIOSStandalone, openCheckoutInSafari } from '../../utils/iosPwaPayment'
+import ExternalPaymentWaiting from '../../components/ExternalPaymentWaiting'
 
 // ─── Step labels ──────────────────────────────────────────────────────────────
 const STEPS = ['Plan', 'Slot', 'Pay']
@@ -162,6 +164,13 @@ export default function BookingFlow() {
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing]       = useState(false)
   const [paymentError, setPaymentError]   = useState('')
+
+  // iOS standalone PWA: checkout runs in a Safari tab (UPI handoff is blocked in
+  // the installed-app WebView). While that happens we show a waiting overlay and
+  // finalize the UI once the new subscription shows up on return. The baseline
+  // ref captures the active-subscription count at hand-off so we can detect it.
+  const [awaitingExternalPayment, setAwaitingExternalPayment] = useState(false)
+  const externalPayBaselineRef = useRef(null)
 
   // Order is pre-created while the user is still reviewing the summary so that
   // tapping "Pay" can call rzp.open() synchronously with zero network calls in
@@ -442,6 +451,19 @@ export default function BookingFlow() {
     })()
   }, [step, selectedPkg?._id, selectedPkg?.isTrial, selectedVehicle?._id, selectedSociety?._id, selectedSlot?.slotId, finalAmount])
 
+  // While waiting on a Safari-tab payment (iOS PWA), a new Active subscription
+  // appearing means the backend callback finalized the booking — jump to success.
+  useEffect(() => {
+    if (!awaitingExternalPayment) return
+    const baseline = externalPayBaselineRef.current
+    const activeCount = (activeSubscriptions || []).filter(s => s.status === 'Active').length
+    if (baseline != null && activeCount > baseline) {
+      setAwaitingExternalPayment(false)
+      setProcessing(false)
+      setStep(3)
+    }
+  }, [activeSubscriptions, awaitingExternalPayment])
+
   // Clear any applied coupon when the chosen plan/vehicle changes (it may no longer be valid)
   useEffect(() => {
     setAppliedCoupon(null)
@@ -590,12 +612,36 @@ export default function BookingFlow() {
       return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
     }
 
+    const prefillContact = (() => {
+      if (!user?.phone) return ''
+      const d = user.phone.replace(/\D/g, '')
+      return d.length === 10 ? `+91${d}` : user.phone.startsWith('+') ? user.phone : `+91${user.phone}`
+    })()
+    const themeColor = theme === 'light' ? '#0056B3' : '#DFFF00'
+    const description = `${selectedPkg.name} for ${selectedVehicle.model}`
+
+    // Installed iOS PWA: the WebView can't launch UPI apps, so run checkout in a
+    // real Safari tab. The backend callback finalizes the booking server-side; we
+    // just wait for the new subscription to appear on return.
+    if (isIOSStandalone()) {
+      externalPayBaselineRef.current = (activeSubscriptions || []).filter(s => s.status === 'Active').length
+      openCheckoutInSafari({
+        key, order,
+        callbackUrl: getCallbackUrl(apiBase),
+        name: 'Cleanzo', description, contact: prefillContact,
+        email: user?.email || '', color: themeColor,
+      })
+      setProcessing(false)
+      setAwaitingExternalPayment(true)
+      return
+    }
+
     const options = {
       key,
       amount: order.amount,
       currency: order.currency,
       name: 'Cleanzo',
-      description: `${selectedPkg.name} for ${selectedVehicle.model}`,
+      description,
       order_id: order.id,
       // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
       // (which browsers block inside standard iframe modals).
@@ -606,14 +652,10 @@ export default function BookingFlow() {
       handler: completeBooking,
       prefill: {
         name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',
-        contact: (() => {
-          if (!user?.phone) return ''
-          const d = user.phone.replace(/\D/g, '')
-          return d.length === 10 ? `+91${d}` : user.phone.startsWith('+') ? user.phone : `+91${user.phone}`
-        })(),
+        contact: prefillContact,
         email: user?.email || '',
       },
-      theme: { color: theme === 'light' ? '#0056B3' : '#DFFF00' },
+      theme: { color: themeColor },
       modal: { ondismiss: () => setProcessing(false) },
     }
 
@@ -665,6 +707,14 @@ export default function BookingFlow() {
 
   return (
     <div className="app-shell animate-fade-in" style={{ paddingBottom: 120 }}>
+
+      {/* ── Safari-tab payment overlay (iOS PWA) ──────────────────────────── */}
+      {awaitingExternalPayment && (
+        <ExternalPaymentWaiting
+          onRefresh={refreshAll}
+          onCancel={() => { setAwaitingExternalPayment(false); setProcessing(false) }}
+        />
+      )}
 
       {/* ── Processing overlay ────────────────────────────────────────────── */}
       {processing && (

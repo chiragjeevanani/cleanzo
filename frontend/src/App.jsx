@@ -17,6 +17,7 @@ import JoinAsCleaner from './pages/Landing/JoinAsCleaner'
 import SocietyLogin from './pages/Society/SocietyLogin'
 import SocietyApp from './pages/Society/SocietyApp'
 import OfflineDetector from './components/OfflineDetector'
+import PayBridge from './pages/PayBridge'
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -117,6 +118,9 @@ export default function App() {
               <Route path="/privacy" element={<LegalPrivacy />} />
               <Route path="/support" element={<HelpSupport />} />
               <Route path="/join-crew" element={<JoinAsCleaner />} />
+              {/* Auth-free Razorpay bridge — opened in Safari from the installed
+                  iOS PWA so UPI app handoff works. See utils/iosPwaPayment.js. */}
+              <Route path="/pay" element={<PayBridge />} />
               <Route path="/" element={<LandingPage />} />
               <Route path="/admin/login" element={<AdminLogin />} />
 

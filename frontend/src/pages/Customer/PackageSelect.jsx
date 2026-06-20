@@ -8,6 +8,8 @@ import { useAuth } from '../../context/AuthContext'
 import { getPackagePricing } from '../../utils/pricing'
 import { sortPackagesByTier, tierRank } from '../../utils/helpers'
 import { FEATURES } from '../../config/features'
+import { isIOSStandalone, openCheckoutInSafari } from '../../utils/iosPwaPayment'
+import ExternalPaymentWaiting from '../../components/ExternalPaymentWaiting'
 
 export default function PackageSelect() {
   const { packages, subscriptions, vehicles, discounts, settings, loading: dataLoading, refreshAll } = useCustomerData()
@@ -72,6 +74,14 @@ export default function PackageSelect() {
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+
+  // iOS standalone PWA: checkout runs in a Safari tab (the installed-app WebView
+  // can't launch UPI apps). We show a waiting overlay and finalize the UI once
+  // the active subscription changes (extend → new endDate, upgrade → new package).
+  // The baseline ref captures that subscription's signature at hand-off.
+  const [awaitingExternalPayment, setAwaitingExternalPayment] = useState(false)
+  const externalPayBaselineRef = useRef(null)
+  const subSignature = (sub) => sub ? `${sub.package?._id || ''}|${sub.endDate || ''}` : ''
 
   // Orders are pre-created while the user is reviewing the summary so tapping "Pay"
   // calls rzp.open() with zero network calls in between — any await before opening
@@ -145,6 +155,21 @@ export default function PackageSelect() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // While waiting on a Safari-tab payment (iOS PWA), the active subscription's
+  // signature changing (new endDate after extend, new package after upgrade)
+  // means the backend callback finalized it — dismiss the overlay and surface it.
+  useEffect(() => {
+    if (!awaitingExternalPayment) return
+    const baseline = externalPayBaselineRef.current
+    const current = subSignature(activeSubForVehicle)
+    if (baseline != null && current && current !== baseline) {
+      setAwaitingExternalPayment(false)
+      setProcessing(false)
+      navigate('/customer/subscriptions?status=success')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSubForVehicle, awaitingExternalPayment])
 
   // 5-second countdown timer for success screen redirection
   useEffect(() => {
@@ -315,12 +340,30 @@ export default function PackageSelect() {
       return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
     }
 
+    const description = `Plan Extension for ${activeSubForVehicle.vehicle?.model}`
+
+    // Installed iOS PWA: run checkout in Safari (the WebView can't launch UPI
+    // apps). The backend callback extends the plan server-side; we wait for the
+    // subscription's endDate to change on return.
+    if (isIOSStandalone()) {
+      externalPayBaselineRef.current = subSignature(activeSubForVehicle)
+      openCheckoutInSafari({
+        key, order,
+        callbackUrl: getCallbackUrl(_apiBase),
+        name: 'Cleanzo', description, contact: prefillContact,
+        email: activeSubForVehicle.customer?.email || '',
+      })
+      setProcessing(false)
+      setAwaitingExternalPayment(true)
+      return
+    }
+
     const options = {
       key,
       amount: order.amount,
       currency: order.currency,
       name: 'Cleanzo',
-      description: `Plan Extension for ${activeSubForVehicle.vehicle?.model}`,
+      description,
       order_id: order.id,
       // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
       // (which browsers block inside standard iframe modals).
@@ -434,12 +477,30 @@ export default function PackageSelect() {
       return `${cleanBase}/payment/callback?frontendOrigin=${encodeURIComponent(origin)}`;
     }
 
+    const description = `Upgrade to ${targetPkg.name} for ${activeSubForVehicle.vehicle?.model}`
+
+    // Installed iOS PWA: run checkout in Safari (the WebView can't launch UPI
+    // apps). The backend callback applies the upgrade server-side; we wait for
+    // the subscription's package to change on return.
+    if (isIOSStandalone()) {
+      externalPayBaselineRef.current = subSignature(activeSubForVehicle)
+      openCheckoutInSafari({
+        key, order,
+        callbackUrl: getCallbackUrl(_apiBase),
+        name: 'Cleanzo', description, contact: prefillContact,
+        email: activeSubForVehicle.customer?.email || '',
+      })
+      setProcessing(false)
+      setAwaitingExternalPayment(true)
+      return
+    }
+
     const options = {
       key,
       amount: order.amount,
       currency: order.currency,
       name: 'Cleanzo',
-      description: `Upgrade to ${targetPkg.name} for ${activeSubForVehicle.vehicle?.model}`,
+      description,
       order_id: order.id,
       // Use redirect mode on mobile web browsers to support UPI app handoff/deep-linking
       // (which browsers block inside standard iframe modals).
@@ -597,6 +658,12 @@ export default function PackageSelect() {
 
     return (
       <div style={{ padding: '0 20px', paddingBottom: 100 }}>
+        {awaitingExternalPayment && (
+          <ExternalPaymentWaiting
+            onRefresh={refreshAll}
+            onCancel={() => { setAwaitingExternalPayment(false); setProcessing(false) }}
+          />
+        )}
         {processing && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,10,10,0.85)', backdropFilter: 'blur(20px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 24, textAlign: 'center' }} className="animate-fade-in">
             <div style={{ width: 64, height: 64, borderRadius: '50%', border: '4px solid rgba(var(--bg-accent-rgb),0.1)', borderTop: '4px solid var(--bg-accent)', animation: 'spin 1s linear infinite' }} />
@@ -692,6 +759,12 @@ export default function PackageSelect() {
   if (extensionStep > 0) {
     return (
       <div className="animate-fade-in" style={{ padding: '0 20px', paddingBottom: 100 }}>
+        {awaitingExternalPayment && (
+          <ExternalPaymentWaiting
+            onRefresh={refreshAll}
+            onCancel={() => { setAwaitingExternalPayment(false); setProcessing(false) }}
+          />
+        )}
         {processing && (
           <div style={{
             position: 'fixed',
@@ -997,6 +1070,12 @@ export default function PackageSelect() {
 
   return (
     <div style={{ padding: '0 20px' }}>
+      {awaitingExternalPayment && (
+        <ExternalPaymentWaiting
+          onRefresh={refreshAll}
+          onCancel={() => { setAwaitingExternalPayment(false); setProcessing(false) }}
+        />
+      )}
       {processing && (
         <div style={{
           position: 'fixed',
