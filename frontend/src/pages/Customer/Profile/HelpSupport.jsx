@@ -30,10 +30,15 @@ export default function HelpSupport() {
     }
     fetchFaqs()
 
-    const cachedSupport = localStorage.getItem('cleanzo_cms_support')
-    if (cachedSupport) {
-      try { setSupport(JSON.parse(cachedSupport)) } catch (e) { console.error(e) }
+    const fetchSupport = async () => {
+      try {
+        const res = await apiClient.get('/public/support-contacts')
+        if (res.data) setSupport(res.data)
+      } catch (err) {
+        console.error('Failed to load support contacts:', err)
+      }
     }
+    fetchSupport()
   }, [])
 
   const filteredFaqs = faqs.filter(f => f.question.toLowerCase().includes(search.toLowerCase()))

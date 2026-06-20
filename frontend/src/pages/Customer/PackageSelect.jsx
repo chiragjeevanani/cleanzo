@@ -1,7 +1,7 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Check, ArrowRight, ChevronRight, Car, X, ShoppingBag, Crown, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Check, ArrowRight, ChevronRight, Car, Bike, X, ShoppingBag, Crown, RefreshCw, Clock } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { getPackagePricing } from '../../utils/pricing'
@@ -9,7 +9,7 @@ import { sortPackagesByTier, tierRank } from '../../utils/helpers'
 import { FEATURES } from '../../config/features'
 
 export default function PackageSelect() {
-  const { packages, subscriptions, vehicles, discounts, loading: dataLoading, refreshAll } = useCustomerData()
+  const { packages, subscriptions, vehicles, discounts, settings, loading: dataLoading, refreshAll } = useCustomerData()
   const navigate = useNavigate()
   const location = useLocation()
   const queryParams = new URLSearchParams(location.search)
@@ -278,7 +278,10 @@ export default function PackageSelect() {
         },
         modal: {
           ondismiss: () => setProcessing(false)
-        }
+        },
+        // Skip Razorpay's "recommended/last-used method" shortcut screen and show
+        // every payment method (UPI, cards, netbanking, wallets) up front.
+        config: { display: { preferences: { show_default_blocks: false } } },
       }
 
       if (!window.Razorpay) {
@@ -396,7 +399,10 @@ export default function PackageSelect() {
           name: activeSubForVehicle.customer?.firstName ? `${activeSubForVehicle.customer.firstName} ${activeSubForVehicle.customer.lastName || ''}` : '',
           email: activeSubForVehicle.customer?.email || '',
         },
-        modal: { ondismiss: () => setProcessing(false) }
+        modal: { ondismiss: () => setProcessing(false) },
+        // Skip Razorpay's "recommended/last-used method" shortcut screen and show
+        // every payment method (UPI, cards, netbanking, wallets) up front.
+        config: { display: { preferences: { show_default_blocks: false } } },
       }
 
       if (!window.Razorpay) {
@@ -484,6 +490,19 @@ export default function PackageSelect() {
   const displayPackages = selectedVehicle
     ? sortPackagesByTier(packages.filter(pkg => isVehicleEligibleForPackage(selectedVehicle, pkg)))
     : [];
+
+  // Trial is offered once per vehicle — a customer with several vehicles can trial
+  // each one independently, but not retake it for a vehicle that's already used it.
+  const hasUsedTrial = (subscriptions || []).some(s => s.isTrial && (s.vehicle?._id || s.vehicle) === selectedVehicleId)
+  const trialPrice = (() => {
+    if (!selectedVehicle || packages.length === 0) return settings.trialPrice || 30
+    const matched = displayPackages.filter(p => p.isActive !== false)
+    const basic = matched.find(p => (p.tier || 'BASIC').toUpperCase() === 'BASIC' && p.trialPrice != null)
+    if (basic) return basic.trialPrice
+    const any = matched.find(p => p.trialPrice != null)
+    if (any) return any.trialPrice
+    return settings.trialPrice || 30
+  })()
 
   // ── Upgrade view ────────────────────────────────────────────────────────────
   if (isUpgrade && activeSubForVehicle) {
@@ -961,6 +980,8 @@ export default function PackageSelect() {
             >
               {vehicles.map(v => {
                 const isSelected = v._id === selectedVehicleId;
+                const isTwoWheeler = ['scooty', 'bike'].includes(v.category);
+                const VehicleIcon = isTwoWheeler ? Bike : Car;
                 return (
                   <button
                     key={v._id}
@@ -986,7 +1007,7 @@ export default function PackageSelect() {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                      <Car size={16} className={isSelected ? 'text-lime' : 'text-secondary'} />
+                      <VehicleIcon size={16} className={isSelected ? 'text-lime' : 'text-secondary'} />
                       {isSelected && (
                         <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--bg-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Check size={10} color="var(--text-on-accent)" strokeWidth={4} />
@@ -1085,6 +1106,39 @@ export default function PackageSelect() {
               <p className="text-body-sm text-secondary">There are no active packages matching your selected vehicle ({selectedVehicle?.brand} {selectedVehicle?.model}).</p>
             </div>
           </div>
+        )}
+
+        {!activeSubForVehicle && !hasUsedTrial && selectedVehicle && (
+          <Link
+            to={`/customer/booking?vehicleId=${selectedVehicleId}&trial=true`}
+            className="glass animate-fade-in"
+            style={{
+              padding: 24,
+              display: 'block',
+              marginBottom: 16,
+              border: '1px dashed var(--bg-accent)',
+            }}
+          >
+            <div className="flex justify-between items-start" style={{ marginBottom: 20 }}>
+              <div>
+                <div className="flex items-center gap-8 mb-4">
+                  <Clock size={18} color="var(--text-accent)" />
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>1-Day Trial</h2>
+                  <span className="chip chip-lime" style={{ fontSize: 9 }}>NO COMMITMENT</span>
+                </div>
+                <div className="text-label text-tertiary" style={{ fontSize: 10 }}>Try Cleanzo once before you subscribe</div>
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-accent)' }}>₹{trialPrice}</div>
+                <div className="text-body-sm text-secondary">one-time</div>
+              </div>
+            </div>
+
+            <button className="btn btn-primary w-full py-16 rounded-2xl shadow-lg shadow-primary/10">
+              Try It Out
+            </button>
+          </Link>
         )}
 
         {!activeSubForVehicle && displayPackages.map(pkg => {

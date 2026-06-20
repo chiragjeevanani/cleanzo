@@ -8,6 +8,7 @@ import * as publicCtrl from '../controllers/public.controller.js';
 import { logActivity } from '../controllers/admin.controller.js';
 import { cacheMiddleware } from '../middleware/cache.js';
 import { publicApiLimiter } from '../middleware/rateLimiter.js';
+import { DEFAULT_TERMS, DEFAULT_PRIVACY } from '../utils/legalDefaults.js';
 
 const router = Router();
 
@@ -177,6 +178,29 @@ router.get('/trusted-societies', cacheMiddleware(300), asyncHandler(async (req, 
   const { default: Settings } = await import('../models/Settings.js');
   const setting = await Settings.findOne({ key: 'trustedSocieties' });
   const defaultData = { heading: 'TRUSTED BY RESIDENTS OF', items: [] };
+  res.json({ success: true, data: setting ? setting.value : defaultData });
+}));
+
+// Legal Content: Terms of Service / Privacy Policy (public)
+router.get('/legal/:type', cacheMiddleware(300), asyncHandler(async (req, res) => {
+  const { type } = req.params;
+  const defaults = { terms: DEFAULT_TERMS, privacy: DEFAULT_PRIVACY };
+  if (!defaults[type]) throw new ApiError(400, 'Invalid legal content type');
+  const { default: Settings } = await import('../models/Settings.js');
+  const setting = await Settings.findOne({ key: `legal_${type}` });
+  res.json({ success: true, data: setting ? setting.value : defaults[type] });
+}));
+
+// Support Contacts (public)
+router.get('/support-contacts', cacheMiddleware(300), asyncHandler(async (req, res) => {
+  const { default: Settings } = await import('../models/Settings.js');
+  const setting = await Settings.findOne({ key: 'supportContacts' });
+  const defaultData = {
+    whatsapp: '919555860362',
+    phone: '+919555860362',
+    email: 'hello@trycleanzo.com',
+    address: 'Flat no 1603, Tower C1, Redicon Vedantam, noida, IN'
+  };
   res.json({ success: true, data: setting ? setting.value : defaultData });
 }));
 

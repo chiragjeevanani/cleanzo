@@ -48,6 +48,14 @@ export default function AdminCMS() {
   const [loadingSocieties, setLoadingSocieties] = useState(false)
   const [savingSocieties, setSavingSocieties] = useState(false)
 
+  const [loadingSupport, setLoadingSupport] = useState(false)
+  const [savingSupport, setSavingSupport] = useState(false)
+
+  const [loadingTerms, setLoadingTerms] = useState(false)
+  const [savingTerms, setSavingTerms] = useState(false)
+  const [loadingPrivacy, setLoadingPrivacy] = useState(false)
+  const [savingPrivacy, setSavingPrivacy] = useState(false)
+
   // --- Banners State ---
   const [banners, setBanners] = useState([])
   const [loadingBanners, setLoadingBanners] = useState(true)
@@ -57,23 +65,20 @@ export default function AdminCMS() {
   const [showPreview, setShowPreview] = useState(false)
   const fileInputRef = useRef(null)
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const cachedTerms = localStorage.getItem('cleanzo_cms_terms')
-    if (cachedTerms) {
-      try { setTermsData(JSON.parse(cachedTerms)) } catch (e) { console.error(e) }
+  // Legal Content (Terms / Privacy) Fetch & Save
+  const fetchLegalContent = async (type) => {
+    const setLoading = type === 'terms' ? setLoadingTerms : setLoadingPrivacy
+    const setData = type === 'terms' ? setTermsData : setPrivacyData
+    setLoading(true)
+    try {
+      const res = await apiClient.get(`/admin/legal/${type}`)
+      setData(res.data)
+    } catch (err) {
+      console.error(`Failed to fetch ${type} content:`, err)
+    } finally {
+      setLoading(false)
     }
-
-    const cachedPrivacy = localStorage.getItem('cleanzo_cms_privacy')
-    if (cachedPrivacy) {
-      try { setPrivacyData(JSON.parse(cachedPrivacy)) } catch (e) { console.error(e) }
-    }
-
-    const cachedSupport = localStorage.getItem('cleanzo_cms_support')
-    if (cachedSupport) {
-      try { setSupportData(JSON.parse(cachedSupport)) } catch (e) { console.error(e) }
-    }
-  }, [])
+  }
 
   // Dynamic Banners Fetch
   const fetchBanners = async () => {
@@ -84,6 +89,19 @@ export default function AdminCMS() {
       console.error('Failed to fetch banners:', err)
     } finally {
       setLoadingBanners(false)
+    }
+  }
+
+  // Support Contacts Fetch & Save
+  const fetchSupportContacts = async () => {
+    setLoadingSupport(true)
+    try {
+      const res = await apiClient.get('/admin/support-contacts')
+      setSupportData(res.data)
+    } catch (err) {
+      console.error('Failed to fetch support contacts:', err)
+    } finally {
+      setLoadingSupport(false)
     }
   }
 
@@ -134,6 +152,15 @@ export default function AdminCMS() {
     }
     if (activeTab === 'societies') {
       fetchSocieties()
+    }
+    if (activeTab === 'support') {
+      fetchSupportContacts()
+    }
+    if (activeTab === 'terms') {
+      fetchLegalContent('terms')
+    }
+    if (activeTab === 'privacy') {
+      fetchLegalContent('privacy')
     }
   }, [activeTab])
 
@@ -207,17 +234,31 @@ export default function AdminCMS() {
   }
 
   // --- Save Handlers ---
-  const saveTerms = () => {
-    localStorage.setItem('cleanzo_cms_terms', JSON.stringify(termsData))
-    showToast('Terms of Service saved and updated!', 'success')
+  const saveTerms = async () => {
+    setSavingTerms(true)
+    try {
+      await apiClient.put('/admin/legal/terms', termsData)
+      showToast('Terms of Service saved! Changes are now live on the website.', 'success')
+    } catch (err) {
+      showToast(err?.message || 'Failed to save Terms of Service', 'error')
+    } finally {
+      setSavingTerms(false)
+    }
   }
 
-  const savePrivacy = () => {
-    localStorage.setItem('cleanzo_cms_privacy', JSON.stringify(privacyData))
-    showToast('Privacy Policy saved and updated!', 'success')
+  const savePrivacy = async () => {
+    setSavingPrivacy(true)
+    try {
+      await apiClient.put('/admin/legal/privacy', privacyData)
+      showToast('Privacy Policy saved! Changes are now live on the website.', 'success')
+    } catch (err) {
+      showToast(err?.message || 'Failed to save Privacy Policy', 'error')
+    } finally {
+      setSavingPrivacy(false)
+    }
   }
 
-  const saveSupport = () => {
+  const saveSupport = async () => {
     if (supportData.phone.length !== 10) {
       showToast('Call number must be exactly 10 digits', 'error')
       return
@@ -236,8 +277,15 @@ export default function AdminCMS() {
       showToast('Address cannot consist of only special characters', 'error')
       return
     }
-    localStorage.setItem('cleanzo_cms_support', JSON.stringify(supportData))
-    showToast('Support contact details saved and updated!', 'success')
+    setSavingSupport(true)
+    try {
+      await apiClient.put('/admin/support-contacts', supportData)
+      showToast('Support contact details saved! Changes are now live on the website.', 'success')
+    } catch (err) {
+      showToast(err?.message || 'Failed to save support contacts', 'error')
+    } finally {
+      setSavingSupport(false)
+    }
   }
 
 
@@ -296,8 +344,9 @@ export default function AdminCMS() {
           <div>
             <div className="flex justify-between items-center" style={{ marginBottom: 24 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Manage Terms of Service</h3>
-              <button onClick={saveTerms} className="btn btn-primary btn-sm flex items-center gap-8">
-                <Save size={14} /> Save Terms
+              <button onClick={saveTerms} disabled={savingTerms || loadingTerms} className="btn btn-primary btn-sm flex items-center gap-8">
+                {savingTerms ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {savingTerms ? 'Saving...' : 'Save Terms'}
               </button>
             </div>
 
@@ -384,8 +433,9 @@ export default function AdminCMS() {
                   Content shown on the public Privacy Policy page linked in the website footer.
                 </p>
               </div>
-              <button onClick={savePrivacy} className="btn btn-primary btn-sm flex items-center gap-8">
-                <Save size={14} /> Save Privacy Policy
+              <button onClick={savePrivacy} disabled={savingPrivacy || loadingPrivacy} className="btn btn-primary btn-sm flex items-center gap-8">
+                {savingPrivacy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {savingPrivacy ? 'Saving...' : 'Save Privacy Policy'}
               </button>
             </div>
 
@@ -467,8 +517,9 @@ export default function AdminCMS() {
                   Contact channels shown on the public Support page linked in the website footer.
                 </p>
               </div>
-              <button onClick={saveSupport} className="btn btn-primary btn-sm flex items-center gap-8">
-                <Save size={14} /> Save Support
+              <button onClick={saveSupport} disabled={savingSupport || loadingSupport} className="btn btn-primary btn-sm flex items-center gap-8">
+                {savingSupport ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {savingSupport ? 'Saving...' : 'Save Support'}
               </button>
             </div>
 

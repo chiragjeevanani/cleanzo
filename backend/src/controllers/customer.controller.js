@@ -435,6 +435,13 @@ export const createSubscription = asyncHandler(async (req, res) => {
   const existing = await Subscription.findOne({ customer: req.user._id, vehicle: vehicleId, status: 'Active' });
   if (existing) throw new ApiError(409, 'An active subscription already exists for this vehicle');
 
+  // The 1-day trial is offered once per vehicle (a customer with multiple vehicles
+  // can trial each one independently, but not retake it for the same vehicle).
+  if (isTrial) {
+    const trialUsed = await Subscription.findOne({ vehicle: vehicleId, isTrial: true });
+    if (trialUsed) throw new ApiError(409, 'This vehicle has already used its free trial');
+  }
+
   const society = await Society.findById(societyId);
   if (!society || !society.isActive) throw new ApiError(404, 'Society not found or inactive');
 

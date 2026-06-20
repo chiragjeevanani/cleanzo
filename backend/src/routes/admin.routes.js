@@ -168,6 +168,14 @@ router.put('/payout-requests/:id', ctrl.processPayoutRequest);
 router.get('/trusted-societies', ctrl.getTrustedSocieties);
 router.put('/trusted-societies', ctrl.updateTrustedSocieties);
 
+// Support Contacts CMS
+router.get('/support-contacts', ctrl.getSupportContacts);
+router.put('/support-contacts', ctrl.updateSupportContacts);
+
+// Legal Content CMS (Terms of Service / Privacy Policy)
+router.get('/legal/:type', ctrl.getLegalContent);
+router.put('/legal/:type', ctrl.updateLegalContent);
+
 export default router;
 
 

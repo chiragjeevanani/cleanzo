@@ -6,7 +6,7 @@ import Society from '../models/Society.js';
 import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { uploadBufferToCloudinary } from '../services/cloudinary.service.js';
-import { getISTMidnight } from '../utils/dateHelper.js';
+import { getISTMidnight, parseTimeToMinutes } from '../utils/dateHelper.js';
 import { syncCleanerStats } from '../utils/cleanerStats.js';
 import Customer from '../models/Customer.js';
 import Admin from '../models/Admin.js';
@@ -97,10 +97,10 @@ export const getTodayTasks = asyncHandler(async (req, res) => {
     cleaner: req.user._id,
     date: { $gte: today, $lt: tomorrow },
   })
+    .select('-packageName')
     .populate('vehicle', 'model number parking color')
     .populate('customer', 'firstName lastName phone')
-    .populate('subscription', 'package')
-    .sort('scheduledTime')
+    .populate({ path: 'subscription', select: 'society', populate: { path: 'society', select: 'name' } })
     .lean();
 
   // Deduplicate by vehicle — if two tasks exist for the same vehicle on the same
@@ -117,15 +117,20 @@ export const getTodayTasks = asyncHandler(async (req, res) => {
       vehicleMap.set(vehicleId, t);
     }
   }
-  const tasks = [...vehicleMap.values()];
+  // Earliest scheduled task first, so the cleaner's next job is always on top.
+  const tasks = [...vehicleMap.values()].sort(
+    (a, b) => parseTimeToMinutes(a.scheduledTime) - parseTimeToMinutes(b.scheduledTime)
+  );
 
   res.json({ success: true, tasks });
 });
 
 export const getTaskById = asyncHandler(async (req, res) => {
   const task = await Task.findOne({ _id: req.params.id, cleaner: req.user._id })
+    .select('-packageName')
     .populate('vehicle', 'model number parking color type')
-    .populate('customer', 'firstName lastName phone addresses');
+    .populate('customer', 'firstName lastName phone addresses')
+    .populate({ path: 'subscription', select: 'society', populate: { path: 'society', select: 'name' } });
   if (!task) throw new ApiError(404, 'Task not found');
   res.json({ success: true, task });
 });
@@ -388,11 +393,15 @@ export const getAttendance = asyncHandler(async (req, res) => {
 export const getEarnings = asyncHandler(async (req, res) => {
   const { default: Attendance } = await import('../models/Attendance.js');
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  
+  const year = parseInt(req.query.year) || now.getFullYear();
+  const month = parseInt(req.query.month); // 0-indexed
+  const targetMonth = (!isNaN(month) && month >= 0 && month <= 11) ? month : now.getMonth();
+  const start = new Date(year, targetMonth, 1);
+  const end = new Date(year, targetMonth + 1, 0, 23, 59, 59, 999);
+
   const presentDays = await Attendance.countDocuments({
     cleaner: req.user._id,
-    date: { $gte: start },
+    date: { $gte: start, $lte: end },
     status: 'present'
   });
 
@@ -403,10 +412,12 @@ export const getEarnings = asyncHandler(async (req, res) => {
   const dailyRate = (cleaner.dailyRate !== undefined && cleaner.dailyRate !== null) ? cleaner.dailyRate : globalRate;
   const totalEarnings = presentDays * dailyRate;
 
-  res.json({ 
-    success: true, 
-    presentDays, 
-    dailyRate, 
+  res.json({
+    success: true,
+    year,
+    month: targetMonth,
+    presentDays,
+    dailyRate,
     totalEarnings,
     currency: 'INR'
   });

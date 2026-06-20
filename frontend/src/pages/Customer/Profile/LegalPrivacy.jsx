@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import apiClient from '../../../services/apiClient'
 
 export default function PrivacyPolicy() {
   const navigate = useNavigate()
@@ -16,14 +17,15 @@ export default function PrivacyPolicy() {
   })
 
   useEffect(() => {
-    const cached = localStorage.getItem('cleanzo_cms_privacy')
-    if (cached) {
+    const fetchPrivacy = async () => {
       try {
-        setPrivacyData(JSON.parse(cached))
-      } catch (e) {
-        console.error(e)
+        const res = await apiClient.get('/public/legal/privacy')
+        if (res.data) setPrivacyData(res.data)
+      } catch (err) {
+        console.error('Failed to load Privacy Policy:', err)
       }
     }
+    fetchPrivacy()
   }, [])
 
   return (

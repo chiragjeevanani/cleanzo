@@ -29,3 +29,18 @@ export const getISTMidnight = (date = new Date()) => {
   
   return new Date(Date.UTC(year, month, day));
 };
+
+/**
+ * Converts a "hh:mm AM/PM" string (e.g. "07:00 AM", "12:30 PM") into minutes
+ * since midnight, so tasks can be sorted chronologically rather than by raw
+ * string comparison (which breaks once both AM and PM times are present).
+ * Unparseable values sort last.
+ */
+export const parseTimeToMinutes = (timeStr) => {
+  if (!timeStr) return Infinity;
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return Infinity;
+  let hours = parseInt(match[1], 10) % 12;
+  if (match[3].toUpperCase() === 'PM') hours += 12;
+  return hours * 60 + parseInt(match[2], 10);
+};

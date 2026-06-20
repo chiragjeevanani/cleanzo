@@ -372,6 +372,11 @@ export const getMe = asyncHandler(async (req, res) => {
     const updatedUser = await Cleaner.findById(req.user._id);
     res.json({ success: true, user: updatedUser, role: req.userRole });
   } else {
+    if (req.userRole === 'customer') {
+      // Populate so the booking flow can reliably default to the customer's
+      // registered society without re-resolving a raw ObjectId on the client.
+      await req.user.populate('addresses.society', 'name city area');
+    }
     res.json({ success: true, user: req.user, role: req.userRole });
   }
 });

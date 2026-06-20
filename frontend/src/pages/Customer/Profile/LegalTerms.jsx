@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import apiClient from '../../../services/apiClient'
 
 export default function TermsOfService() {
   const navigate = useNavigate()
@@ -17,14 +18,15 @@ export default function TermsOfService() {
   })
 
   useEffect(() => {
-    const cached = localStorage.getItem('cleanzo_cms_terms')
-    if (cached) {
+    const fetchTerms = async () => {
       try {
-        setTermsData(JSON.parse(cached))
-      } catch (e) {
-        console.error(e)
+        const res = await apiClient.get('/public/legal/terms')
+        if (res.data) setTermsData(res.data)
+      } catch (err) {
+        console.error('Failed to load Terms of Service:', err)
       }
     }
+    fetchTerms()
   }, [])
   
   return (

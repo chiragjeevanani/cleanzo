@@ -39,7 +39,7 @@ export default function PhotoUpload() {
       if (notes.trim()) formData.append('notes', notes.trim())
 
       await apiClient.uploadForm(`/cleaner/tasks/${taskId}/photo`, formData)
-      navigate(`/cleaner/tasks/${taskId}`)
+      navigate(`/cleaner/tasks/${taskId}`, { replace: true })
     } catch (err) {
       setUploadError('Photo upload failed. Please try again.')
     } finally {

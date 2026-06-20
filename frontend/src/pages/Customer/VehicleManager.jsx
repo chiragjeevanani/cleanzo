@@ -1,12 +1,69 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Plus, Car, ChevronDown, X, Camera,
-  ImageIcon, Pencil, Trash2, Loader2, FlipHorizontal,
+  ArrowLeft, Plus, Car, X, Search,
+  ImageIcon, Pencil, Trash2, Loader2,
 } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 import { useCustomerData } from '../../context/CustomerDataContext'
+
+// Searchable text input + filtered dropdown list, used for Brand and Model
+// pickers below (replaces a plain <select> so long brand/model lists are
+// findable by typing instead of scrolling).
+function SearchableSelect({ label, required, placeholder, query, onQueryChange, options, onSelect, disabled, show, setShow, emptyText, confirmedValue }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>
+        {label} {required && <span style={{ color: 'var(--error)' }}>*</span>}
+      </label>
+      <div style={{ position: 'relative' }}>
+        <Search size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', opacity: 0.4, pointerEvents: 'none' }} />
+        <input
+          className="input-field"
+          style={{ paddingLeft: 38, paddingRight: 32, opacity: disabled ? 0.6 : 1, cursor: disabled ? 'not-allowed' : 'text' }}
+          placeholder={placeholder}
+          value={query}
+          disabled={disabled}
+          onFocus={() => setShow(true)}
+          onChange={e => { onQueryChange(e.target.value); setShow(true) }}
+          onBlur={() => setTimeout(() => {
+            setShow(false)
+            // Revert to the last confirmed selection if the user typed but never picked an option.
+            if (query !== confirmedValue) onQueryChange(confirmedValue || '')
+          }, 150)}
+        />
+        {query && !disabled && (
+          <button
+            type="button"
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => onSelect('')}
+            style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex' }}
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+      {show && !disabled && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, maxHeight: 220, overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-glass)', borderRadius: 12, zIndex: 20, boxShadow: '0 8px 24px rgba(0,0,0,0.35)' }}>
+          {options.length === 0 ? (
+            <div style={{ padding: '12px 16px', color: 'var(--text-tertiary)', fontSize: 13 }}>{emptyText}</div>
+          ) : options.map(opt => (
+            <div
+              key={opt}
+              className="search-option"
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => onSelect(opt)}
+              style={{ padding: '10px 16px', cursor: 'pointer', fontSize: 14 }}
+            >
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const EMPTY_FORM = {
   brand: '', model: '', number: '', flatNumber: '',
@@ -54,16 +111,11 @@ export default function VehicleManager() {
   const [compressing, setCompressing]   = useState(false)
   const [error, setError]               = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [brandQuery, setBrandQuery]       = useState('')
+  const [modelQuery, setModelQuery]       = useState('')
+  const [showBrandDropdown, setShowBrandDropdown] = useState(false)
+  const [showModelDropdown, setShowModelDropdown] = useState(false)
   const [loadingBrands, setLoadingBrands] = useState(true)
-  const [showPhotoPicker, setShowPhotoPicker] = useState(false)
-
-  // ── In-app camera state ────────────────────────────────────────────────────
-  const [showCamera, setShowCamera]     = useState(false)
-  const [cameraReady, setCameraReady]   = useState(false)
-  const [capturing, setCapturing]       = useState(false)
-  const [facingMode, setFacingMode]     = useState('environment')
-  const videoRef  = useRef(null)
-  const streamRef = useRef(null)
 
   const galleryInputRef = useRef(null)
 
@@ -73,107 +125,6 @@ export default function VehicleManager() {
     try { const res = await apiClient.get('/public/brands'); setBrandsList(res.brands || []) }
     catch (err) { console.error('Failed to load brands:', err) }
     finally { setLoadingBrands(false) }
-  }
-
-  // ── Camera helpers ────────────────────────────────────────────────────────
-  const startStream = useCallback(async (mode) => {
-    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false,
-    })
-    streamRef.current = stream
-    if (videoRef.current) { videoRef.current.srcObject = stream }
-  }, [])
-
-  const stopStream = useCallback(() => {
-    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
-  }, [])
-
-  const openCamera = async () => {
-    setShowPhotoPicker(false)
-    if (!navigator.mediaDevices?.getUserMedia) {
-      // Browser doesn't support getUserMedia — fall back to file input
-      setTimeout(() => galleryInputRef.current?.click(), 300)
-      showToast('ℹ️ Using system camera as fallback', 'info', 2500)
-      return
-    }
-    setShowCamera(true)
-    setCameraReady(false)
-    try {
-      await startStream(facingMode)
-    } catch (err) {
-      stopStream()
-      setShowCamera(false)
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        showToast('📷 Camera access denied. Enable it in your browser settings.', 'error', 4000)
-      } else {
-        showToast('📷 Could not open camera', 'error', 3000)
-      }
-    }
-  }
-
-  const closeCamera = () => { stopStream(); setShowCamera(false); setCameraReady(false) }
-
-  const flipCamera = async () => {
-    const next = facingMode === 'environment' ? 'user' : 'environment'
-    setFacingMode(next)
-    setCameraReady(false)
-    try { await startStream(next) } catch { showToast('Could not switch camera', 'error', 2000) }
-  }
-
-  // Capture frame from video → compress → add to form
-  const capturePhoto = async () => {
-    const video = videoRef.current
-    if (!video || !cameraReady) return
-    setCapturing(true)
-
-    const canvas = document.createElement('canvas')
-    canvas.width  = video.videoWidth
-    canvas.height = video.videoHeight
-    canvas.getContext('2d').drawImage(video, 0, 0)
-
-    canvas.toBlob(async (blob) => {
-      if (!blob) { setCapturing(false); showToast('Failed to capture photo', 'error', 3000); return }
-
-      closeCamera()
-
-      const rawFile = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' })
-      const startIdx = form.photos.length
-
-      // Immediate preview from raw capture
-      const rawUrl = URL.createObjectURL(rawFile)
-      setImagePreviews(prev => [...prev, rawUrl])
-      setForm(prev => ({ ...prev, photos: [...prev.photos, rawFile] }))
-      setCapturing(false)
-
-      // Compress in background
-      setCompressing(true)
-      const toastId = showToast('🔄 Optimising captured photo…', 'info', 0)
-      try {
-        const compressed = await compressImage(rawFile)
-        const compressedUrl = URL.createObjectURL(compressed)
-
-        setForm(prev => {
-          const photos = [...prev.photos]
-          photos[startIdx] = compressed
-          return { ...prev, photos }
-        })
-        setImagePreviews(prev => {
-          const next = [...prev]
-          URL.revokeObjectURL(rawUrl)
-          next[startIdx] = compressedUrl
-          return next
-        })
-        dismissToast(toastId)
-        showToast('✅ Photo optimised & ready', 'success', 2500)
-      } catch {
-        dismissToast(toastId)
-        showToast('✅ Photo captured', 'success', 2000)
-      } finally {
-        setCompressing(false)
-      }
-    }, 'image/jpeg', 0.95)
   }
 
   // ── Gallery file handler ──────────────────────────────────────────────────
@@ -235,10 +186,17 @@ export default function VehicleManager() {
     const b = brandsList.find(b => b.name === brandName)
     setForm(prev => ({ ...prev, brand: brandName, model: '' }))
     setModelsList(b ? b.models : [])
+    setBrandQuery(brandName); setModelQuery(''); setShowBrandDropdown(false)
+  }
+
+  const handleModelChange = (modelName) => {
+    setForm(prev => ({ ...prev, model: modelName }))
+    setModelQuery(modelName); setShowModelDropdown(false)
   }
 
   const handleToggleAdd = () => {
     setEditVehicle(null); setForm(EMPTY_FORM); setModelsList([])
+    setBrandQuery(''); setModelQuery('')
     setImagePreviews([]); setAdding(!adding); setError('')
   }
 
@@ -248,6 +206,7 @@ export default function VehicleManager() {
       blockTower: v.blockTower||'', slotPillar: v.slotPillar||'', category: v.category||'sedan', color: v.color||'', photos: [] })
     const b = brandsList.find(b => b.name === v.brand)
     setModelsList(b ? b.models : [])
+    setBrandQuery(v.brand||''); setModelQuery(v.model||'')
     setImagePreviews([]); setAdding(true); setError('')
   }
 
@@ -267,9 +226,6 @@ export default function VehicleManager() {
     }
     if (form.color.trim().length < 2) {
       setError('Color must be at least 2 characters'); return
-    }
-    if (!editVehicle && form.photos.length === 0) {
-      setError('Please upload at least 1 photo of the vehicle'); return
     }
     setSubmitting(true); setError('')
     const uploadingId = showToast(
@@ -333,11 +289,12 @@ export default function VehicleManager() {
     </div>
   )
 
-  const selectStyle = { width: '100%', boxSizing: 'border-box', appearance: 'none', cursor: 'pointer', paddingRight: 36 }
-
   // While a vehicle has an active subscription its identity (brand/model/number) is locked.
   const editLocked = !!editVehicle && (subscriptions || []).some(s => s.vehicle?._id === editVehicle._id && s.status === 'Active')
   const lockedStyle = { opacity: 0.6, cursor: 'not-allowed' }
+
+  const filteredBrands = brandsList.filter(b => b.name.toLowerCase().includes(brandQuery.toLowerCase())).map(b => b.name)
+  const filteredModels = modelsList.filter(m => m.toLowerCase().includes(modelQuery.toLowerCase()))
 
   return (
     <div style={{ padding: '0 20px' }}>
@@ -375,23 +332,35 @@ export default function VehicleManager() {
               </div>
             )}
 
-            <div style={{ position: 'relative' }}>
-              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Brand <span style={{ color: 'var(--error)' }}>*</span></label>
-              <select className="input-field" style={{ ...selectStyle, ...(editLocked ? lockedStyle : {}) }} value={form.brand} disabled={editLocked} onChange={e => handleBrandChange(e.target.value)}>
-                <option value="" disabled>Select Brand</option>
-                {brandsList.map(b => <option key={b._id} value={b.name}>{b.name}</option>)}
-              </select>
-              <ChevronDown size={16} style={{ position: 'absolute', right: 14, bottom: 14, opacity: 0.4, pointerEvents: 'none' }} />
-            </div>
+            <SearchableSelect
+              label="Brand"
+              required
+              placeholder="Search brand…"
+              query={brandQuery}
+              onQueryChange={setBrandQuery}
+              options={filteredBrands}
+              onSelect={handleBrandChange}
+              disabled={editLocked}
+              show={showBrandDropdown}
+              setShow={setShowBrandDropdown}
+              emptyText="No matching brands"
+              confirmedValue={form.brand}
+            />
 
-            <div style={{ position: 'relative' }}>
-              <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Model <span style={{ color: 'var(--error)' }}>*</span></label>
-              <select className="input-field" style={{ ...selectStyle, ...(editLocked ? lockedStyle : {}) }} value={form.model} disabled={editLocked || !form.brand} onChange={e => setForm({ ...form, model: e.target.value })}>
-                <option value="" disabled>Select Model</option>
-                {modelsList.map((m, i) => <option key={i} value={m}>{m}</option>)}
-              </select>
-              <ChevronDown size={16} style={{ position: 'absolute', right: 14, bottom: 14, opacity: 0.4, pointerEvents: 'none' }} />
-            </div>
+            <SearchableSelect
+              label="Model"
+              required
+              placeholder={form.brand ? 'Search model…' : 'Select a brand first'}
+              query={modelQuery}
+              onQueryChange={setModelQuery}
+              options={filteredModels}
+              onSelect={handleModelChange}
+              disabled={editLocked || !form.brand}
+              show={showModelDropdown}
+              setShow={setShowModelDropdown}
+              emptyText="No matching models"
+              confirmedValue={form.model}
+            />
 
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Number Plate <span style={{ color: 'var(--error)' }}>*</span></label>
@@ -409,8 +378,8 @@ export default function VehicleManager() {
                 <input className="input-field" placeholder="e.g. Tower A" value={form.blockTower} onChange={e => setForm({ ...form, blockTower: e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '') })} />
               </div>
               <div style={{ flex: 1 }}>
-                <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Slot / Pillar</label>
-                <input className="input-field" placeholder="Slot 42" value={form.slotPillar} onChange={e => setForm({ ...form, slotPillar: e.target.value })} />
+                <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 6 }}>Parking Location</label>
+                <input className="input-field" placeholder="e.g. Near Gate 2" value={form.slotPillar} onChange={e => setForm({ ...form, slotPillar: e.target.value })} />
               </div>
             </div>
 
@@ -434,7 +403,7 @@ export default function VehicleManager() {
             {/* Photo grid + add button */}
             <div>
               <label className="text-label text-secondary" style={{ display: 'block', marginBottom: 8 }}>
-                {editVehicle ? 'Replace Photos (Optional)' : 'Vehicle Photos (Min 1, Max 5) *'}
+                {editVehicle ? 'Replace Photos (Optional)' : 'Vehicle Photos (Optional, Max 5)'}
               </label>
               <div className="flex gap-12 flex-wrap">
                 {imagePreviews.map((url, i) => (
@@ -449,24 +418,23 @@ export default function VehicleManager() {
                 {form.photos.length < 5 && (
                   <button
                     type="button"
-                    onClick={() => setShowPhotoPicker(true)}
+                    onClick={() => galleryInputRef.current?.click()}
                     disabled={compressing}
                     style={{ width: 80, height: 80, borderRadius: 12, border: '1.5px dashed var(--primary-blue)', background: 'rgba(0,102,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: compressing ? 'default' : 'pointer', color: 'var(--primary-blue)', flexShrink: 0 }}
                   >
-                    {compressing ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
+                    {compressing ? <Loader2 size={20} className="animate-spin" /> : <ImageIcon size={20} />}
                     <span style={{ fontSize: 10, fontWeight: 600 }}>{compressing ? 'Processing' : 'Add'}</span>
                   </button>
                 )}
               </div>
 
-              {/* Gallery-only hidden input (camera uses getUserMedia now) */}
               <input type="file" accept="image/*" multiple ref={galleryInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
             </div>
 
             <button
               className="btn btn-blue w-full"
               onClick={saveVehicle}
-              disabled={submitting || compressing || !form.brand || !form.model || !form.number || !form.flatNumber || !form.blockTower || !form.color || (!editVehicle && form.photos.length === 0)}
+              disabled={submitting || compressing || !form.brand || !form.model || !form.number || !form.flatNumber || !form.blockTower || !form.color}
             >
               {submitting ? 'Saving…' : editVehicle ? 'Update Vehicle' : 'Save Vehicle'}
             </button>
@@ -525,100 +493,6 @@ export default function VehicleManager() {
           );
         })}
       </div>
-
-      {/* ── Photo source picker sheet ──────────────────────────────────────── */}
-      {showPhotoPicker && (
-        <div onClick={() => setShowPhotoPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end' }}>
-          <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--bg-elevated)', borderRadius: '24px 24px 0 0', padding: '12px 24px 48px', boxShadow: '0 -8px 40px rgba(0,0,0,0.4)' }}>
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.15)', margin: '0 auto 24px' }} />
-            <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 16 }}>Add Vehicle Photo</p>
-
-            <button
-              onClick={openCamera}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 16, padding: '16px 0', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: 'var(--text-primary)' }}
-            >
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(0,122,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Camera size={24} style={{ color: '#007AFF' }} />
-              </div>
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>Camera</div>
-                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>Live viewfinder — capture right now</div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => { setShowPhotoPicker(false); setTimeout(() => galleryInputRef.current?.click(), 300) }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 16, padding: '16px 0', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)' }}
-            >
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(52,199,89,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <ImageIcon size={24} style={{ color: '#34C759' }} />
-              </div>
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>Gallery</div>
-                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>Choose from your saved photos</div>
-              </div>
-            </button>
-
-            <button onClick={() => setShowPhotoPicker(false)} style={{ width: '100%', marginTop: 16, padding: '14px', background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Full-screen in-app camera overlay ──────────────────────────────── */}
-      {showCamera && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: '#000', display: 'flex', flexDirection: 'column' }}>
-          {/* Live video feed */}
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            onCanPlay={() => setCameraReady(true)}
-            style={{ flex: 1, width: '100%', objectFit: 'cover', display: 'block' }}
-          />
-
-          {/* Loading indicator while stream initialises */}
-          {!cameraReady && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}>
-              <Loader2 size={36} color="#fff" className="animate-spin" />
-            </div>
-          )}
-
-          {/* Top bar — close */}
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '52px 24px 16px', display: 'flex', justifyContent: 'flex-end', background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 100%)' }}>
-            <button onClick={closeCamera} style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}>
-              <X size={20} />
-            </button>
-          </div>
-
-          {/* Bottom bar — flip + capture */}
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 32px 52px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%)' }}>
-            {/* Flip camera */}
-            <button onClick={flipCamera} style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}>
-              <FlipHorizontal size={22} />
-            </button>
-
-            {/* Capture button */}
-            <button
-              onClick={capturePhoto}
-              disabled={!cameraReady || capturing}
-              style={{ position: 'relative', width: 80, height: 80, borderRadius: '50%', background: 'transparent', border: 'none', cursor: cameraReady && !capturing ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-            >
-              {/* Outer ring */}
-              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.6)' }} />
-              {/* Inner fill */}
-              <div style={{ width: 62, height: 62, borderRadius: '50%', background: capturing ? 'rgba(255,255,255,0.5)' : '#fff', transition: 'transform 120ms ease, background 120ms ease', transform: capturing ? 'scale(0.88)' : 'scale(1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {capturing && <Loader2 size={22} style={{ color: '#000' }} className="animate-spin" />}
-              </div>
-            </button>
-
-            {/* Spacer to balance the flip button */}
-            <div style={{ width: 48 }} />
-          </div>
-        </div>
-      )}
 
       {/* Delete confirmation modal */}
       {confirmDeleteId && (

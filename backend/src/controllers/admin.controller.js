@@ -32,6 +32,7 @@ import { buildCityCleanerPool, isSameCity } from '../services/assignment.service
 import Settings from '../models/Settings.js';
 import PackageDiscount from '../models/PackageDiscount.js';
 import Coupon from '../models/Coupon.js';
+import { DEFAULT_TERMS, DEFAULT_PRIVACY } from '../utils/legalDefaults.js';
 
 
 
@@ -2765,6 +2766,61 @@ export const updateTrustedSocieties = asyncHandler(async (req, res) => {
   await Settings.findOneAndUpdate(
     { key: 'trustedSocieties' },
     { key: 'trustedSocieties', value: data, description: 'Trusted societies shown on landing page hero' },
+    { upsert: true, returnDocument: 'after' }
+  );
+  await clearCache('cache:global:*');
+  res.json({ success: true, data });
+});
+
+// ─── LEGAL CONTENT: TERMS & PRIVACY (CMS) ────────
+const LEGAL_DEFAULTS = { terms: DEFAULT_TERMS, privacy: DEFAULT_PRIVACY };
+
+export const getLegalContent = asyncHandler(async (req, res) => {
+  const { type } = req.params;
+  if (!LEGAL_DEFAULTS[type]) throw new ApiError(400, 'Invalid legal content type');
+  const setting = await Settings.findOne({ key: `legal_${type}` });
+  res.json({ success: true, data: setting ? setting.value : LEGAL_DEFAULTS[type] });
+});
+
+export const updateLegalContent = asyncHandler(async (req, res) => {
+  const { type } = req.params;
+  if (!LEGAL_DEFAULTS[type]) throw new ApiError(400, 'Invalid legal content type');
+  const { lastUpdated, sections } = req.body;
+  if (!lastUpdated || !Array.isArray(sections)) {
+    throw new ApiError(400, 'lastUpdated (string) and sections (array) are required');
+  }
+  const data = { lastUpdated, sections };
+  await Settings.findOneAndUpdate(
+    { key: `legal_${type}` },
+    { key: `legal_${type}`, value: data, description: `${type === 'terms' ? 'Terms of Service' : 'Privacy Policy'} content shown on public pages` },
+    { upsert: true, returnDocument: 'after' }
+  );
+  await clearCache('cache:global:*');
+  res.json({ success: true, data });
+});
+
+// ─── SUPPORT CONTACTS (CMS) ──────────────────────
+const DEFAULT_SUPPORT_CONTACTS = {
+  whatsapp: '919555860362',
+  phone: '+919555860362',
+  email: 'hello@trycleanzo.com',
+  address: 'Flat no 1603, Tower C1, Redicon Vedantam, noida, IN'
+};
+
+export const getSupportContacts = asyncHandler(async (req, res) => {
+  const setting = await Settings.findOne({ key: 'supportContacts' });
+  res.json({ success: true, data: setting ? setting.value : DEFAULT_SUPPORT_CONTACTS });
+});
+
+export const updateSupportContacts = asyncHandler(async (req, res) => {
+  const { whatsapp, phone, email, address } = req.body;
+  if (!whatsapp || !phone || !email || !address) {
+    throw new ApiError(400, 'whatsapp, phone, email and address are all required');
+  }
+  const data = { whatsapp, phone, email, address };
+  await Settings.findOneAndUpdate(
+    { key: 'supportContacts' },
+    { key: 'supportContacts', value: data, description: 'Support contact channels shown on the public Support page' },
     { upsert: true, returnDocument: 'after' }
   );
   await clearCache('cache:global:*');

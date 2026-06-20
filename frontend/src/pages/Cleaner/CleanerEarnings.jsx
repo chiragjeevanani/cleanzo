@@ -1,48 +1,65 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
-import { IndianRupee, TrendingUp, Calendar, AlertCircle, ShieldCheck, Download } from 'lucide-react'
+import { IndianRupee, TrendingUp, Calendar, AlertCircle, ShieldCheck, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../context/AuthContext'
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+]
+const MAX_MONTHS_BACK = 11 // how far back the cleaner can browse past payouts
+
+// monthsAgo: 0 = current month, 1 = last month, etc.
+const getTargetDate = (monthsAgo) => {
+  const d = new Date()
+  d.setDate(1) // pin to day 1 to avoid month-end rollover when shifting months
+  d.setMonth(d.getMonth() - monthsAgo)
+  return d
+}
 
 export default function CleanerEarnings() {
   const { showToast } = useToast()
   const { user } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [switching, setSwitching] = useState(false)
   const [error, setError] = useState('')
+  const [monthsAgo, setMonthsAgo] = useState(0)
+
+  const targetDate = getTargetDate(monthsAgo)
+  const targetYear = targetDate.getFullYear()
+  const targetMonth = targetDate.getMonth()
 
   useEffect(() => {
     const fetchEarnings = async () => {
+      setSwitching(true)
       try {
-        const res = await apiClient.get('/cleaner/earnings')
+        const res = await apiClient.get(`/cleaner/earnings?year=${targetYear}&month=${targetMonth}`)
         setData(res)
+        setError('')
       } catch (err) {
         setError('Failed to load earnings.')
       } finally {
         setLoading(false)
+        setSwitching(false)
       }
     }
     fetchEarnings()
-  }, [])
+  }, [targetYear, targetMonth])
 
   const handleDownloadStatement = async () => {
     try {
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = now.getMonth()
-      
+      const year = targetYear
+      const month = targetMonth
+
       const attendanceRes = await apiClient.get(`/cleaner/attendance?year=${year}&month=${month}`)
       const attendance = attendanceRes.history || []
-      
-      const monthNames = [
-        "January", "February", "March", "April", "May", "June", 
-        "July", "August", "September", "October", "November", "December"
-      ]
-      
+
       let csvContent = "Cleanzo Partner Earnings Statement\n"
       csvContent += `Partner Name,${user?.name || 'Partner'}\n`
-      csvContent += `Month,${monthNames[month]} ${year}\n`
+      csvContent += `Month,${MONTH_NAMES[month]} ${year}\n`
       csvContent += `Daily Rate,INR ${data?.dailyRate || 500}\n`
       csvContent += `Present Days,${data?.presentDays || 0}\n`
       csvContent += `Total Earnings,INR ${data?.totalEarnings || 0}\n\n`
@@ -63,7 +80,7 @@ export default function CleanerEarnings() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.setAttribute("href", url)
-      link.setAttribute("download", `cleanzo_statement_${monthNames[month].toLowerCase()}_${year}.csv`)
+      link.setAttribute("download", `cleanzo_statement_${MONTH_NAMES[month].toLowerCase()}_${year}.csv`)
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
@@ -90,11 +107,32 @@ export default function CleanerEarnings() {
       <div className="flex items-center justify-between" style={{ padding: '24px 0 20px' }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>My Earnings</h1>
-          <p className="text-secondary" style={{ fontSize: 13, marginTop: 3 }}>Current month payout</p>
+          <p className="text-secondary" style={{ fontSize: 13, marginTop: 3 }}>{monthsAgo === 0 ? 'Current month payout' : 'Past payout'}</p>
         </div>
         <div style={{ width: 48, height: 48, borderRadius: 16, background: 'rgba(var(--bg-accent-rgb, 223,255,0), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-accent)' }}>
           <TrendingUp size={22} />
         </div>
+      </div>
+
+      {/* Month navigation */}
+      <div className="glass flex items-center justify-between" style={{ padding: '10px 14px', borderRadius: 20, marginBottom: 16, opacity: switching ? 0.6 : 1 }}>
+        <button
+          aria-label="Previous month"
+          disabled={switching || monthsAgo >= MAX_MONTHS_BACK}
+          onClick={() => setMonthsAgo(m => Math.min(m + 1, MAX_MONTHS_BACK))}
+          style={{ background: 'transparent', border: 'none', padding: 6, color: monthsAgo >= MAX_MONTHS_BACK ? 'var(--text-tertiary)' : 'inherit', cursor: monthsAgo >= MAX_MONTHS_BACK ? 'default' : 'pointer', display: 'flex', opacity: monthsAgo >= MAX_MONTHS_BACK ? 0.3 : 1 }}
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <span style={{ fontWeight: 700, fontSize: 14 }}>{MONTH_NAMES[targetMonth]} {targetYear}</span>
+        <button
+          aria-label="Next month"
+          disabled={switching || monthsAgo === 0}
+          onClick={() => setMonthsAgo(m => Math.max(m - 1, 0))}
+          style={{ background: 'transparent', border: 'none', padding: 6, color: monthsAgo === 0 ? 'var(--text-tertiary)' : 'inherit', cursor: monthsAgo === 0 ? 'default' : 'pointer', display: 'flex', opacity: monthsAgo === 0 ? 0.3 : 1 }}
+        >
+          <ChevronRight size={18} />
+        </button>
       </div>
 
       {/* Hero Earnings Card */}

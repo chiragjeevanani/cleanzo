@@ -268,15 +268,15 @@ export default function CleanerDashboard() {
       {/* Stats */}
       <div className="grid-3" style={{ gap: 10, marginBottom: 24 }}>
         {[
-          { icon: AlertCircle, value: pending, label: 'Pending', color: 'var(--warning)' },
-          { icon: Clock, value: inProgress, label: 'In Progress', color: 'var(--primary-blue)' },
-          { icon: CheckCircle2, value: completed, label: 'Done', color: 'var(--success)' },
+          { icon: AlertCircle, value: pending, label: 'Pending', color: 'var(--warning)', filter: 'pending' },
+          { icon: Clock, value: inProgress, label: 'In Progress', color: 'var(--primary-blue)', filter: 'in-progress' },
+          { icon: CheckCircle2, value: completed, label: 'Done', color: 'var(--success)', filter: 'completed' },
         ].map((s, i) => (
-          <div key={i} className="glass" style={{ padding: 16, textAlign: 'center' }}>
+          <Link key={i} to={`/cleaner/tasks?filter=${s.filter}`} className="glass" style={{ padding: 16, textAlign: 'center', textDecoration: 'none', color: 'inherit', display: 'block' }}>
             <s.icon size={18} style={{ color: s.color, margin: '0 auto 6px' }} />
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800 }}>{s.value}</div>
             <div className="text-body-sm text-secondary" style={{ fontSize: 11 }}>{s.label}</div>
-          </div>
+          </Link>
         ))}
       </div>
 

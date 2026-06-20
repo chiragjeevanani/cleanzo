@@ -1,7 +1,7 @@
 import PageLoader from '../../components/PageLoader'
 import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, User, Package, Camera, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, MapPin, User, Camera, CheckCircle2 } from 'lucide-react'
 import apiClient from '../../services/apiClient'
 import { useToast } from '../../context/ToastContext'
 
@@ -14,6 +14,7 @@ export default function TaskDetail() {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState('')
+  const [redirectIn, setRedirectIn] = useState(null)
 
   useEffect(() => {
     const fetchTask = async () => {
@@ -30,15 +31,27 @@ export default function TaskDetail() {
     fetchTask()
   }, [id])
 
+  // Once the task is completed, auto-redirect to the tasks list after a 5s countdown
+  useEffect(() => {
+    if (status !== 'completed') return
+    setRedirectIn(5)
+    const interval = setInterval(() => {
+      setRedirectIn(prev => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          navigate('/cleaner/tasks', { replace: true })
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [status, navigate])
+
   const handleUpdateStatus = async () => {
     if (status === 'completed') return
     
-    // Linear Workflow Validation
-    if (status === 'pending' && (!task.photos?.before || task.photos.before.length === 0)) {
-      showToast('Please upload a "Before" photo first!', 'error')
-      return
-    }
-    
+    // Linear Workflow Validation — "Before" photo is optional, "After" is required to complete
     if (status === 'in-progress' && (!task.photos?.after || task.photos.after.length === 0)) {
       showToast('Please upload an "After" photo to complete the task!', 'error')
       return
@@ -51,7 +64,6 @@ export default function TaskDetail() {
       setStatus(nextStatus)
       if (nextStatus === 'completed') {
         showToast('Task completed!')
-        setTimeout(() => navigate(-1), 1500)
       } else {
         showToast('Cleaning started!')
         // Refresh task to ensure photos are up to date
@@ -78,7 +90,7 @@ export default function TaskDetail() {
   return (
     <div style={{ padding: '0 20px' }}>
       <div className="app-header" style={{ padding: '16px 0' }}>
-        <button onClick={() => navigate(-1)}  className="flex items-center gap-8" style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}><ArrowLeft size={20} /></button>
+        <button onClick={() => status === 'completed' ? navigate('/cleaner/tasks', { replace: true }) : navigate(-1)}  className="flex items-center gap-8" style={{ background: 'transparent', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', outline: 'none' }}><ArrowLeft size={20} /></button>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Task Detail</span>
         <div style={{ width: 20 }} />
       </div>
@@ -90,8 +102,7 @@ export default function TaskDetail() {
         <div className="flex flex-col gap-12">
           {[
             { icon: User, label: 'Customer', value: task.customer?.name || task.customer?.phone || 'Customer' },
-            { icon: Package, label: 'Package', value: task.packageName || task.subscription?.package?.name || 'Cleaning' },
-            { icon: MapPin, label: 'Location', value: task.vehicle?.parking || 'Location' },
+            { icon: MapPin, label: 'Location', value: [task.subscription?.society?.name, task.vehicle?.parking].filter(Boolean).join(' · ') || 'Location' },
           ].map((r, i) => (
             <div key={i} className="flex items-center gap-12">
               <r.icon size={16} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
@@ -146,7 +157,7 @@ export default function TaskDetail() {
                 ) : (
                   <>
                     <Camera size={24} style={{ color: 'var(--text-tertiary)' }} />
-                    <span className="text-body-sm text-secondary">{label}</span>
+                    <span className="text-body-sm text-secondary">{label}{isBefore ? ' (optional)' : ''}</span>
                   </>
                 )}
               </Link>
@@ -164,23 +175,25 @@ export default function TaskDetail() {
         )}
         
         {status !== 'completed' ? (
-          <button 
-            disabled={updating || (status === 'pending' && !hasBefore) || (status === 'in-progress' && !hasAfter)} 
-            className={`btn btn-primary w-full btn-lg ${(updating || (status === 'pending' && !hasBefore) || (status === 'in-progress' && !hasAfter)) ? 'opacity-50' : ''}`} 
+          <button
+            disabled={updating || (status === 'in-progress' && !hasAfter)}
+            className={`btn btn-primary w-full btn-lg ${(updating || (status === 'in-progress' && !hasAfter)) ? 'opacity-50' : ''}`}
             onClick={handleUpdateStatus}
           >
             {updating ? 'Updating...' : btnLabels[status]}
           </button>
         ) : (
-          <div className="flex items-center justify-center gap-8" style={{ padding: 20, color: 'var(--success)' }}>
-            <CheckCircle2 size={24} />
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Task Completed</span>
+          <div className="flex flex-col items-center" style={{ padding: 20 }}>
+            <div className="flex items-center justify-center gap-8" style={{ color: 'var(--success)' }}>
+              <CheckCircle2 size={24} />
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>Task Completed</span>
+            </div>
+            {redirectIn !== null && (
+              <p className="text-secondary text-xs" style={{ marginTop: 8 }}>Returning to tasks in {redirectIn}s...</p>
+            )}
           </div>
         )}
-        
-        {(status === 'pending' && !hasBefore) && (
-          <p className="text-center text-secondary text-xs mt-12">Upload "Before" photo to start cleaning</p>
-        )}
+
         {(status === 'in-progress' && !hasAfter) && (
           <p className="text-center text-secondary text-xs mt-12">Upload "After" photo to mark as complete</p>
         )}

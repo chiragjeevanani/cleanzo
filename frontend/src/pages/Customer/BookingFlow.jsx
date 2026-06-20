@@ -95,6 +95,7 @@ export default function BookingFlow() {
   const queryParams     = new URLSearchParams(location.search)
   const initialPackageId = queryParams.get('packageId')
   const initialVehicleId = queryParams.get('vehicleId')
+  const initialTrial     = queryParams.get('trial') === 'true'
   const initialStatus    = queryParams.get('status')
   const initialError     = queryParams.get('error')
 
@@ -102,8 +103,6 @@ export default function BookingFlow() {
     vehicles, packages, societies, subscriptions: activeSubscriptions, settings, discounts,
     loading: dataLoading, refreshAll,
   } = useCustomerData()
-
-  const hasUsedTrial = activeSubscriptions?.some(s => s.isTrial)
 
   // Dynamic trial price based on selected vehicle
   const getDynamicTrialPrice = () => {
@@ -124,7 +123,10 @@ export default function BookingFlow() {
   const restoreAppliedRef = useRef(false)
   const restoredRef = useRef(undefined)
   if (restoredRef.current === undefined) {
-    restoredRef.current = initialStatus
+    // A fresh "Subscribe" link carries its own packageId — that's a deliberate new
+    // choice and should win over a stale snapshot left behind by an earlier, abandoned
+    // booking attempt (otherwise the old society/vehicle/step silently resurrects).
+    restoredRef.current = (initialStatus || initialPackageId || initialTrial)
       ? null
       : (() => { try { return JSON.parse(sessionStorage.getItem(WIZARD_KEY) || 'null') } catch { return null } })()
   }
@@ -135,6 +137,10 @@ export default function BookingFlow() {
     if (initialStatus === 'success' || initialStatus === 'payment_return') return 3
     if (initialStatus === 'failed') return 4
     if (restored && (restored.step === 1 || restored.step === 2)) return restored.step
+    // Arrived via "Subscribe"/"Try It Out" on a specific plan — the plan (and usually
+    // vehicle) are already chosen, so skip straight to slot selection instead of
+    // re-showing Step 0.
+    if (initialPackageId || initialTrial) return 1
     return 0
   })
   const [countdown, setCountdown] = useState(5)
@@ -148,6 +154,10 @@ export default function BookingFlow() {
   const [specialInstructions, setSpecialInstructions] = useState('')
   const [isPremiumOverride, setIsPremiumOverride] = useState(false)
   const [overrideReason, setOverrideReason]   = useState('')
+
+  // Trial is offered once per vehicle — a customer with several vehicles can trial
+  // each one independently, but not retake it for a vehicle that's already used it.
+  const hasUsedTrial = activeSubscriptions?.some(s => s.isTrial && (s.vehicle?._id || s.vehicle) === selectedVehicle?._id)
 
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [processing, setProcessing]       = useState(false)
@@ -250,7 +260,14 @@ export default function BookingFlow() {
       } else {
         const defaultAddr = user?.addresses?.find(a => a.isDefault) || user?.addresses?.[0]
         const userSocId = defaultAddr?.society?._id || defaultAddr?.society
-        const userSoc = userSocId ? societies.find(s => s._id === userSocId.toString()) : null
+        let userSoc = userSocId ? societies.find(s => s._id === userSocId.toString()) : null
+        // Addresses added/edited from the Profile screen only capture a free-text
+        // "societyName" (no Society document ref) — fall back to a name match so
+        // those customers still land on their own society instead of an arbitrary one.
+        if (!userSoc && defaultAddr?.societyName) {
+          const wanted = defaultAddr.societyName.trim().toLowerCase()
+          userSoc = societies.find(s => s.name?.trim().toLowerCase() === wanted)
+        }
         setSelectedSociety(userSoc || societyOptions[0])
       }
     }
@@ -277,6 +294,12 @@ export default function BookingFlow() {
       } else if (initialPackageId && packages.length > 0) {
         const pkg = packages.find(p => p._id === initialPackageId)
         if (pkg) setSelectedPkg(pkg)
+      } else if (initialTrial && !hasUsedTrial) {
+        setSelectedPkg({ isTrial: true, name: '1-Day Trial', price: trialPrice, _id: null })
+        if (!selectedTrialDate) {
+          const tm = new Date(); tm.setDate(tm.getDate() + 1)
+          setSelectedTrialDate(getLocalDateString(tm))
+        }
       }
     }
     // One-time restore of scalar fields (slot is restored once the society is set, below)
@@ -286,7 +309,7 @@ export default function BookingFlow() {
       if (restored.specialInstructions) setSpecialInstructions(restored.specialInstructions)
       if (restored.couponCode) setCouponInput(restored.couponCode)
     }
-  }, [dataLoading, societies, packages, vehicles, initialPackageId, initialVehicleId])
+  }, [dataLoading, societies, packages, vehicles, initialPackageId, initialVehicleId, initialTrial, hasUsedTrial])
 
   // Restore the selected slot from the snapshot once the society (with its slots) is loaded
   useEffect(() => {
@@ -542,6 +565,9 @@ export default function BookingFlow() {
         },
         theme: { color: theme === 'light' ? '#0056B3' : '#DFFF00' },
         modal: { ondismiss: () => setProcessing(false) },
+        // Skip Razorpay's "recommended/last-used method" shortcut screen and show
+        // every payment method (UPI, cards, netbanking, wallets) up front.
+        config: { display: { preferences: { show_default_blocks: false } } },
       }
 
       if (!window.Razorpay) {
