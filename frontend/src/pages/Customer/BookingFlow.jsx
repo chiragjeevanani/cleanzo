@@ -608,9 +608,6 @@ export default function BookingFlow() {
       },
       theme: { color: theme === 'light' ? '#0056B3' : '#DFFF00' },
       modal: { ondismiss: () => setProcessing(false) },
-      // Skip Razorpay's "recommended/last-used method" shortcut screen and show
-      // every payment method (UPI, cards, netbanking, wallets) up front.
-      config: { display: { preferences: { show_default_blocks: false } } },
     }
 
     const rzp = new window.Razorpay(options)

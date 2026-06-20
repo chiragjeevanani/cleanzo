@@ -317,9 +317,6 @@ export default function PackageSelect() {
       modal: {
         ondismiss: () => setProcessing(false)
       },
-      // Skip Razorpay's "recommended/last-used method" shortcut screen and show
-      // every payment method (UPI, cards, netbanking, wallets) up front.
-      config: { display: { preferences: { show_default_blocks: false } } },
     }
 
     const rzp = new window.Razorpay(options)
@@ -429,9 +426,6 @@ export default function PackageSelect() {
         email: activeSubForVehicle.customer?.email || '',
       },
       modal: { ondismiss: () => setProcessing(false) },
-      // Skip Razorpay's "recommended/last-used method" shortcut screen and show
-      // every payment method (UPI, cards, netbanking, wallets) up front.
-      config: { display: { preferences: { show_default_blocks: false } } },
     }
 
     const rzp = new window.Razorpay(options)
