@@ -80,7 +80,10 @@ const JoinAsCleaner = () => {
 
   // iOS blocks getUserMedia inside in-app/embedded webviews, so fall back to the
   // native camera via a file input there. Android handles the overlay fine.
-  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+  const isIOS = 
+    /iPad|iPhone|iPod/i.test(navigator.platform) ||
+    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (navigator.userAgent.includes('Mac') && 'ontouchend' in document) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   const handleSelfieCapture = () => {
@@ -148,9 +151,7 @@ const JoinAsCleaner = () => {
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d');
     
-    // Flip if using front camera
-    context.translate(canvas.width, 0);
-    context.scale(-1, 1);
+    // Draw the image directly without mirroring
     context.drawImage(video, 0, 0);
     
     canvas.toBlob(async (blob) => {
