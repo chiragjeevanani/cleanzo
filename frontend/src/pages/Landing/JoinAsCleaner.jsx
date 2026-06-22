@@ -109,13 +109,14 @@ const JoinAsCleaner = () => {
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
+      setError(null);
       try {
         const optimized = await optimizeImage(file, { maxWidth: 1000, quality: 0.7 });
-        setFiles({ ...files, [e.target.name]: optimized });
-        setPreviews({ ...previews, [e.target.name]: URL.createObjectURL(optimized) });
+        setFiles(prev => ({ ...prev, [e.target.name]: optimized }));
+        setPreviews(prev => ({ ...prev, [e.target.name]: URL.createObjectURL(optimized) }));
       } catch (err) {
-        setFiles({ ...files, [e.target.name]: file });
-        setPreviews({ ...previews, [e.target.name]: URL.createObjectURL(file) });
+        setFiles(prev => ({ ...prev, [e.target.name]: file }));
+        setPreviews(prev => ({ ...prev, [e.target.name]: URL.createObjectURL(file) }));
       }
     }
   };
@@ -161,12 +162,13 @@ const JoinAsCleaner = () => {
         console.error('Photo optimization failed', e);
       }
 
-      setFiles({ ...files, livePhoto: file });
-      setPreviews({ ...previews, livePhoto: URL.createObjectURL(file) });
+      setFiles(prev => ({ ...prev, livePhoto: file }));
+      setPreviews(prev => ({ ...prev, livePhoto: URL.createObjectURL(file) }));
       
       const stream = video.srcObject;
       if (stream) stream.getTracks().forEach(track => track.stop());
       setShowCamera(false);
+      setError(null);
     }, 'image/jpeg', 0.9);
   };
 
