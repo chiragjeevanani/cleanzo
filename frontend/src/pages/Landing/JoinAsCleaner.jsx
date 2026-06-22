@@ -76,6 +76,7 @@ const JoinAsCleaner = () => {
   const selfieInputRef = useRef(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraErrorFallback, setCameraErrorFallback] = useState(false);
 
   // iOS blocks getUserMedia inside in-app/embedded webviews, so fall back to the
   // native camera via a file input there. Android handles the overlay fine.
@@ -131,8 +132,10 @@ const JoinAsCleaner = () => {
         videoRef.current.onloadedmetadata = () => setCameraReady(true);
       }
     } catch (err) {
-      setError('Camera access denied. Please enable permissions.');
+      console.error('Camera access failed:', err);
+      setError('Camera access denied. Please enable permissions, or tap below to upload a photo from your device.');
       setShowCamera(false);
+      setCameraErrorFallback(true);
     }
   };
 
@@ -520,9 +523,23 @@ const JoinAsCleaner = () => {
                       <div style={{ width: '100%', height: '100%' }}>
                         <img src={previews.livePhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
-                          <button type="button" onClick={handleSelfieCapture} style={{ padding: '8px 16px', borderRadius: 12, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <RotateCcw size={14} /> Retake
-                          </button>
+                          {(isIOS || cameraErrorFallback) ? (
+                            <label style={{ padding: '8px 16px', borderRadius: 12, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <input
+                                type="file"
+                                name="livePhoto"
+                                accept="image/*"
+                                capture="user"
+                                onChange={handleFileChange}
+                                style={{ display: 'none' }}
+                              />
+                              <RotateCcw size={14} /> Retake
+                            </label>
+                          ) : (
+                            <button type="button" onClick={handleSelfieCapture} style={{ padding: '8px 16px', borderRadius: 12, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <RotateCcw size={14} /> Retake
+                            </button>
+                          )}
                           <button 
                             onClick={(e) => { 
                               e.preventDefault(); 
@@ -536,6 +553,23 @@ const JoinAsCleaner = () => {
                           </button>
                         </div>
                       </div>
+                    ) : (isIOS || cameraErrorFallback) ? (
+                      <label style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, cursor: 'pointer', padding: 20 }}>
+                        <input
+                          type="file"
+                          name="livePhoto"
+                          accept="image/*"
+                          capture="user"
+                          onChange={handleFileChange}
+                          style={{ display: 'none' }}
+                        />
+                        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(var(--bg-accent-rgb),0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Camera size={28} color="var(--text-accent)" />
+                        </div>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center' }}>
+                          {cameraErrorFallback ? 'Camera blocked. Tap here to upload photo' : 'Open Camera to Take Photo'}
+                        </span>
+                      </label>
                     ) : (
                       <div onClick={handleSelfieCapture} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, cursor: 'pointer', padding: 20 }}>
                         <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(var(--bg-accent-rgb),0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
