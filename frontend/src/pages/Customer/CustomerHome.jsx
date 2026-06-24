@@ -25,16 +25,19 @@ export default function CustomerHome() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const activeSub = (subscriptions || []).find(s => {
+  const activeSubscriptions = (subscriptions || []).filter(s => {
     if (s.status !== 'Active') return false;
     const endDate = new Date(s.endDate);
     endDate.setHours(0, 0, 0, 0);
     return today.getTime() <= endDate.getTime();
-  }) || null;
+  });
 
-  const expiredTrial = !activeSub && (subscriptions || []).find(s => s.status === 'Expired' && s.isTrial)
-  const remainingDays = activeSub ? Math.max(0, activeSub.totalDays - (activeSub.completedDays || 0) - (activeSub.skippedDays || 0)) : 0
-  const hasRemainingDays = remainingDays > 0
+  // Keep backward compat for quick-actions (use first active sub)
+  const activeSub = activeSubscriptions[0] || null;
+
+  const expiredTrial = activeSubscriptions.length === 0 && (subscriptions || []).find(s => s.status === 'Expired' && s.isTrial)
+  const totalRemainingDays = activeSubscriptions.reduce((acc, s) => acc + Math.max(0, s.totalDays - (s.completedDays || 0) - (s.skippedDays || 0)), 0)
+  const hasRemainingDays = totalRemainingDays > 0
   const unreadCount = (notifications || []).filter(n => !n.read).length
 
   // Unified recent activity: services + subscription purchases + marketplace orders, newest first
@@ -153,139 +156,36 @@ export default function CustomerHome() {
           </div>
         )}
 
-        {/* Active Subscription Card */}
-        {activeSub ? (
-          <Link to="/customer/subscriptions" className="glass animate-fade-in" style={{ padding: '24px 28px', borderRadius: 32, marginBottom: 32, display: 'block', background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.07) 100%)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)' }}>
-            <div className="flex justify-between items-start" style={{ marginBottom: 20 }}>
-              <div>
-                <div className="text-label text-lime mb-6" style={{ letterSpacing: '0.05em' }}>ACTIVE PLAN</div>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800 }}>{activeSub.package?.name || 'Standard Plan'}</h2>
-                <div className="text-body-xs text-secondary" style={{ marginTop: 4 }}>
-                  Expires: {new Date(activeSub.endDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-                </div>
+        {/* Active Subscription Cards */}
+        {activeSubscriptions.length > 0 ? (
+          <div style={{ marginBottom: 32 }}>
+            {activeSubscriptions.length > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, padding: '0 4px' }}>
+                <span className="text-label" style={{ color: 'var(--text-tertiary)' }}>ACTIVE PLANS ({activeSubscriptions.length})</span>
+                <Link to="/customer/subscriptions" className="text-body-sm font-bold" style={{ color: 'var(--primary-blue)' }}>View All</Link>
               </div>
-              
-              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                <div style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 32,
-                  fontWeight: 800,
-                  lineHeight: 1,
-                  color: 'var(--accent-lime)'
-                }}>
-                  {remainingDays}
-                </div>
-                <div className="text-label text-secondary" style={{ fontSize: 9, letterSpacing: '0.05em' }}>DAYS LEFT</div>
-              </div>
-            </div>
-
-            {/* Progress bar */}
-            <div style={{ marginBottom: 20 }}>
-              <div className="flex justify-between text-body-xs text-secondary" style={{ marginBottom: 6, fontWeight: 600 }}>
-                <span>Plan Progress</span>
-                <span>{activeSub.completedDays || 0} / {activeSub.totalDays || 30} cleans</span>
-              </div>
-              <div style={{ width: '100%', height: 6, background: 'var(--bg-glass)', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--border-glass)' }}>
-                <div style={{ 
-                  width: `${Math.min(100, ((activeSub.completedDays || 0) / (activeSub.totalDays || 30)) * 100)}%`, 
-                  height: '100%', 
-                  background: 'linear-gradient(90deg, var(--primary-blue) 0%, var(--accent-lime) 100%)',
-                  borderRadius: 3,
-                  transition: 'width 0.8s ease'
-                }} />
-              </div>
-            </div>
-
-            {/* Details Grid */}
-            <div style={{ 
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '16px 20px', 
-              padding: '16px 0', 
-              borderTop: '1px solid var(--divider)', 
-              borderBottom: '1px solid var(--divider)', 
-              marginBottom: 16 
-            }}>
-              <div>
-                <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: '0.05em' }}>VEHICLE</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Car size={14} className="text-secondary" />
-                  <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeSub.vehicle?.brand} {activeSub.vehicle?.model}</span>
-                </div>
-                <div className="text-body-xs text-secondary" style={{ marginLeft: 20 }}>{activeSub.vehicle?.number}</div>
-              </div>
-
-              <div>
-                <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: '0.05em' }}>TIME SLOT</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Clock size={14} className="text-secondary" />
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{formatSlot(activeSub.slot)}</span>
-                </div>
-              </div>
-
-              <div>
-                <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: '0.05em' }}>CLEANER</div>
-                {activeSub.assignedCleaner ? (
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <User size={14} className="text-secondary" />
-                      <span style={{ fontSize: 13, fontWeight: 700 }}>{activeSub.assignedCleaner.name}</span>
-                      {activeSub.assignedCleaner.rating && (
-                        <span style={{ fontSize: 11, color: '#FFB800', display: 'flex', alignItems: 'center', gap: 2 }}>
-                          ★<span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{activeSub.assignedCleaner.rating}</span>
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-body-xs text-secondary" style={{ marginLeft: 20 }}>{activeSub.assignedCleaner.phone}</div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div className="animate-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFB800' }} />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-tertiary)' }}>Assigning...</span>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: '0.05em' }}>NEXT CLEAN</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Calendar size={14} className="text-secondary" />
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>
-                    {activeSub.nextWash ? new Date(activeSub.nextWash).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center text-body-xs font-bold" style={{ color: 'var(--primary-blue)' }}>
-              <span>Manage Plan & Support</span>
-              <ChevronRight size={14} />
-            </div>
-          </Link>
+            )}
+            <ActivePlansCarousel subscriptions={activeSubscriptions} />
+          </div>
         ) : (
           <div className="glass animate-fade-in-up overflow-hidden relative" style={{ marginBottom: 32, borderRadius: 32, border: expiredTrial ? '1px solid rgba(var(--bg-accent-rgb), 0.3)' : '1px solid var(--border-glass)' }}>
             <div style={{ position: 'absolute', top: -50, right: -50, width: 150, height: 150, background: expiredTrial ? 'var(--error)' : 'var(--bg-accent)', opacity: 0.1, borderRadius: '50%', filter: 'blur(40px)' }} />
             <div style={{ position: 'absolute', bottom: -50, left: -50, width: 150, height: 150, background: 'var(--primary-blue)', opacity: 0.1, borderRadius: '50%', filter: 'blur(40px)' }} />
-            
             <div style={{ padding: '40px 24px', position: 'relative', zIndex: 1, textAlign: 'center' }}>
               <div style={{ width: 72, height: 72, borderRadius: 24, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
                 {expiredTrial ? <Clock size={32} color="#ff5555" /> : <Car size={32} color="var(--text-accent)" />}
               </div>
-              
               <div className="text-label mb-8" style={{ color: expiredTrial ? '#ff5555' : 'var(--text-accent)', letterSpacing: '0.05em' }}>
                 {expiredTrial ? 'TRIAL EXPIRED' : 'NO ACTIVE PLAN'}
               </div>
-              
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, marginBottom: 12 }}>
                 {expiredTrial ? 'Keep the Shine Going' : 'Your Garage is Waiting'}
               </h2>
-              
               <p className="text-secondary text-body-sm mb-32 leading-relaxed" style={{ maxWidth: 300, margin: '0 auto 32px' }}>
-                {expiredTrial 
+                {expiredTrial
                   ? 'Your trial service has ended. Subscribe now to ensure your vehicle stays in showroom condition every single day.'
                   : 'Unlock daily premium exterior cleaning and regular interior detailing. Let our experts keep your car in showroom condition.'}
               </p>
-              
               <Link to="/customer/packages" className="btn btn-primary w-full shadow-lg" style={{ borderRadius: 16, padding: '18px 20px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
                 <span>{expiredTrial ? 'Renew Subscription' : 'Explore Premium Plans'}</span>
                 <ChevronRight size={18} />
@@ -390,6 +290,154 @@ export default function CustomerHome() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── ACTIVE PLANS CAROUSEL ───────────────────────
+function ActivePlansCarousel({ subscriptions }) {
+  const [current, setCurrent] = useState(0)
+  const sub = subscriptions[current]
+  if (!sub) return null
+
+  const remainingDays = Math.max(0, sub.totalDays - (sub.completedDays || 0) - (sub.skippedDays || 0))
+
+  return (
+    <div>
+      <Link
+        to="/customer/subscriptions"
+        className="glass animate-fade-in"
+        style={{
+          padding: "24px 28px",
+          borderRadius: 32,
+          display: "block",
+          background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.07) 100%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.3)",
+          textDecoration: "none",
+        }}
+      >
+        <div className="flex justify-between items-start" style={{ marginBottom: 20 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="text-label text-lime mb-6" style={{ letterSpacing: "0.05em" }}>
+              ACTIVE PLAN {subscriptions.length > 1 ? `${current + 1}/${subscriptions.length}` : ""}
+            </div>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {sub.package?.name || "Standard Plan"}
+            </h2>
+            <div className="text-body-xs text-secondary" style={{ marginTop: 4 }}>
+              Expires: {new Date(sub.endDate).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+            </div>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 16 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 800, lineHeight: 1, color: "var(--accent-lime)" }}>
+              {remainingDays}
+            </div>
+            <div className="text-label text-secondary" style={{ fontSize: 9, letterSpacing: "0.05em" }}>DAYS LEFT</div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div className="flex justify-between text-body-xs text-secondary" style={{ marginBottom: 6, fontWeight: 600 }}>
+            <span>Plan Progress</span>
+            <span>{sub.completedDays || 0} / {sub.totalDays || 30} cleans</span>
+          </div>
+          <div style={{ width: "100%", height: 6, background: "var(--bg-glass)", borderRadius: 3, overflow: "hidden", border: "1px solid var(--border-glass)" }}>
+            <div style={{
+              width: `${Math.min(100, ((sub.completedDays || 0) / (sub.totalDays || 30)) * 100)}%`,
+              height: "100%",
+              background: "linear-gradient(90deg, var(--primary-blue) 0%, var(--accent-lime) 100%)",
+              borderRadius: 3,
+              transition: "width 0.8s ease"
+            }} />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px", padding: "16px 0", borderTop: "1px solid var(--divider)", borderBottom: "1px solid var(--divider)", marginBottom: 16 }}>
+          <div>
+            <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: "0.05em" }}>VEHICLE</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Car size={14} className="text-secondary" />
+              <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub.vehicle?.brand} {sub.vehicle?.model}</span>
+            </div>
+            <div className="text-body-xs text-secondary" style={{ marginLeft: 20 }}>{sub.vehicle?.number}</div>
+          </div>
+          <div>
+            <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: "0.05em" }}>TIME SLOT</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Clock size={14} className="text-secondary" />
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{formatSlot(sub.slot)}</span>
+            </div>
+          </div>
+          <div>
+            <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: "0.05em" }}>CLEANER</div>
+            {sub.assignedCleaner ? (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <User size={14} className="text-secondary" />
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{sub.assignedCleaner.name}</span>
+                  {sub.assignedCleaner.rating && (
+                    <span style={{ fontSize: 11, color: "#FFB800", display: "flex", alignItems: "center", gap: 2 }}>
+                      &#x2605;<span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{sub.assignedCleaner.rating}</span>
+                    </span>
+                  )}
+                </div>
+                <div className="text-body-xs text-secondary" style={{ marginLeft: 20 }}>{sub.assignedCleaner.phone}</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div className="animate-pulse" style={{ width: 6, height: 6, borderRadius: "50%", background: "#FFB800" }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)" }}>Assigning...</span>
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="text-label text-tertiary mb-4" style={{ fontSize: 9, letterSpacing: "0.05em" }}>NEXT CLEAN</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Calendar size={14} className="text-secondary" />
+              <span style={{ fontSize: 13, fontWeight: 700 }}>
+                {sub.nextWash ? new Date(sub.nextWash).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center text-body-xs font-bold" style={{ color: "var(--primary-blue)" }}>
+          <span>Manage Plan &amp; Support</span>
+          <ChevronRight size={14} />
+        </div>
+      </Link>
+
+      {subscriptions.length > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 14 }}>
+          <button
+            onClick={e => { e.preventDefault(); setCurrent(p => (p - 1 + subscriptions.length) % subscriptions.length) }}
+            style={{ background: "var(--bg-glass)", border: "1px solid var(--border-glass)", borderRadius: 10, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)", fontSize: 20 }}
+          >&#8249;</button>
+          <div style={{ display: "flex", gap: 6 }}>
+            {subscriptions.map((_, i) => (
+              <button
+                key={i}
+                onClick={e => { e.preventDefault(); setCurrent(i) }}
+                style={{
+                  width: i === current ? 20 : 6,
+                  height: 6,
+                  borderRadius: 3,
+                  background: i === current ? "var(--accent-lime)" : "var(--bg-glass)",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  transition: "all 0.3s ease"
+                }}
+              />
+            ))}
+          </div>
+          <button
+            onClick={e => { e.preventDefault(); setCurrent(p => (p + 1) % subscriptions.length) }}
+            style={{ background: "var(--bg-glass)", border: "1px solid var(--border-glass)", borderRadius: 10, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)", fontSize: 20 }}
+          >&#8250;</button>
+        </div>
+      )}
     </div>
   )
 }
