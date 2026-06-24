@@ -1403,19 +1403,77 @@ export const updateSociety = asyncHandler(async (req, res) => {
 });
 
 export const deleteSociety = asyncHandler(async (req, res) => {
-  const { default: Society } = await import('../models/Society.js');
-  const society = await Society.findByIdAndUpdate(req.params.id, { isActive: false }, { returnDocument: 'after' });
+  const { default: SocietyModel } = await import('../models/Society.js');
+  const { default: Lead } = await import('../models/Lead.js');
+
+  const society = await SocietyModel.findById(req.params.id);
   if (!society) throw new ApiError(404, 'Society not found');
+
+  // Find all customers with active subscriptions linked to this society
+  const affectedSubs = await Subscription.find({ society: req.params.id, status: 'Active' })
+    .populate('customer', '_id firstName lastName fcmTokens')
+    .lean();
+
+  const uniqueCustomerMap = new Map();
+  for (const sub of affectedSubs) {
+    if (sub.customer && !uniqueCustomerMap.has(String(sub.customer._id))) {
+      uniqueCustomerMap.set(String(sub.customer._id), sub.customer);
+    }
+  }
+  const affectedCustomers = Array.from(uniqueCustomerMap.values());
+  const userCount = affectedCustomers.length;
+
+  // Step 1: Pre-check — return count without deleting
+  if (!req.query.confirm) {
+    return res.json({
+      success: true,
+      requiresConfirmation: true,
+      userCount,
+      societyName: society.name,
+    });
+  }
+
+  // Step 2: Confirmed — hard delete
+  await SocietyModel.findByIdAndDelete(req.params.id);
+
+  // Notify affected customers
+  if (affectedCustomers.length > 0) {
+    const notifDocs = affectedCustomers.map(c => ({
+      recipient: c._id,
+      recipientModel: 'Customer',
+      type: 'alert',
+      title: '⚠️ Society No Longer Serviceable',
+      message: `Your society "${society.name}" has been removed from our service area. Please select a new society or request us to add yours.`,
+      link: '/customer/home',
+      data: { societyRemoved: true, societyName: society.name },
+      isHiddenFromAdmin: false,
+    }));
+
+    await Notification.insertMany(notifDocs, { ordered: false });
+
+    // FCM push
+    const allTokens = affectedCustomers.flatMap(c => c.fcmTokens || []).filter(Boolean);
+    const uniqueTokens = [...new Set(allTokens)];
+    if (uniqueTokens.length > 0) {
+      sendPushNotification(uniqueTokens, {
+        title: '⚠️ Society No Longer Serviceable',
+        body: `"${society.name}" has been removed. Please select a new society in the app.`,
+        data: { type: 'alert', link: '/customer/home' },
+      }).catch(() => {});
+    }
+  }
 
   await logActivity({
     type: 'system',
-    message: `Admin deactivated society: ${society.name}`,
+    message: `Admin hard-deleted society: ${society.name} (${userCount} user(s) affected)`,
     performer: req.user._id,
-    metadata: { societyId: society._id }
+    metadata: { societyId: society._id, societyName: society.name, affectedUsers: userCount }
   });
 
-  res.json({ success: true, message: 'Society deactivated' });
+  await clearCache('cache:global:*');
+  res.json({ success: true, message: `Society "${society.name}" deleted. ${userCount} user(s) notified.`, userCount });
 });
+
 
 // ─── LEADS ───────────────────────────────────────
 export const getLeads = asyncHandler(async (req, res) => {

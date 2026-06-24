@@ -14,6 +14,12 @@ const leadSchema = new Schema({
     enum: ['pending', 'contacted', 'converted', 'rejected'], 
     default: 'pending' 
   },
+  source: {
+    type: String,
+    enum: ['manual', 'society_request'],
+    default: 'manual'
+  },
+  customerId: { type: Schema.Types.ObjectId, ref: 'Customer', default: null },
   notes: { type: String },
 }, { timestamps: true });
 

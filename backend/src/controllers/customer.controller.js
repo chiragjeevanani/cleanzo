@@ -1456,3 +1456,91 @@ export const getPaymentDetails = asyncHandler(async (req, res) => {
     }
   });
 });
+
+// ─── REQUEST SOCIETY (creates a Lead) ────────────
+export const requestSociety = asyncHandler(async (req, res) => {
+  const { requestedSociety, requestedArea, pincode, city } = req.body;
+
+  if (!requestedSociety || !city) {
+    throw new ApiError(400, 'Society name and city are required');
+  }
+
+  const { default: Lead } = await import('../models/Lead.js');
+
+  const customer = await Customer.findById(req.user._id).select('firstName lastName phone email city');
+  if (!customer) throw new ApiError(404, 'Customer not found');
+
+  await Lead.create({
+    name: `${customer.firstName} ${customer.lastName}`,
+    phone: customer.phone,
+    email: customer.email || '',
+    city: city || customer.city,
+    requestedSociety: requestedSociety.trim(),
+    requestedArea: requestedArea?.trim() || '',
+    pincode: pincode?.trim() || '',
+    source: 'society_request',
+    customerId: req.user._id,
+    status: 'pending',
+  });
+
+  res.status(201).json({ success: true, message: 'Your society request has been submitted. We will get back to you soon!' });
+});
+
+// ─── CHANGE SOCIETY (update active subscription) ─
+export const changeSociety = asyncHandler(async (req, res) => {
+  const { subscriptionId, newSocietyId, newSlotId } = req.body;
+
+  if (!subscriptionId || !newSocietyId || !newSlotId) {
+    throw new ApiError(400, 'Subscription ID, new society ID, and slot ID are required');
+  }
+
+  const [sub, newSociety] = await Promise.all([
+    Subscription.findOne({ _id: subscriptionId, customer: req.user._id, status: 'Active' }),
+    Society.findById(newSocietyId),
+  ]);
+
+  if (!sub) throw new ApiError(404, 'Active subscription not found');
+  if (!newSociety || !newSociety.isActive) throw new ApiError(404, 'Selected society not found or inactive');
+
+  const slot = newSociety.slots.find(s => s.slotId === newSlotId);
+  if (!slot) throw new ApiError(404, 'Selected time slot not found in this society');
+
+  // Release old society slot count
+  if (sub.society && sub.slot) {
+    await Society.updateOne(
+      { _id: sub.society, 'slots.slotId': sub.slot, 'slots.currentCount': { $gt: 0 } },
+      { $inc: { 'slots.$.currentCount': -1 } }
+    );
+  }
+
+  // Reserve slot in new society (atomic)
+  const reserved = await Society.findOneAndUpdate(
+    {
+      _id: newSocietyId,
+      slots: { $elemMatch: { slotId: newSlotId, status: 'Open', currentCount: { $lt: slot.maxVehicles } } }
+    },
+    { $inc: { 'slots.$.currentCount': 1 } },
+    { returnDocument: 'after' }
+  );
+
+  if (!reserved) {
+    // Restore old slot count if new one failed
+    if (sub.society && sub.slot) {
+      await Society.updateOne(
+        { _id: sub.society, 'slots.slotId': sub.slot },
+        { $inc: { 'slots.$.currentCount': 1 } }
+      );
+    }
+    throw new ApiError(400, 'This time slot is full. Please choose a different slot.');
+  }
+
+  // Update the subscription society + slot
+  sub.society = newSocietyId;
+  sub.slot = newSlotId;
+  await sub.save({ validateModifiedOnly: true });
+
+  await clearCache(`cache:${req.user._id}:*`);
+  await clearCache('cache:global:*');
+
+  res.json({ success: true, message: 'Society updated successfully. Your plan and vehicle info have been preserved.' });
+});

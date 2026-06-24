@@ -53,6 +53,10 @@ router.post('/grievances', upload.single('attachment'), validateImageBytes, ctrl
 router.get('/societies', cacheMiddleware(3600), ctrl.getSocieties);
 router.get('/vehicle-categories', cacheMiddleware(3600), ctrl.getVehicleCategories);
 
+// Society actions for displaced customers
+router.post('/request-society', ctrl.requestSociety);
+router.post('/change-society', ctrl.changeSociety);
+
 
 // MARKETPLACE
 router.get('/marketplace/orders', ctrl.getMyMarketplaceOrders);

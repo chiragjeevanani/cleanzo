@@ -74,7 +74,8 @@ export default function AdminSocieties() {
   const [filterCity, setFilterCity] = useState('')
   const [openMenu, setOpenMenu] = useState(null)
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 })
-  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null) // { id, name, userCount }
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const menuRef = useRef(null)
   const [exporting, setExporting] = useState(false)
@@ -429,14 +430,34 @@ export default function AdminSocieties() {
     }
   }
 
-  const handleDelete = async (id) => {
+  const handleDeleteInit = async (society) => {
+    setOpenMenu(null)
+    setDeleteLoading(true)
     try {
-      await apiClient.delete(`/admin/societies/${id}`)
-      setSocieties(prev => prev.filter(s => s._id !== id))
-    } catch {
-      setError('Failed to delete society.')
+      const res = await apiClient.delete(`/admin/societies/${society._id}`)
+      if (res.requiresConfirmation) {
+        setConfirmDelete({ id: society._id, name: res.societyName, userCount: res.userCount })
+      }
+    } catch (err) {
+      showToast(err?.message || 'Failed to check society users.', 'error')
+    } finally {
+      setDeleteLoading(false)
     }
-    setConfirmDelete(null)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!confirmDelete) return
+    setDeleteLoading(true)
+    try {
+      const res = await apiClient.delete(`/admin/societies/${confirmDelete.id}?confirm=true`)
+      setSocieties(prev => prev.filter(s => s._id !== confirmDelete.id))
+      showToast(res.message || 'Society deleted successfully.', 'success')
+    } catch (err) {
+      showToast(err?.message || 'Failed to delete society.', 'error')
+    } finally {
+      setDeleteLoading(false)
+      setConfirmDelete(null)
+    }
   }
 
   // ─── CITY OPERATIONS ──────────────────────────────────────────
@@ -1193,11 +1214,11 @@ export default function AdminSocieties() {
           </button>
           <div className="divider" />
           <button 
-            onClick={() => { setConfirmDelete(societies.find(s => s._id === openMenu)); setOpenMenu(null) }} 
+            onClick={() => handleDeleteInit(societies.find(s => s._id === openMenu))} 
             className="flex items-center gap-8" 
             style={{ width: '100%', padding: '12px 16px', textAlign: 'left', fontSize: 14, color: 'var(--error)', background: 'transparent', border: 'none', cursor: 'pointer' }}
           >
-            <Trash2 size={14} /> Delete
+            <Trash2 size={14} /> {deleteLoading ? 'Checking...' : 'Delete'}
           </button>
         </div>
       )}
@@ -1625,16 +1646,41 @@ export default function AdminSocieties() {
         </div>
       )}
 
-      {/* Modal: Confirm Delete All Societies */}
+      {/* Modal: Confirm Delete Society */}
       {confirmDelete && (
         <div className="modal-overlay">
-          <div className="glass animate-scale-in" style={{ width: 400, padding: 32, textAlign: 'center' }}>
+          <div className="glass animate-scale-in" style={{ width: 420, padding: 32, textAlign: 'center' }}>
             <div className="icon-circle-lg bg-error-light" style={{ margin: '0 auto 20px' }}><Trash2 size={24} color="var(--error)" /></div>
             <h3 className="text-display-xs">Delete Society?</h3>
-            <p className="text-secondary" style={{ margin: '8px 0 24px' }}>Are you sure you want to delete <strong>{confirmDelete.name}</strong>? This action cannot be undone.</p>
+            {confirmDelete.userCount > 0 ? (
+              <>
+                <div style={{
+                  margin: '12px 0',
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  background: 'rgba(255,69,58,0.08)',
+                  border: '1px solid rgba(255,69,58,0.25)',
+                  textAlign: 'left'
+                }}>
+                  <div style={{ fontWeight: 700, color: 'var(--error)', fontSize: 14, marginBottom: 4 }}>⚠️ {confirmDelete.userCount} user{confirmDelete.userCount !== 1 ? 's' : ''} will be affected</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    These users have active subscriptions in <strong>{confirmDelete.name}</strong>. They will receive an alert to select a new society or submit a society request.
+                  </div>
+                </div>
+                <p className="text-secondary" style={{ margin: '12px 0 24px', fontSize: 14 }}>
+                  This action is <strong>permanent</strong> and cannot be undone. The society and all its data will be hard-deleted from the database.
+                </p>
+              </>
+            ) : (
+              <p className="text-secondary" style={{ margin: '8px 0 24px' }}>
+                Are you sure you want to permanently delete <strong>{confirmDelete.name}</strong>? This action cannot be undone.
+              </p>
+            )}
             <div className="flex gap-12">
-              <button className="btn btn-glass w-full" onClick={() => setConfirmDelete(null)}>Cancel</button>
-              <button className="btn btn-error w-full" onClick={() => handleDelete(confirmDelete._id)}>Delete</button>
+              <button className="btn btn-glass w-full" onClick={() => setConfirmDelete(null)} disabled={deleteLoading}>Cancel</button>
+              <button className="btn btn-error w-full" onClick={handleDeleteConfirm} disabled={deleteLoading}>
+                {deleteLoading ? 'Deleting...' : confirmDelete.userCount > 0 ? `Delete & Notify ${confirmDelete.userCount} User${confirmDelete.userCount !== 1 ? 's' : ''}` : 'Delete Society'}
+              </button>
             </div>
           </div>
         </div>

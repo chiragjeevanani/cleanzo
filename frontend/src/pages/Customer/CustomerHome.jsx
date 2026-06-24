@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Bell, ChevronRight, Calendar, SkipForward, Clock, Car, Check, User, ShoppingBag, CreditCard } from 'lucide-react'
+import { Bell, ChevronRight, Calendar, SkipForward, Clock, Car, Check, User, ShoppingBag, CreditCard, AlertTriangle, X, MapPin, Send } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import apiClient from '../../services/apiClient'
 import { useCustomerData } from '../../context/CustomerDataContext'
@@ -121,6 +121,12 @@ export default function CustomerHome() {
 
   return (
     <div className="app-shell animate-fade-in">
+      {/* Society Removed Alert Banner */}
+      <SocietyDisplacedBanner
+        notifications={notifications}
+        subscriptions={subscriptions}
+      />
+
       {/* Header */}
       <div className="app-header" style={{ padding: '24px var(--margin-side)' }}>
         <div>
@@ -449,5 +455,295 @@ function BannerCarousel({ banners }) {
         </div>
       )}
     </div>
+  )
+}
+
+// ─── SOCIETY DISPLACED BANNER ────────────────────
+function SocietyDisplacedBanner({ notifications, subscriptions }) {
+  const [dismissed, setDismissed] = useState(false)
+  const [mode, setMode] = useState(null) // 'select' | 'request'
+  const [societies, setSocieties] = useState([])
+  const [selectedSociety, setSelectedSociety] = useState('')
+  const [selectedSlot, setSelectedSlot] = useState('')
+  const [reqForm, setReqForm] = useState({ requestedSociety: '', requestedArea: '', city: '', pincode: '' })
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState('')
+  const [error, setError] = useState('')
+
+  // Detect if there is an unread society-removed notification
+  const societyAlert = (notifications || []).find(
+    n => !n.read && n.type === 'alert' && n.data?.societyRemoved
+  )
+  // Find the affected active subscription
+  const activeSub = (subscriptions || []).find(s => s.status === 'Active')
+
+  if (!societyAlert || dismissed) return null
+
+  const openSelectMode = async () => {
+    setMode('select')
+    setError('')
+    setSuccess('')
+    if (societies.length === 0) {
+      try {
+        const res = await apiClient.get('/customer/societies')
+        setSocieties(res.societies || [])
+      } catch {
+        setError('Failed to load societies. Please try again.')
+      }
+    }
+  }
+
+  const slotsForSelected = societies.find(s => s._id === selectedSociety)?.slots || []
+
+  const handleChangeSociety = async () => {
+    if (!selectedSociety || !selectedSlot) {
+      setError('Please select a society and a time slot.')
+      return
+    }
+    if (!activeSub) {
+      setError('No active subscription found to update.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await apiClient.post('/customer/change-society', {
+        subscriptionId: activeSub._id,
+        newSocietyId: selectedSociety,
+        newSlotId: selectedSlot,
+      })
+      setSuccess('Society updated! Your plan and vehicle info are preserved. 🎉')
+      setTimeout(() => setDismissed(true), 2500)
+    } catch (err) {
+      setError(err?.message || 'Failed to update society. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRequestSociety = async () => {
+    if (!reqForm.requestedSociety || !reqForm.city) {
+      setError('Society name and city are required.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await apiClient.post('/customer/request-society', reqForm)
+      setSuccess('Request submitted! Our team will reach out to you soon. 🙌')
+      setTimeout(() => setDismissed(true), 2500)
+    } catch (err) {
+      setError(err?.message || 'Failed to submit request. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      {/* Floating Banner */}
+      {!mode && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 2000,
+          background: 'linear-gradient(135deg, rgba(255,69,58,0.15) 0%, rgba(255,69,58,0.08) 100%)',
+          backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255,69,58,0.3)',
+          padding: '14px 20px',
+          display: 'flex', alignItems: 'flex-start', gap: 12
+        }}>
+          <AlertTriangle size={20} color="var(--error)" style={{ flexShrink: 0, marginTop: 2 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--error)', marginBottom: 4 }}>
+              {societyAlert.title}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 12 }}>
+              {societyAlert.message}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                onClick={openSelectMode}
+                style={{
+                  padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                  background: 'var(--primary-blue)', color: '#fff', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6
+                }}
+              >
+                <MapPin size={14} /> Select New Society
+              </button>
+              <button
+                onClick={() => { setMode('request'); setError(''); setSuccess('') }}
+                style={{
+                  padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                  background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)',
+                  border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6
+                }}
+              >
+                <Send size={14} /> Request My Society
+              </button>
+            </div>
+          </div>
+          <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-secondary)' }}>
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* Modal: Select New Society */}
+      {mode === 'select' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div style={{
+            width: '100%', maxWidth: 500, padding: 28, borderRadius: '24px 24px 0 0',
+            background: 'var(--bg-elevated)', border: '1px solid var(--border-glass)',
+            maxHeight: '85vh', overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800 }}>Select New Society</h3>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Your plan and vehicle will remain the same.</p>
+              </div>
+              <button onClick={() => setMode(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {error && <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(255,69,58,0.1)', color: 'var(--error)', fontSize: 13, marginBottom: 16 }}>{error}</div>}
+            {success && <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(50,215,75,0.1)', color: 'var(--success)', fontSize: 13, marginBottom: 16 }}>{success}</div>}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>SELECT SOCIETY</label>
+                <select
+                  value={selectedSociety}
+                  onChange={e => { setSelectedSociety(e.target.value); setSelectedSlot('') }}
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', fontSize: 14 }}
+                >
+                  <option value="">-- Choose a society --</option>
+                  {societies.map(s => (
+                    <option key={s._id} value={s._id}>{s.name} — {s.city}</option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedSociety && (
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>SELECT TIME SLOT</label>
+                  <select
+                    value={selectedSlot}
+                    onChange={e => setSelectedSlot(e.target.value)}
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: 12, background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', fontSize: 14 }}
+                  >
+                    <option value="">-- Choose a slot --</option>
+                    {slotsForSelected.filter(sl => sl.status === 'Open' && sl.currentCount < sl.maxVehicles).map(sl => (
+                      <option key={sl.slotId} value={sl.slotId}>{sl.timeWindow} ({sl.maxVehicles - sl.currentCount} spots left)</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <button
+                onClick={handleChangeSociety}
+                disabled={loading || !selectedSociety || !selectedSlot}
+                style={{
+                  padding: '14px', borderRadius: 14, fontSize: 15, fontWeight: 700,
+                  background: loading || !selectedSociety || !selectedSlot ? 'var(--bg-glass)' : 'var(--primary-blue)',
+                  color: loading || !selectedSociety || !selectedSlot ? 'var(--text-tertiary)' : '#fff',
+                  border: 'none', cursor: loading || !selectedSociety || !selectedSlot ? 'not-allowed' : 'pointer',
+                  marginTop: 4
+                }}
+              >
+                {loading ? 'Updating...' : 'Confirm New Society'}
+              </button>
+
+              <button
+                onClick={() => { setMode('request'); setError(''); setSuccess('') }}
+                style={{ padding: '12px', borderRadius: 14, fontSize: 14, fontWeight: 600, background: 'transparent', color: 'var(--primary-blue)', border: 'none', cursor: 'pointer' }}
+              >
+                My society isn't listed — Request it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Request Society */}
+      {mode === 'request' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div style={{
+            width: '100%', maxWidth: 500, padding: 28, borderRadius: '24px 24px 0 0',
+            background: 'var(--bg-elevated)', border: '1px solid var(--border-glass)',
+            maxHeight: '85vh', overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800 }}>Request My Society</h3>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>We'll review and reach out to you.</p>
+              </div>
+              <button onClick={() => setMode(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {error && <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(255,69,58,0.1)', color: 'var(--error)', fontSize: 13, marginBottom: 16 }}>{error}</div>}
+            {success && <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(50,215,75,0.1)', color: 'var(--success)', fontSize: 13, marginBottom: 16 }}>{success}</div>}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>SOCIETY NAME *</label>
+                <input
+                  value={reqForm.requestedSociety}
+                  onChange={e => setReqForm(p => ({ ...p, requestedSociety: e.target.value }))}
+                  placeholder="e.g. Gokuldham Society"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>CITY *</label>
+                <input
+                  value={reqForm.city}
+                  onChange={e => setReqForm(p => ({ ...p, city: e.target.value }))}
+                  placeholder="e.g. Pune"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>AREA / LOCALITY</label>
+                <input
+                  value={reqForm.requestedArea}
+                  onChange={e => setReqForm(p => ({ ...p, requestedArea: e.target.value }))}
+                  placeholder="e.g. Wagholi"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>PINCODE</label>
+                <input
+                  value={reqForm.pincode}
+                  onChange={e => setReqForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                  placeholder="6-digit pincode"
+                  inputMode="numeric"
+                  maxLength={6}
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <button
+                onClick={handleRequestSociety}
+                disabled={loading}
+                style={{
+                  padding: '14px', borderRadius: 14, fontSize: 15, fontWeight: 700,
+                  background: loading ? 'var(--bg-glass)' : 'var(--primary-blue)',
+                  color: loading ? 'var(--text-tertiary)' : '#fff',
+                  border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+                  marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                }}
+              >
+                <Send size={16} /> {loading ? 'Submitting...' : 'Submit Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
