@@ -118,6 +118,21 @@ const start = async () => {
     console.log(`🚀 Cleanzo API running on http://localhost:${PORT}`);
     console.log(`📋 Health: http://localhost:${PORT}/api/health`);
   });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`⚠️  Port ${PORT} is busy, retrying in 300ms...`);
+      setTimeout(() => {
+        try {
+          server.close();
+        } catch (e) {}
+        server.listen(PORT);
+      }, 300);
+    } else {
+      console.error('❌ Server error:', err.message);
+    }
+  });
+
   try {
     await connectDB();
     await seedAdminOnStartup();
@@ -153,6 +168,9 @@ const gracefulShutdown = async (signal) => {
       }
       process.exit(0);
     });
+    if (typeof server.closeAllConnections === 'function') {
+      server.closeAllConnections();
+    }
   } else {
     process.exit(0);
   }
@@ -169,8 +187,14 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 process.once('SIGUSR2', () => {
   console.log('\n🔄 Nodemon restarting. Cleaning up...');
+  const forceKillTimeout = setTimeout(() => {
+    console.log('🔄 Nodemon restart: Force killing process to release port...');
+    process.kill(process.pid, 'SIGUSR2');
+  }, 1000);
+
   if (server) {
     server.close(async () => {
+      clearTimeout(forceKillTimeout);
       try {
         await mongoose.disconnect();
         if (redis && typeof redis.quit === 'function') {
@@ -181,7 +205,11 @@ process.once('SIGUSR2', () => {
       }
       process.kill(process.pid, 'SIGUSR2');
     });
+    if (typeof server.closeAllConnections === 'function') {
+      server.closeAllConnections();
+    }
   } else {
+    clearTimeout(forceKillTimeout);
     process.kill(process.pid, 'SIGUSR2');
   }
 });
