@@ -1,4 +1,6 @@
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import redis from './src/config/redis.js';
 import connectDB from './src/config/db.js';
 import Admin from './src/models/Admin.js';
 import Settings from './src/models/Settings.js';
@@ -109,8 +111,10 @@ const seedCitiesOnStartup = async () => {
 
 const PORT = process.env.PORT || 3001;
 
+let server;
+
 const start = async () => {
-  app.listen(PORT, () => {
+  server = app.listen(PORT, () => {
     console.log(`🚀 Cleanzo API running on http://localhost:${PORT}`);
     console.log(`📋 Health: http://localhost:${PORT}/api/health`);
   });
@@ -126,4 +130,59 @@ const start = async () => {
 };
 
 start();
+
+// Graceful Shutdown
+const gracefulShutdown = async (signal) => {
+  console.log(`\n⚠️  Received ${signal}. Starting graceful shutdown...`);
+  if (server) {
+    server.close(async () => {
+      console.log('🛑 HTTP server closed.');
+      try {
+        await mongoose.disconnect();
+        console.log('🔌 MongoDB connection closed.');
+      } catch (err) {
+        console.error('❌ Error closing MongoDB:', err.message);
+      }
+      try {
+        if (redis && typeof redis.quit === 'function') {
+          await redis.quit();
+          console.log('🔌 Redis connection closed.');
+        }
+      } catch (err) {
+        console.error('❌ Error closing Redis:', err.message);
+      }
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+
+  // Force exit after 2 seconds if shutdown hangs
+  setTimeout(() => {
+    console.error('❌ Force exiting...');
+    process.exit(1);
+  }, 2000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+process.once('SIGUSR2', () => {
+  console.log('\n🔄 Nodemon restarting. Cleaning up...');
+  if (server) {
+    server.close(async () => {
+      try {
+        await mongoose.disconnect();
+        if (redis && typeof redis.quit === 'function') {
+          await redis.quit();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      process.kill(process.pid, 'SIGUSR2');
+    });
+  } else {
+    process.kill(process.pid, 'SIGUSR2');
+  }
+});
 
