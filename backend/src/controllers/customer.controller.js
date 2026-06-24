@@ -1441,7 +1441,8 @@ export const getPaymentDetails = asyncHandler(async (req, res) => {
         payVia = rzpPayment.wallet || 'Wallet';
       }
     } catch (err) {
-      console.warn('Failed to fetch payment details from Razorpay:', err.message);
+      const errMsg = err?.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      console.warn('Failed to fetch payment details from Razorpay:', errMsg);
     }
   }
 

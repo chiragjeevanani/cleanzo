@@ -262,7 +262,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
         existing.subscription = sub._id;
         existing.package = targetPkg._id;
         existing.vehicle = sub.vehicle?._id;
-        await existing.save();
+        await existing.save({ validateModifiedOnly: true });
       }
 
       try {
@@ -326,7 +326,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
         existing.package = sub.package;
         existing.vehicle = sub.vehicle;
         existing.type = 'extension';
-        await existing.save();
+        await existing.save({ validateModifiedOnly: true });
       }
 
       // Perform extension logic: add 30 days
