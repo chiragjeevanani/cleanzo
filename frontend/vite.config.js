@@ -5,7 +5,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     VitePWA({
@@ -66,9 +66,27 @@ export default defineConfig({
         ],
       },
     }),
-  ],
+    command === 'build' && {
+      name: 'force-close-bundle',
+      closeBundle() {
+        const fs = require('fs');
+        const path = require('path');
+        const swPath = path.resolve('dist/sw.js');
+        const startTime = Date.now();
+        
+        const checkInterval = setInterval(() => {
+          if (fs.existsSync(swPath) || (Date.now() - startTime) > 10000) {
+            clearInterval(checkInterval);
+            setTimeout(() => {
+              process.exit(0);
+            }, 500);
+          }
+        }, 100);
+      }
+    }
+  ].filter(Boolean),
   server: {
     port: 5174,
     host: true
   }
-});
+}));
