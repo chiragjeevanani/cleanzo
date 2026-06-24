@@ -30,7 +30,8 @@ app.use(cors({
       ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
     ];
     const isRazorpay = origin && (origin.endsWith('.razorpay.com') || origin === 'https://razorpay.com');
-    if (!origin || allowed.includes(origin) || isRazorpay) {
+    const isLocal = origin && (/^http:\/\/localhost:\d+$/.test(origin) || /^http:\/\/127\.0\.0\.1:\d+$/.test(origin));
+    if (!origin || allowed.includes(origin) || isRazorpay || isLocal) {
       callback(null, true);
     } else {
       callback(new Error(`CORS: origin ${origin} not allowed`));
