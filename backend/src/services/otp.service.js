@@ -68,7 +68,7 @@ export async function sendOtp(phone, role) {
         flashsms: 0,
         number: `91${normalized}`,
         text: `Welcome to the ${appname} powered by SMSINDIAHUB. Your OTP for registration is ${code}`,
-        route: '2', // Often 2 is for Transactional
+        route: '2', // Often 2 is for Transactional./;;;;;;;;;;;;'
         EntityId: process.env.SMS_ENTITY_ID || '',
         TemplateId: process.env.SMS_DLT_TEMPLATE_ID,
       }
