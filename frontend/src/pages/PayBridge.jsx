@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react'
 
 // Public, auth-free payment bridge. Opened in real Safari (via window.open) from
-// the installed iOS PWA so Razorpay's redirect-mode checkout can hand off to UPI
-// apps — which the standalone PWA WebView blocks. All booking context lives in
-// the Razorpay order notes, and the unprotected /payment/callback finalizes the
-// purchase server-side, so this page needs no login or app state. See
-// utils/iosPwaPayment.js for the full rationale.
+// the installed iOS PWA so Razorpay checkout can hand off to UPI apps — which the
+// standalone PWA WebView blocks.
+//
+// IMPORTANT: this uses Razorpay's *in-page* checkout (a `handler`), NOT redirect
+// mode. Redirect mode breaks iOS — the first tap on a UPI app (PayTM/GPay) fails
+// to launch it, forcing a cancel + retry. In-page checkout launches the app on the
+// first tap in Safari. Because this tab is auth-free, finalization can't call the
+// protected subscription API, so the handler POSTs the verified payment to the
+// unprotected /payment/callback (?responseType=json), which finalizes the booking
+// server-side from the order notes and returns the result. See
+// utils/iosPwaPayment.js and controllers/payment.controller.js for the rationale.
 export default function PayBridge() {
   const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
 
   useEffect(() => {
     const params      = new URLSearchParams(window.location.search)
@@ -29,6 +36,34 @@ export default function PayBridge() {
 
     let cancelled = false
 
+    // Finalize the booking server-side via the auth-free callback (JSON mode), then
+    // show a return prompt. The PWA shell detects the new subscription on return.
+    const finalize = async (response) => {
+      try {
+        const sep = callbackUrl.includes('?') ? '&' : '?'
+        const res = await fetch(`${callbackUrl}${sep}responseType=json`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (data.success) { setDone(true); return }
+        // Surface the failure reason carried on the redirect URL, if any.
+        let reason = 'Payment could not be finalized.'
+        try {
+          const u = new URL(data.redirectUrl, window.location.origin)
+          reason = u.searchParams.get('error') || reason
+        } catch {}
+        setError(`${reason} Please return to the app and check your bookings.`)
+      } catch {
+        setError('Payment was captured but finalizing failed. Please return to the app and check your bookings.')
+      }
+    }
+
     const open = () => {
       if (cancelled || !window.Razorpay) return
       try {
@@ -39,11 +74,10 @@ export default function PayBridge() {
           name,
           description,
           order_id: orderId,
-          // Redirect mode: after payment Razorpay POSTs to the backend callback,
-          // which finalizes the booking and redirects this Safari tab to a
-          // success page. Works here because we are in Safari, not the PWA shell.
-          redirect: true,
-          callback_url: callbackUrl,
+          // In-page checkout (no redirect) — reliable UPI app handoff on iOS Safari.
+          handler: finalize,
+          // Show the full list of payment methods rather than a single preferred one.
+          config: { display: { preferences: { show_default_blocks: true } } },
           prefill: { contact, email },
           theme: { color },
         })
@@ -88,6 +122,14 @@ export default function PayBridge() {
         <>
           <div style={{ fontSize: 40 }}>⚠️</div>
           <div style={{ fontSize: 16, maxWidth: 320, lineHeight: 1.5 }}>{error}</div>
+        </>
+      ) : done ? (
+        <>
+          <div style={{ fontSize: 44 }}>✅</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>Payment successful</div>
+          <div style={{ fontSize: 14, opacity: 0.7, maxWidth: 320, lineHeight: 1.5 }}>
+            Your booking is confirmed. You can close this tab and return to the Cleanzo app.
+          </div>
         </>
       ) : (
         <>

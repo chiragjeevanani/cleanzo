@@ -6,8 +6,9 @@ const activitySchema = new mongoose.Schema({
     required: true,
     enum: [
       'user_created', 'user_updated', 'user_deleted', 'cleaner_created', 'cleaner_deleted',
-      'application_submitted', 'kyc_approved', 'kyc_rejected', 
-      'subscription_created', 'task_completed', 'system',
+      'application_submitted', 'kyc_approved', 'kyc_rejected',
+      'subscription_created', 'subscription_cancelled', 'subscription_upgraded',
+      'subscription_extended', 'task_completed', 'system',
       'product_created', 'product_updated', 'product_deleted',
       'order_placed', 'order_updated', 'order_cancelled', 'order_status_updated',
       'cleaner_assigned', 'vehicle_category_create', 'vehicle_category_update',

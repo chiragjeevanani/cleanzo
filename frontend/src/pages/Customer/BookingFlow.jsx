@@ -672,6 +672,10 @@ export default function BookingFlow() {
         redirect: true,
         callback_url: getCallbackUrl(apiBase),
       } : {}),
+      // Show the full list of payment methods instead of a single preferred one.
+      // (Razorpay personalisation can still pre-surface a method — disable
+      // "Personalisation" in the Razorpay Dashboard to fully suppress it.)
+      config: { display: { preferences: { show_default_blocks: true } } },
       handler: completeBooking,
       prefill: {
         name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',

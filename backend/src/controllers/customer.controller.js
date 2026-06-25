@@ -1441,7 +1441,13 @@ export const getPaymentDetails = asyncHandler(async (req, res) => {
         payVia = rzpPayment.wallet || 'Wallet';
       }
     } catch (err) {
-      const errMsg = err?.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      // Razorpay SDK errors carry no `.message` — the real reason lives in
+      // `err.error.description` (e.g. "The id provided does not exist", which
+      // usually means a test/live key mismatch or a mock paymentId).
+      const errMsg = err?.error?.description
+        || err?.message
+        || (err?.statusCode ? `Razorpay HTTP ${err.statusCode}` : null)
+        || (typeof err === 'object' ? JSON.stringify(err) : String(err));
       console.warn('Failed to fetch payment details from Razorpay:', errMsg);
     }
   }

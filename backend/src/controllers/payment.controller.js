@@ -24,6 +24,11 @@ try {
   console.warn('Failed to initialize Razorpay (keys might be missing or invalid):', error.message);
 }
 
+// Coerce a value to a valid ObjectId or null — guards the Payment model's ObjectId
+// fields against stray strings from order notes (e.g. '' or 'trial'), which would
+// otherwise throw a CastError / "Payment validation failed" after money is taken.
+const toOid = (v) => (v && mongoose.Types.ObjectId.isValid(v) ? v : null);
+
 /**
  * POST /api/payment/create-order
  * Body: { amount, currency, packageId, vehicleId }
@@ -146,6 +151,17 @@ export const getKey = asyncHandler(async (req, res) => {
 export const handlePaymentCallback = asyncHandler(async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, error } = req.body;
 
+  // Two callers:
+  //  • Razorpay redirect-mode POST (Android / web) — expects a 303 redirect.
+  //  • The iOS PayBridge in-page handler — fetches with ?responseType=json and
+  //    expects { redirectUrl } so it can navigate itself (no redirect-mode, which
+  //    breaks first-tap UPI handoff on iOS).
+  const wantsJson = req.query.responseType === 'json';
+  const respond = (target) =>
+    wantsJson
+      ? res.json({ redirectUrl: target, success: /[?&]status=success/.test(target) })
+      : res.redirect(303, target);
+
   // Determine where to redirect the browser after processing.
   //
   // Priority order:
@@ -202,15 +218,15 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
       const parsed = typeof error === 'string' ? JSON.parse(error) : error;
       reason = parsed.description || reason;
     } catch (_) {}
-    return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=${encodeURIComponent(reason)}`);
+    return respond(`${frontendOrigin}/customer/booking?status=failed&error=${encodeURIComponent(reason)}`);
   }
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-    return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Missing%20payment%20parameters`);
+    return respond(`${frontendOrigin}/customer/booking?status=failed&error=Missing%20payment%20parameters`);
   }
 
   if (!razorpay) {
-    return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Payment%20service%20not%20configured`);
+    return respond(`${frontendOrigin}/customer/booking?status=failed&error=Payment%20service%20not%20configured`);
   }
 
   try {
@@ -222,7 +238,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
       .digest('hex');
 
     if (expectedSignature !== razorpay_signature) {
-      return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Payment%20verification%20failed`);
+      return respond(`${frontendOrigin}/customer/booking?status=failed&error=Payment%20verification%20failed`);
     }
 
     // 2. Fetch order metadata notes
@@ -237,11 +253,11 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
       const sub = await Subscription.findOne({ _id: subscriptionId, customer: customerId, status: 'Active' })
         .populate('package').populate('vehicle');
       if (!sub) {
-        return res.redirect(303, `${frontendOrigin}/customer/packages?status=failed&error=Active%20subscription%20not%20found`);
+        return respond(`${frontendOrigin}/customer/packages?status=failed&error=Active%20subscription%20not%20found`);
       }
       const targetPkg = await Package.findById(packageId);
       if (!targetPkg) {
-        return res.redirect(303, `${frontendOrigin}/customer/packages?status=failed&error=Package%20not%20found`);
+        return respond(`${frontendOrigin}/customer/packages?status=failed&error=Package%20not%20found`);
       }
 
       const existing = await Payment.findOne({ paymentId: razorpay_payment_id });
@@ -268,7 +284,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
       try {
         await applyUpgrade(sub, targetPkg);
       } catch (e) {
-        return res.redirect(303, `${frontendOrigin}/customer/packages?status=failed&error=${encodeURIComponent(e.message || 'Upgrade failed')}`);
+        return respond(`${frontendOrigin}/customer/packages?status=failed&error=${encodeURIComponent(e.message || 'Upgrade failed')}`);
       }
 
       await logActivity({
@@ -278,13 +294,13 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
       });
 
       await clearCache(`cache:${customerId}:*`);
-      return res.redirect(303, `${frontendOrigin}/customer/subscriptions?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}&upgraded=true`);
+      return respond(`${frontendOrigin}/customer/subscriptions?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}&upgraded=true`);
     }
 
     if (type === 'extension') {
       const sub = await Subscription.findOne({ _id: subscriptionId, customer: customerId, status: 'Active' }).populate('package');
       if (!sub) {
-        return res.redirect(303, `${frontendOrigin}/customer/packages?status=failed&error=Active%20subscription%20not%20found`);
+        return respond(`${frontendOrigin}/customer/packages?status=failed&error=Active%20subscription%20not%20found`);
       }
 
       // Validate an extension coupon if one was applied at checkout
@@ -357,17 +373,18 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
 
       await clearCache(`cache:${customerId}:*`);
 
-      return res.redirect(303, `${frontendOrigin}/customer/packages?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}&extended=true`);
+      return respond(`${frontendOrigin}/customer/packages?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}&extended=true`);
     }
 
     if (!customerId || !vehicleId || !societyId || !slotId) {
-      return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Invalid%20order%20metadata`);
+      return respond(`${frontendOrigin}/customer/booking?status=failed&error=Invalid%20order%20metadata`);
     }
 
     // Trials carry no real packageId — older clients sent the literal string
     // 'trial'. Never let a non-ObjectId value reach an ObjectId field: it would
     // throw a CastError and fail the whole callback *after* money was deducted.
-    const safePackageId = mongoose.Types.ObjectId.isValid(packageId) ? packageId : null;
+    const safePackageId = toOid(packageId);
+    const safeVehicleId = toOid(vehicleId);
 
     // 3. Mark payment as verified inside DB
     const existing = await Payment.findOne({ paymentId: razorpay_payment_id });
@@ -380,7 +397,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
         amount: order.amount,
         status: 'verified',
         package: safePackageId,
-        vehicle: vehicleId || null,
+        vehicle: safeVehicleId,
         type: 'purchase'
       });
     }
@@ -388,7 +405,7 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
     // 4. Fetch the customer to replicate auth context object
     const customer = await Customer.findById(customerId);
     if (!customer) {
-      return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=Customer%20not%20found`);
+      return respond(`${frontendOrigin}/customer/booking?status=failed&error=Customer%20not%20found`);
     }
 
     // 5. Construct mock req/res to call createSubscription logic
@@ -441,10 +458,10 @@ export const handlePaymentCallback = asyncHandler(async (req, res) => {
     });
 
     // 6. Success redirect back to frontend booking flow
-    return res.redirect(303, `${frontendOrigin}/customer/booking?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}`);
+    return respond(`${frontendOrigin}/customer/booking?status=success&paymentId=${razorpay_payment_id}&orderId=${razorpay_order_id}`);
 
   } catch (err) {
     console.error('Error in handlePaymentCallback:', err);
-    return res.redirect(303, `${frontendOrigin}/customer/booking?status=failed&error=${encodeURIComponent(err.message || 'Verification failed')}`);
+    return respond(`${frontendOrigin}/customer/booking?status=failed&error=${encodeURIComponent(err.message || 'Verification failed')}`);
   }
 });
