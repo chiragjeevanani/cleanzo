@@ -15,17 +15,21 @@ dotenv.config();
 const docsDir = path.join(process.cwd(), '../docs');
 
 const seedAdmin = async () => {
-  const existing = await Admin.findOne({ email: process.env.ADMIN_EMAIL || 'superadmin@gmail.com' });
+  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+    console.error('❌ FATAL: ADMIN_EMAIL and ADMIN_PASSWORD must be set. Refusing to seed admin.');
+    process.exit(1);
+  }
+  const existing = await Admin.findOne({ email: process.env.ADMIN_EMAIL });
   if (existing) {
     console.log('⏭  Superadmin already exists, skipping.');
   } else {
     await Admin.create({
       name: 'Super Admin',
-      email: process.env.ADMIN_EMAIL || 'superadmin@gmail.com',
-      password: process.env.ADMIN_PASSWORD || 'password123',
+      email: process.env.ADMIN_EMAIL,
+      password: process.env.ADMIN_PASSWORD,
       role: 'superadmin',
     });
-    console.log('✅ Superadmin created: superadmin@gmail.com');
+    console.log(`✅ Superadmin created: ${process.env.ADMIN_EMAIL}`);
   }
 };
 

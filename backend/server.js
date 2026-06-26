@@ -20,16 +20,13 @@ if (!process.env.JWT_REFRESH_SECRET) {
 }
 
 const seedAdminOnStartup = async () => {
-  const isProduction = process.env.NODE_ENV === 'production';
-  if (isProduction && (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD)) {
-    console.error('❌ FATAL: ADMIN_EMAIL and ADMIN_PASSWORD must be set in production.');
+  // Never fall back to hardcoded credentials — require them from the environment in every env.
+  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+    console.error('❌ FATAL: ADMIN_EMAIL and ADMIN_PASSWORD must be set. Refusing to seed admin.');
     process.exit(1);
   }
-  const adminEmail = process.env.ADMIN_EMAIL || 'superadmin@gmail.com';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'password123';
-  if (!isProduction && !process.env.ADMIN_PASSWORD) {
-    console.warn('⚠️  WARNING: Using default admin password. Set ADMIN_PASSWORD before production.');
-  }
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
   try {
     const existing = await Admin.findOne({ email: adminEmail });
     if (!existing) {
