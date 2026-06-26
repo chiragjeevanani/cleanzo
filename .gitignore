@@ -100,3 +100,43 @@ skills-lock.json
 branch_structure.json
 temp_auto_push.bat
 temp_interactive_push.bat
+
+# Environment files — ignore ALL .env variants (e.g. .env.production, .env.staging),
+# but keep the committed templates.
+.env.*
+!.env.example
+!**/.env.example
+!.env.sample
+!**/.env.sample
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Vite / build caches & artifacts
+.vite/
+dev-dist/
+dist-ssr/
+*.local
+*.tsbuildinfo
+
+# Firebase tooling
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+
+# Runtime / process
+*.pid
+*.seed
+*.pid.lock
+pids/
+
+# Editor local history & workspaces
+.history/
+*.code-workspace
+
+# Temp / scratch / merge leftovers
+tmp/
+temp/
+*.orig
