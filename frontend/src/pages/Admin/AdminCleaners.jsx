@@ -18,7 +18,7 @@ export default function AdminCleaners() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterArea, setFilterArea] = useState('')
   const [openMenu, setOpenMenu] = useState(null)   // cleaner._id
-  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 })
+  const [menuPos, setMenuPos] = useState({ top: 0, bottom: null, right: 0 })
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [saving, setSaving] = useState(false)
   const [globalPayoutRate, setGlobalPayoutRate] = useState(500)
@@ -133,7 +133,17 @@ export default function AdminCleaners() {
   const handleMenuOpen = (e, id) => {
     if (openMenu === id) { setOpenMenu(null); return }
     const rect = e.currentTarget.getBoundingClientRect()
-    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+    const MENU_HEIGHT = 200       // approx height of the 4-item action menu
+    const BOTTOM_RESERVED = 88    // fixed bottom nav bar + safe-area breathing room
+    const right = window.innerWidth - rect.right
+    const spaceBelow = window.innerHeight - rect.bottom - BOTTOM_RESERVED
+    if (spaceBelow < MENU_HEIGHT) {
+      // Not enough room below — flip the menu upward so its lower items aren't
+      // clipped by the viewport edge / bottom menu bar.
+      setMenuPos({ bottom: window.innerHeight - rect.top + 4, top: null, right })
+    } else {
+      setMenuPos({ top: rect.bottom + 4, bottom: null, right })
+    }
     setOpenMenu(id)
   }
 
@@ -444,7 +454,7 @@ export default function AdminCleaners() {
       {openMenu && activeMenu && (
         <div ref={menuRef} className="glass animate-fade-in" style={{
           position: 'fixed',
-          top: menuPos.top,
+          ...(menuPos.bottom != null ? { bottom: menuPos.bottom } : { top: menuPos.top }),
           right: menuPos.right,
           zIndex: 1000,
           minWidth: 190,
