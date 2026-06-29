@@ -130,6 +130,13 @@ export async function initPushNotifications(role) {
 
   const token = await getFcmToken();
   if (token) {
+    // If this browser's token rotated (PWA reinstall / cache clear / SW update),
+    // drop the previously-saved token first so the same device doesn't keep
+    // multiple live tokens and receive duplicate push notifications.
+    const prevToken = localStorage.getItem('fcm_token');
+    if (prevToken && prevToken !== token) {
+      await removeFcmTokenFromServer(prevToken, role);
+    }
     await saveFcmTokenToServer(token, role);
     localStorage.setItem('fcm_token', token);
     localStorage.setItem('fcm_role', role);
