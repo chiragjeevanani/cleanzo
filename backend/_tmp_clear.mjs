@@ -1,0 +1,10 @@
+import 'dotenv/config';
+import mongoose from 'mongoose';
+await mongoose.connect(process.env.MONGO_URI);
+const db = mongoose.connection.db;
+const before = await db.collection('admins').findOne({ 'fcmTokens.0': { $exists: true } }, { projection: { name: 1, fcmTokens: 1 } });
+console.log(`Before: ${before?.name} had ${before?.fcmTokens?.length ?? 0} token(s)`);
+const r = await db.collection('admins').updateMany({}, { $set: { fcmTokens: [] } });
+console.log(`Cleared fcmTokens on ${r.modifiedCount} admin account(s).`);
+await mongoose.disconnect();
+process.exit(0);
