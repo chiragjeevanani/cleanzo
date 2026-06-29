@@ -104,14 +104,67 @@ export async function sendPushNotification(tokens, payload) {
     const response = await firebaseAdmin.messaging().sendEachForMulticast(message);
     const successCount = response.responses.filter(r => r.success).length;
     const failureCount = response.responses.filter(r => !r.success).length;
+
+    // Collect tokens FCM rejected as permanently invalid, then prune them so
+    // they don't accumulate and pollute every future send (tokens rotate on
+    // reinstall / cache clear / permission reset).
+    const invalidTokens = [];
+    response.responses.forEach((r, i) => {
+      if (!r.success) {
+        const code = r.error?.code || '';
+        if (
+          code === 'messaging/registration-token-not-registered' ||
+          code === 'messaging/invalid-registration-token' ||
+          code === 'messaging/invalid-argument'
+        ) {
+          invalidTokens.push(tokens[i]);
+        }
+      }
+    });
+    if (invalidTokens.length > 0) {
+      // Fire-and-forget — pruning must never block or fail the send path.
+      pruneInvalidTokens(invalidTokens).catch((err) =>
+        console.error('❌ FCM token prune error:', err.message)
+      );
+    }
+
     if (failureCount > 0) {
-      console.warn(`⚠️  FCM: ${successCount} sent, ${failureCount} failed`);
+      console.warn(`⚠️  FCM: ${successCount} sent, ${failureCount} failed (${invalidTokens.length} stale token(s) pruned)`);
     }
     return response;
   } catch (err) {
     console.error('❌ FCM sendEachForMulticast error:', err.message);
     return null;
   }
+}
+
+// ─── Remove permanently-invalid tokens from all user collections ─────────────
+/**
+ * Tokens are unique strings, so we can blindly $pull them from every collection
+ * that stores fcmTokens. Self-heals the stale-token buildup over time.
+ * @param {string[]} tokens
+ */
+async function pruneInvalidTokens(tokens) {
+  if (!tokens || tokens.length === 0) return;
+  const [
+    { default: Customer },
+    { default: Cleaner },
+    { default: Admin },
+    { default: PartnerSociety },
+  ] = await Promise.all([
+    import('../models/Customer.js'),
+    import('../models/Cleaner.js'),
+    import('../models/Admin.js'),
+    import('../models/PartnerSociety.js'),
+  ]);
+  await Promise.allSettled(
+    [Customer, Cleaner, Admin, PartnerSociety].map((Model) =>
+      Model.updateMany(
+        { fcmTokens: { $in: tokens } },
+        { $pull: { fcmTokens: { $in: tokens } } }
+      )
+    )
+  );
 }
 
 // ─── Deep-link map per notification type ─────────
